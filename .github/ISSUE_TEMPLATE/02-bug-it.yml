@@ -1,0 +1,74 @@
+name: Segnalazione bug (Italiano)
+description: Segnala un problema riproducibile in Droidsembly.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per il tuo aiuto! Cerca prima nelle issue esistenti; segnala un solo problema per issue.
+        **Le issue sono pubbliche.** Non includere chiavi API, token, cookie, credenziali, URL di repository privati, dati personali o file completi di stato/configurazione. Oscura i dati sensibili in log e screenshot.
+        Per dettagli sensibili o una sospetta vulnerabilità, usa prima il modulo contatti su https://droidsembly.com . Non pubblicare dettagli di sfruttamento.
+  - type: input
+    id: version
+    attributes:
+      label: Versione di Droidsembly
+      description: Versione esatta installata oppure SHA del commit per un checkout sorgente. Scrivi "non nota" se non disponibile; non aggiornare per scoprirla.
+      placeholder: "es. 0.4.0-beta.1"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente e installazione
+      description: Sistema operativo/versione, versione Node.js se nota, npm/npx o sorgenti e browser/versione. Per problemi UI indica desktop/mobile, 3D/Pocket/PWA e lingua dell'interfaccia. Nessun percorso personale.
+      placeholder: "Windows 11; Node 24; npm/npx; Edge; desktop 3D; italiano"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Modalità ufficio
+      description: Non occorre provare sull'ufficio reale o consumare crediti AI.
+      options:
+        - Demo (agenti simulati)
+        - Ufficio reale
+        - Entrambe (già osservato)
+        - Avvio / non applicabile / non nota
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passaggi per riprodurre il problema
+      description: Usa un esempio minimo con dati inventati. Indica la frequenza, se nota. Non modificare dati reali e non avviare agenti a pagamento solo per riprodurlo.
+      placeholder: |
+        1. Apri ...
+        2. Seleziona ...
+        3. Osserva ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamento ottenuto
+      description: Riporta il messaggio di errore esatto, se disponibile, rimuovendo i dettagli sensibili.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contesto facoltativo e prove anonimizzate
+      description: Estratto di log pertinente, screenshot con descrizione testuale, soluzione temporanea o ultima versione funzionante. Per problemi degli agenti indica CLI/provider e versione se noti, mai credenziali o dettagli dell'account. Non allegare log completi, acquisizioni HAR, state.json, secrets.json o file .env.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Controllo privacy
+      options:
+        - label: Ho controllato la segnalazione e gli allegati rimuovendo credenziali, informazioni di progetti privati e dati personali.
+          required: true

@@ -1,0 +1,74 @@
+name: Bug report (English)
+description: Report a reproducible problem in Droidsembly.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Droidsembly! Search existing issues first; one problem per report.
+        **Issues are public.** Never include API keys, tokens, cookies, credentials, private repository URLs, personal data or full state/configuration files. Redact logs and screenshots before sharing.
+        For sensitive details or a suspected security vulnerability, use the contact form at https://droidsembly.com/en/ first. Do not post exploit details publicly.
+  - type: input
+    id: version
+    attributes:
+      label: Droidsembly version
+      description: Exact installed version, or commit SHA for a source checkout. Say "unknown" if unavailable; do not run an update to find it.
+      placeholder: "e.g. 0.4.0-beta.1"
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and installation
+      description: OS/version, Node.js version if known, npm/npx or source checkout, and browser/version. For UI problems, mention desktop/mobile, 3D/Pocket/PWA and interface language. No personal paths.
+      placeholder: "Windows 11; Node 24; npm/npx; Edge; desktop 3D; English"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Office mode
+      description: No need to test on your real office or spend AI credits.
+      options:
+        - Demo (simulated agents)
+        - Real office
+        - Both (already observed)
+        - Startup / not applicable / unknown
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Give a minimal example using made-up data. Mention frequency, if known. Do not modify your real data or run paid agents just to reproduce it.
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the exact error message if available, with sensitive details removed.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Optional context and redacted evidence
+      description: Relevant log excerpt, screenshot with a text description, workaround, or last working version. For agent problems, name the CLI/provider and version if known, never its credentials or account details. Do not attach full logs, HAR captures, state.json, secrets.json or .env files.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I reviewed this report and its attachments and removed credentials, private project information and personal data.
+          required: true

@@ -1,0 +1,41 @@
+name: Proposta di funzionalità (Italiano)
+description: Proponi un miglioramento a Droidsembly.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Cerca prima nelle issue esistenti; inserisci una sola proposta per issue. Puoi scrivere in italiano o inglese.
+        **Le issue sono pubbliche.** Usa esempi inventati; rimuovi credenziali, informazioni di progetti privati e dati personali da testo e allegati. Per dettagli sensibili usa il modulo contatti su https://droidsembly.com .
+        Droidsembly resta gratuito e MIT; il sostegno è facoltativo e non sblocca funzioni. I costi dei provider AI sono separati. Una proposta non costituisce un impegno alla realizzazione.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema o esigenza
+      description: Cosa vuoi ottenere, chi è coinvolto e cosa lo impedisce?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Comportamento proposto
+      description: Descrivi il risultato desiderato e un esempio concreto. Non è necessario proporre l'implementazione tecnica.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative o soluzioni temporanee
+      description: Come procedi oggi? Esistono alternative più semplici? Facoltativo.
+  - type: textarea
+    id: context
+    attributes:
+      label: Flussi interessati e compatibilità
+      description: Facoltativo. Indica desktop/mobile, 3D/Pocket/PWA, italiano/inglese, accessibilità, provider, compatibilità dati o launcher dove pertinenti. Puoi aggiungere bozzetti anonimizzati con descrizione testuale.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Controllo privacy
+      options:
+        - label: Ho controllato la proposta e gli allegati rimuovendo credenziali, informazioni di progetti privati e dati personali.
+          required: true
