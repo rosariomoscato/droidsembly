@@ -10,7 +10,7 @@ Lista di lavoro concordata con il manager: un punto alla volta. Ordine iniziale 
 
 ## Recupero e backup — stato corrente
 
-Backup storico cifrato completato, ripristino di 54.533 file e copia cloud verificati secondo le ricevute private; non è uno snapshot degli ultimi aggiornamenti. Durante la revisione documentale i percorsi registrati degli archivi non risultavano disponibili: reperibilità attuale da riconfermare, senza dichiarare perso il cloud né effettuare nuovi ripristini. Vedi [RECOVERY](RECOVERY.md). Gli appunti sotto sono storici.
+Backup storico cifrato completato, ripristino di 54.533 file e copia cloud verificati secondo le ricevute private; non è uno snapshot degli ultimi aggiornamenti. Il 4 novembre il titolare ha ritrovato l'archivio su kDrive e lo ha scaricato di nuovo: dimensione esatta e SHA256 ricalcolati coincidono con il backup verificato. Reperibilità riconfermata; nessuna decifratura, estrazione o nuova prova di ripristino. Vedi [RECOVERY](RECOVERY.md). Gli appunti sotto sono storici.
 
 ## PayPal per il futuro sito (punto 4)
 
