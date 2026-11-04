@@ -57,6 +57,7 @@ export function shoot(shot: Shot): ShotResult {
 /** Throws the basketball from `from` with the player's throw maths, looking along `view`, and follows it. */
 export function fly(view: View, from: Vec3, power: number, plain = false): ShotResult {
   const world = new RAPIER.World(GRAVITY);
+  let events: RAPIER.EventQueue | undefined;
   world.timestep = STEP;
   world.numSolverIterations = 8;
   try {
@@ -87,7 +88,7 @@ export function fly(view: View, from: Vec3, power: number, plain = false): ShotR
     const rim = hoopRim('office');
     const track = newTrack();
     stepHoop(track, ball.translation(), rim);
-    const events = new RAPIER.EventQueue(true);
+    events = new RAPIER.EventQueue(true);
     let touched = false;
     let landed = false;
     for (let i = 0; i < 180; i++) {
@@ -103,10 +104,14 @@ export function fly(view: View, from: Vec3, power: number, plain = false): ShotR
       if (stepHoop(track, p, rim)) return { scored: true, touched };
       if (p.y < rim.y - 1 && ball.linvel().y < 0) break;
     }
-    events.free();
     return { scored: false, touched };
   } finally {
-    world.free();
+    // A basket returns early; the queue owns WASM resources independently of the world.
+    try {
+      events?.free();
+    } finally {
+      world.free();
+    }
   }
 }
 

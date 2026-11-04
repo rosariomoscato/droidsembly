@@ -20,24 +20,23 @@ function rng(seed: number) {
 beforeAll(() => loadPhysics());
 
 describe('basketball throws (Rapier)', () => {
-  it('used to fall short of the rim when aimed at the painted square, however long it was charged', () => {
+  // Each position is a full physics sweep; keep its functional assertions under a separate test budget.
+  it.each(SPOTS)('used to fall short at $distance m and $angle°, however long it was charged', (spot) => {
     const throwSpeed = HOOP.ball.throwSpeed;
     HOOP.ball.throwSpeed = 8.5; // before #67
     try {
-      for (const spot of SPOTS) expect(chargeWindow({ ...spot, plain: true }, 10).width).toBe(0);
+      expect(chargeWindow({ ...spot, plain: true }, 10).width).toBe(0);
     } finally {
       HOOP.ball.throwSpeed = throwSpeed;
     }
   });
 
-  it('scores from 3 to 5 m, straight on and at 30°, with a charge window of at least 150 ms', () => {
-    for (const spot of SPOTS) {
-      const w = chargeWindow(spot);
-      expect(w.width, `${spot.distance} m at ${spot.angle}°`).toBeGreaterThanOrEqual(150);
-      // a mid-length charge, not a tap and not "hold it as long as you can"
-      expect(w.from).toBeGreaterThan(400);
-      expect(w.to).toBeLessThan(900);
-    }
+  it.each(SPOTS)('scores at $distance m and $angle°, with a charge window of at least 150 ms', (spot) => {
+    const w = chargeWindow(spot);
+    expect(w.width, `${spot.distance} m at ${spot.angle}°`).toBeGreaterThanOrEqual(150);
+    // a mid-length charge, not a tap and not "hold it as long as you can"
+    expect(w.from).toBeGreaterThan(400);
+    expect(w.to).toBeLessThan(900);
   });
 
   it('still needs the right charge: a tap falls short, and a full charge flies long (bar the odd lucky bank shot)', () => {
