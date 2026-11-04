@@ -64,7 +64,11 @@ The npm beta already exists. To document it on GitHub, after authorization creat
 
 ## Release successive / Subsequent releases
 
-1. PR con versione coerente fra package e lock e `publishConfig.tag`: `next` per `-beta.N`, `latest` per una versione stabile. / Review version and channel changes through a PR, keeping package and lock consistent.
+La preparazione avviene su branch dedicati da `dev`, con PR verso `dev`. Solo dopo revisione e approvazione della release si apre la promozione `dev` → `main`; non pubblicare da feature branch o da `dev`. Nella transizione iniziale `main` include già modifiche successive alla beta npm: non è stato riportato indietro. Il tag della beta resta il riferimento esatto al codice pubblicato. Vedi [flusso dei branch](BRANCH_WORKFLOW.md).
+
+Prepare changes on focused branches from `dev`, with PRs targeting `dev`. Only after release review and approval promote `dev` to `main`; never publish from a feature branch or `dev`. During the initial transition main already contains post-beta changes and is not reset; the beta tag remains the exact reference to published code.
+
+1. PR verso `dev` con versione coerente fra package e lock e `publishConfig.tag`: `next` per `-beta.N`, `latest` per una versione stabile; poi promozione approvata `dev` → `main` con CI verde su tutti e tre i sistemi. / Review version/channel changes through a PR to dev, keeping package and lock consistent, then approve dev-to-main promotion with all three OS checks green.
 2. Dopo autorizzazione, creare un tag `droidsembly-v<version>` sul commit approvato integrato in main. / After authorization, create the matching fork-specific tag on the approved commit merged into main.
 3. Avviare manualmente **Actions → Release** su `main`, indicando quel tag. Il semplice push di un tag non pubblica nulla. / Manually dispatch Release on main with that tag; pushing a tag alone does not publish.
 4. Il workflow verifica identità/tag, appartenenza alla storia di main e tutti e tre i sistemi operativi. Il job di pubblicazione ripete test/build/smoke sul codice del tag, pubblica sul canale previsto e crea la release GitHub. / The workflow validates identity/tag, main ancestry and all three operating systems. The publishing job repeats tests/build/smoke, publishes to the expected channel, then creates the GitHub release.
