@@ -153,6 +153,8 @@ describe('findPath', () => {
       for (const [a, b] of pairs) findPath(w, a, b);
       runs.push(performance.now() - t);
     }
+    // Retain every measured batch in test evidence, not just the median on failure.
+    console.info('walkways: 15 walks, milliseconds per batch', JSON.stringify(runs));
     runs.sort((a, b) => a - b);
     expect(runs[2]).toBeLessThan(8); // the median; a frame is 16.7 ms
   });

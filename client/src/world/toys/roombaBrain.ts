@@ -186,6 +186,11 @@ function nearestOpen(nav: Nav, i: number, j: number, avoid: (c: number) => boole
   return -1;
 }
 
+// Planning is synchronous and has no caller callbacks. Reuse one private workspace
+// per live grid instead of allocating three full-grid buffers for every walk.
+// Fully reset it each time: no route, obstacle or previous-search state is cached.
+const pathWorkspaces = new WeakMap<Nav, { g: Float32Array; came: Int32Array; closed: Uint8Array }>();
+
 /**
  * A* over the grid from `from` to `to`, string-pulled into a few straight legs. Returns the waypoints after `from`
  * (ending at `to`), or null when there's no way through. `avoid` is a circle to keep out of (the player).
@@ -199,9 +204,15 @@ export function planPath(nav: Nav, from: Pt, to: Pt, avoid: (Pt & { r: number })
   if (start < 0 || goal < 0) return null;
 
   const n = cols * rows;
-  const g = new Float32Array(n).fill(Infinity);
-  const came = new Int32Array(n).fill(-1);
-  const closed = new Uint8Array(n);
+  let workspace = pathWorkspaces.get(nav);
+  if (!workspace || workspace.g.length !== n) {
+    workspace = { g: new Float32Array(n), came: new Int32Array(n), closed: new Uint8Array(n) };
+    pathWorkspaces.set(nav, workspace);
+  }
+  const { g, came, closed } = workspace;
+  g.fill(Infinity);
+  came.fill(-1);
+  closed.fill(0);
   const gi = goal % cols;
   const gj = Math.floor(goal / cols);
   const h = (c: number) => {
