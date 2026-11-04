@@ -81,7 +81,8 @@ jobs:
     name: check (macos-latest)
     needs: changes
     if: needs.changes.outputs.os-sensitive == 'true'
-    runs-on: macos-latest
+    # Temporary Intel runner: ARM64 capacity prevented three jobs from starting.
+    runs-on: macos-26-intel
     timeout-minutes: 15
     env: *check-env
     steps: *check-steps

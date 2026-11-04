@@ -27,7 +27,7 @@ This single green full-suite run does **not** establish permanent resolution of 
 
 ## CI and integration limits
 
-This report records local results, not CI success. macOS / Node 24 validation of this fix is still required. The runner substitution proposed separately in PR #25 is not included here: this branch retains the existing CI and release workflows and all branch protections. Creating this PR does not authorize merge, issue activation, npm publication, OIDC work or any update to a real installation.
+This report records local results, not CI success. macOS / Node 24 validation of this fix is still required. After the initial client-only PR skipped Windows/macOS under the existing path filter, the maintainer separately authorized the same temporary `macos-26-intel` CI runner used in PR #25. This workflow change triggers all three OS jobs without altering steps, timeouts, conditions, permissions or the protected check name. macOS results will cover Intel, not Apple Silicon. The release workflow and branch protections remain unchanged. No merge, issue activation, npm publication, OIDC work or update to a real installation is authorized.
 
 ## Italiano
 
