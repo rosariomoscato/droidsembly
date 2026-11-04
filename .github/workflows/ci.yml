@@ -2,8 +2,9 @@ name: CI
 
 on:
   pull_request:
+    branches: [dev, main]
   push:
-    branches: [main]
+    branches: [dev, main]
   workflow_dispatch:
 
 permissions:
@@ -15,8 +16,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  branch-policy:
+    name: branch policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Only promote this repository's dev branch into main
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          if [ "$EVENT" = pull_request ] && [ "$BASE" = main ]; then
+            if [ "$HEAD" != dev ] || [ "$HEAD_REPOSITORY" != "$GITHUB_REPOSITORY" ]; then
+              echo 'Open development PRs against dev. Only dev from this repository may be promoted to main.'
+              exit 1
+            fi
+          fi
+
   # Does this PR touch anything that can behave differently per OS? client/, e2e/ and docs run the same everywhere.
-  # Pushes to main and manual runs always count, and so does a diff that can't be worked out.
+  # Promotions to main, pushes and manual runs always count, as does an unreadable diff.
   changes:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -32,9 +52,10 @@ jobs:
       - id: diff
         env:
           EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.ref }}
         run: |
           sensitive=true
-          if [ "$EVENT" = pull_request ] && files=$(git diff --name-only HEAD^1 HEAD); then
+          if [ "$EVENT" = pull_request ] && [ "$BASE" != main ] && files=$(git diff --name-only HEAD^1 HEAD); then
             echo "$files"
             if ! grep -qE '^(server|shared|scripts|bin|\.github)/|^(package\.json|package-lock\.json|playwright\.config\.ts|\.gitattributes)$|^(vite|vitest)\.config\.[^/]+$|^tsconfig[^/]*\.json$' <<< "$files"; then
               sensitive=false

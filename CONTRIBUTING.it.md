@@ -20,7 +20,7 @@ La [guida tecnica inglese](CONTRIBUTING.md#run-it-from-source) descrive launcher
 
 ## Pull request e verifiche
 
-- Apri PR mirate verso `main` di questo fork, descrivendo cosa cambia e perché.
+- Crea un branch mirato da `dev` di questo fork e apri la PR verso `dev`, descrivendo cosa cambia e perché. Soltanto la promozione approvata di `dev` per una release va verso `main`; vedi [flusso e transizione dei branch](docs/BRANCH_WORKFLOW.md).
 - Mantieni la copertura inglese/italiana, l'accessibilità e la compatibilità desktop/mobile.
 - Riporta i controlli eseguiti e gli eventuali fallimenti. Per modifiche visive allega screenshot ottenuti in demo isolata.
 - Prima di una PR esegui `npm run typecheck`, `npm test` e `npm run build`; in PowerShell usa `npm.cmd`.
@@ -35,6 +35,8 @@ Dettagli su test, browser degli agenti e struttura del codice: [Testing](CONTRIB
 La prima beta `droidsembly@0.4.0-beta.1` è [pubblicata su npm](https://www.npmjs.com/package/droidsembly). Il canale consigliato è `next`; il comando pubblico è `droidsembly`. Il file interno `bin/cubefarm.js` resta per compatibilità.
 
 La configurazione OIDC per le prossime pubblicazioni è ancora da completare e validare. Tag, pubblicazione npm ed esecuzione del workflow di release richiedono autorizzazione esplicita del maintainer. Vedi la [guida alle release](docs/NPM_RELEASE.md).
+
+La CI controlla PR verso `dev`/`main` e push su entrambi; una promozione verso `main` richiede tutti e tre i sistemi. Il controllo obbligatorio `branch policy` ammette verso `main` solo il branch `dev` di questo repository. Nessun merge o push pubblica automaticamente su npm. `main` rimane il branch predefinito, senza cambiare i launcher esistenti.
 
 ## Licenza e attribuzioni
 
