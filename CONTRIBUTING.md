@@ -6,7 +6,8 @@ How to develop Droidsembly, the fork of [leonvanzyl/cubefarm](https://github.com
 
 ## Ways to contribute
 
-- Report reproducible bugs or suggest improvements in [this fork's issues](https://github.com/rosariomoscato/droidsembly/issues). English and Italian are welcome. Include the app version, operating system, steps, expected result and actual result; remove secrets and personal data from logs and screenshots.
+- Report reproducible bugs or suggest improvements using the [English/Italian issue forms](https://github.com/rosariomoscato/droidsembly/issues/new/choose). Search existing issues first and keep one problem or proposal per issue. For bugs, include the installed version, environment, steps, expected and actual results. A blank issue remains available if no form fits.
+- Issues are public: remove credentials, private project information and personal data from text, logs and screenshots; never attach full state/configuration files. For sensitive details or suspected vulnerabilities, use the contact form on [the website](https://droidsembly.com/en/) first, without credentials or public exploit details. If GitHub Issues is unavailable, the website contact form is also the fallback for feedback. You do not need to run paid agents or change real data to report a problem.
 - Help with documentation, translations, accessibility and desktop/mobile usability.
 - Before a substantial change, open an issue to agree on scope. Submit focused pull requests against this fork's `main`, explain the change and report the checks you ran and any failures. Preserve English/Italian coverage and original license notices.
 

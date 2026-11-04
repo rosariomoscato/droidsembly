@@ -6,7 +6,9 @@ Droidsembly è un fork di [CubeFarm di Leon van Zyl](https://github.com/leonvanz
 
 ## Segnalazioni e proposte
 
-Usa le [issue di questo fork](https://github.com/rosariomoscato/droidsembly/issues), in italiano o inglese. Per un bug indica versione, sistema operativo, passaggi per riprodurlo, risultato atteso e risultato ottenuto. Rimuovi credenziali e dati personali da log e screenshot.
+Usa i [moduli per issue in italiano o inglese](https://github.com/rosariomoscato/droidsembly/issues/new/choose). Cerca prima nelle issue esistenti e inserisci un solo problema o proposta per issue. Per un bug indica versione installata, ambiente, passaggi per riprodurlo, risultato atteso e ottenuto. Se nessun modulo è adatto, puoi aprire un'issue libera.
+
+Le issue sono pubbliche: rimuovi credenziali, informazioni di progetti privati e dati personali da testo, log e screenshot; non allegare file completi di stato/configurazione. Per dettagli sensibili o sospette vulnerabilità usa prima il modulo contatti sul [sito](https://droidsembly.com), senza credenziali né dettagli pubblici di sfruttamento. Se GitHub Issues non è disponibile, il modulo contatti è anche il canale alternativo per i feedback. Non occorre avviare agenti a pagamento o modificare dati reali per segnalare un problema.
 
 Prima di una modifica sostanziale, apri una discussione tramite issue per concordare l'ambito. Per una proposta descrivi il problema che vuoi risolvere e il comportamento desiderato.
 
