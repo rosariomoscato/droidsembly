@@ -1,5 +1,22 @@
 # Feedback — verifica e attivazione / review and activation
 
+## Stato corrente — completato / Current status — complete
+
+Su autorizzazione del titolare, PR #26 integrata in `main` con merge `61af06f` dopo CI verde sulle tre piattaforme; branch feedback aggiornato con `main` e nuova CI interamente verde sul commit `87fd4d4`. PR #25 successivamente integrata, ancora su autorizzazione, con merge `a8d4d31e131b88052f9950822f8232673ebb309c`. Nessun bypass, force-push o auto-merge. Copertura macOS Intel, non Apple Silicon.
+
+Issues abilitate via impostazioni del solo repository pubblico; API conferma `has_issues=true`, Discussions lasciate disabilitate. Nel browser inizialmente mancava l'accesso: il titolare ha completato personalmente il login, senza condividere credenziali in chat. Verificati sul repository pubblico, nel browser autenticato:
+
+- `/issues/new/choose`: quattro moduli EN/IT riconosciuti e apribili, opzione issue libera e contatto privato verso `https://droidsembly.com/`.
+- `01-bug-en.yml` e `02-bug-it.yml`: titolo `[Bug]:`, versione, ambiente, modalità, riproduzione, atteso/ottenuto e prove facoltative; avvisi privacy e link al sito nella lingua pertinente.
+- `03-feature-en.yml` e `04-feature-it.yml`: titolo `[Feature]:`, esigenza, proposta, alternative e compatibilità; gratuità/MIT, sostegno facoltativo e costi provider separati.
+- Indicatori visivi dei campi obbligatori presenti; checkbox privacy effettivamente resa `required`, inizialmente non selezionata, in tutti e quattro i moduli. Nessun clic su Create: non è stata provata la validazione server o l'effettiva creazione di un'issue. Non si dichiara un audit completo di accessibilità o mobile.
+- `gh issue list --state all` dopo la verifica restituisce lista vuota. Nessuna issue fittizia creata, nessun messaggio di contatto inviato, nessun accesso alla posta.
+- Il titolare ha successivamente ripetuto personalmente la verifica guidata e confermato tutti e quattro i moduli, senza inviare issue di prova.
+
+Il punto feedback è completato per predisposizione, pubblicazione, attivazione e verifica dei moduli. Questo aggiornamento documentale registra anche la conferma del titolare. Le sezioni successive conservano lo storico della preparazione, dei fallimenti e delle autorizzazioni: non sono lo stato corrente. Nessuna nuova release, modifica dell'installazione/dati reali o attività OIDC avviata; problemi temporali storici non dichiarati definitivamente risolti.
+
+**English:** feedback setup is complete. PR #25 merged as `a8d4d31` after refreshed green Ubuntu/Windows/macOS Intel CI and explicit approval; Issues enabled, Discussions unchanged. All four public-repository forms were opened in an authenticated browser after the owner signed in personally. Fields, required markers, required privacy checkbox, language-specific website links, blank-issue and private-contact options were verified. The owner then independently confirmed all four forms in a guided check. No issue or contact message submitted, no server-side submission validation or comprehensive accessibility/mobile audit claimed. This documentation update records completion; the historical sections below are superseded by this status.
+
 ## Italiano
 
 Verifica del 2026-11-04 sul solo repository pubblico `rosariomoscato/droidsembly`:
