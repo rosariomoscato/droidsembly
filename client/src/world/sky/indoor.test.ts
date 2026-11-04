@@ -11,6 +11,67 @@ const fill = (l: IndoorLight) => {
 };
 const sample = (n: number) => Array.from({ length: n }, (_, i) => i / n);
 
+const smoothScalars = ['keyIntensity', 'hemiIntensity', 'ambient', 'exposure', 'lamps'] as const;
+const smoothColors = ['keyColor', 'hemiSky', 'hemiGround', 'ambientColor'] as const;
+
+/** Check every transition, but construct expensive matcher diagnostics only on failure.
+ * Negated success predicates deliberately retain NaN rejection and strict boundaries.
+ */
+function expectSmoothTransition(prev: IndoorLight, l: IndoorLight, t: number) {
+  for (const k of smoothScalars) {
+    const delta = Math.abs(l[k] - prev[k]);
+    if (!(delta < 0.02)) expect(delta, `${k} at ${t}`).toBeLessThan(0.02);
+  }
+  for (const k of smoothColors) {
+    const a = rgb(l[k]);
+    const b = rgb(prev[k]);
+    for (let c = 0; c < 3; c++) {
+      const delta = Math.abs(a[c] - b[c]);
+      if (!(delta <= 3)) expect(delta, `${k}[${c}] at ${t}`).toBeLessThanOrEqual(3);
+    }
+  }
+  const jump = Math.hypot(l.dir[0] - prev.dir[0], l.dir[1] - prev.dir[1], l.dir[2] - prev.dir[2]);
+  if (jump > 0.01) {
+    const intensity = Math.max(l.keyIntensity, prev.keyIntensity);
+    if (!(intensity < 0.01)) expect(intensity, `handover at ${t}`).toBeLessThan(0.01);
+  }
+}
+
+describe('temporal assertion fault coverage', () => {
+  it.each(smoothScalars)('rejects the exact scalar boundary and NaN in %s', k => {
+    for (const value of [0.02, -0.02, NaN, Infinity]) {
+      const prev = newIndoorLight();
+      prev[k] = 0;
+      const next = { ...prev, [k]: value };
+      expect(() => expectSmoothTransition(prev, next, 0.5)).toThrow();
+    }
+  });
+
+  it.each(smoothColors)('checks all three channels and both directions of %s', k => {
+    for (const shift of [16, 8, 0]) {
+      for (const delta of [-4, 4]) {
+        const prev = newIndoorLight();
+        prev[k] = 0x808080;
+        const next = { ...prev, [k]: prev[k] + delta * 2 ** shift };
+        expect(() => expectSmoothTransition(prev, next, 0.5)).toThrow();
+      }
+    }
+  });
+
+  it('accepts inclusive color bounds and rejects a lit handover from either side', () => {
+    const prev = newIndoorLight();
+    prev.keyIntensity = 0;
+    prev.keyColor = 0x808080;
+    expect(() => expectSmoothTransition(prev, { ...prev, keyColor: 0x83837d }, 0.5)).not.toThrow();
+    for (const litSide of ['previous', 'next']) {
+      const a = { ...prev, keyIntensity: litSide === 'previous' ? 0.01 : 0 };
+      const b = { ...prev, keyIntensity: litSide === 'next' ? 0.01 : 0, dir: [1, 0, 0] as [number, number, number] };
+      expect(() => expectSmoothTransition(a, b, 0.5)).toThrow();
+    }
+    expect(() => expectSmoothTransition(prev, { ...prev, dir: [1, 0, 0] }, 0.5)).not.toThrow();
+  });
+});
+
 describe('indoorLight', () => {
   it('lights noon from high above with the neutral sun and the lamps off', () => {
     const l = indoorLight(0.5);
@@ -84,14 +145,7 @@ describe('indoorLight', () => {
     let prev = indoorLight(0);
     for (let i = 1; i <= 1 / step; i++) {
       const l = indoorLight(i * step);
-      for (const k of ['keyIntensity', 'hemiIntensity', 'ambient', 'exposure', 'lamps'] as const) expect(Math.abs(l[k] - prev[k])).toBeLessThan(0.02);
-      for (const k of ['keyColor', 'hemiSky', 'hemiGround', 'ambientColor'] as const) {
-        const a = rgb(l[k]);
-        const b = rgb(prev[k]);
-        for (let c = 0; c < 3; c++) expect(Math.abs(a[c] - b[c])).toBeLessThanOrEqual(3);
-      }
-      const jump = Math.hypot(l.dir[0] - prev.dir[0], l.dir[1] - prev.dir[1], l.dir[2] - prev.dir[2]);
-      if (jump > 0.01) expect(Math.max(l.keyIntensity, prev.keyIntensity)).toBeLessThan(0.01);
+      expectSmoothTransition(prev, l, i * step);
       prev = l;
     }
   });
