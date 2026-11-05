@@ -3,6 +3,38 @@ import { closeOfficeFixture } from './officeFixture.ts';
 import { AgentTerminal } from '../server/terminal.ts';
 
 describe('office fixture teardown', () => {
+  it('allows the fixture to drain shutdown work before switching clocks or removing files', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+    const order: string[] = [];
+    const pending = new Promise<void>(resolve => setTimeout(() => { order.push('shutdown'); resolve(); }, 0));
+    const drain = vi.fn(async (closing: Promise<void>) => {
+      await vi.advanceTimersByTimeAsync(0);
+      await closing;
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      order.push('real-clock');
+    });
+    const remove = vi.fn(() => {
+      expect(vi.isFakeTimers()).toBe(false);
+      order.push('remove');
+    });
+    // The old helper ignores the third argument. Check that synchronously and
+    // release its timer in finally, rather than waiting for a test timeout.
+    const closing = closeOfficeFixture({ shutdown: () => pending }, remove, drain);
+    void closing.catch(() => undefined); // Observe immediately; assertions below retain failures.
+    try {
+      expect(drain).toHaveBeenCalledExactlyOnceWith(pending);
+      await closing;
+      expect(order).toEqual(['shutdown', 'real-clock', 'remove']);
+    } finally {
+      if (vi.isFakeTimers()) {
+        await vi.advanceTimersByTimeAsync(0);
+        vi.useRealTimers();
+      }
+      await closing.catch(() => undefined); // The old remove assertion may reject.
+    }
+  });
+
   it('retains and drains a yielded xterm parser continuation before clearing fake timers', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     const terminal = new AgentTerminal();
@@ -80,6 +112,29 @@ describe('office fixture teardown', () => {
     const remove = vi.fn();
     await expect(closeOfficeFixture({ shutdown: async () => { throw failure; } }, remove)).rejects.toBe(failure);
     expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('retains the fixture if the clock drain fails', async () => {
+    const failure = new Error('synthetic clock drain failure');
+    const remove = vi.fn();
+    await expect(closeOfficeFixture({ shutdown: async () => undefined }, remove, async () => { throw failure; })).rejects.toBe(failure);
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it('still awaits shutdown if a drain callback returns early', async () => {
+    let release!: () => void;
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    const remove = vi.fn();
+    const closing = closeOfficeFixture({ shutdown: () => pending }, remove, async () => undefined);
+    try {
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(remove).not.toHaveBeenCalled();
+    } finally {
+      release();
+      await closing;
+    }
+    expect(remove).toHaveBeenCalledTimes(1);
   });
 
   it('awaits removal and does not hide a removal failure', async () => {

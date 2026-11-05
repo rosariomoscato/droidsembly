@@ -25,6 +25,11 @@ afterAll(async () => {
   // The gameplay logger is quiet during measurement, not during persistence
   // cleanup. Surface write failures and retain the fixture if closing fails.
   vi.restoreAllMocks();
+  // A timed-out hook may never reach finally. Emit each boundary as it occurs
+  // so CI identifies the unfinished phase, without wrapping runtime methods.
+  const started = performance.now();
+  const trace = (phase: string) => console.info('scale teardown', { phase, elapsedMs: performance.now() - started });
+  trace('parser-drain-begin');
   const warnings: string[] = [];
   const warn = console.warn.bind(console);
   vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
@@ -32,8 +37,11 @@ afterAll(async () => {
     warn(...args);
   });
   const remove = () => {
+    trace('shutdown-complete');
     expect(warnings.filter(line => /could not (save the state|write the journal|save a terminal)/.test(line))).toEqual([]);
+    trace('remove-begin');
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+    trace('remove-complete');
   };
   try {
     // Measurement is over. Do not discard xterm's yielded parser continuations:
@@ -48,14 +56,29 @@ afterAll(async () => {
       await vi.waitFor(() => expect(parsed).toBe(true), { timeout: 5_000, interval: 1 });
       await pending; // Preserve parser failures, not just the settled condition.
     }
-    vi.clearAllTimers();
-    vi.useRealTimers();
-    if (office) await closeOfficeFixture(office, remove);
-    else remove();
+    trace('parser-drain-complete');
+    trace('shutdown-begin');
+    if (office) await closeOfficeFixture(office, remove, async (shutdown) => {
+      let settled = false;
+      void shutdown.then(() => { settled = true; }, () => { settled = true; });
+      // Saves queued behind filesystem I/O can schedule more parser work after
+      // the first barrier. Service it until shutdown finishes, within the same
+      // overall 10s hook budget; never discard a parser's pending callback.
+      await vi.waitFor(() => expect(settled).toBe(true), { timeout: Math.max(1, 10_000 - (performance.now() - started)), interval: 1 });
+      await shutdown;
+      vi.clearAllTimers();
+      vi.useRealTimers();
+    });
+    else {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      remove();
+    }
   } finally {
     if (vi.isFakeTimers()) vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
+    trace('hook-settled');
   }
 });
 
