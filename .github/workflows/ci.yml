@@ -123,3 +123,24 @@ jobs:
     timeout-minutes: 15
     env: *check-env
     steps: *check-steps
+
+  # The package supports Node >=22, while the main OS checks use Node 24.
+  # Keep minimum-major coverage additive: it must not replace any OS check.
+  check-windows-node22:
+    name: check (windows-node22)
+    needs: changes
+    if: needs.changes.outputs.os-sensitive == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    env: *check-env
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: node scripts/smoke-package.mjs
