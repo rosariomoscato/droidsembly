@@ -1,5 +1,17 @@
 # State shutdown persistence / Persistenza stato in chiusura
 
+## Journal close follow-up — local candidate, not accepted
+
+After correcting the test gate type, typecheck and **37/37 tests across five files passed** (`journal-close-targeted-after-typed.json`, 40.33s): journal16, sample6, stateShutdown4, stateFile1, CEO-runtime10. No skips, threshold changes or warning suppression. This validates the focused local lifecycle candidate only, not the previous full-suite timing failures or all historical ENOENT causes. The original 12/14 baseline and failed typecheck are retained.
+
+Deterministic original-runtime baseline `journal-close-contract-before.json` failed the two new close-boundary contracts, while all 12 existing journal tests passed. After completed close, an event plus tick increased lines 1→2 and writes 1→2; while final rename was gated, a late event plus tick increased lines 2→3 and writes 1→2. Thus close did not prevent late writers. This is a concrete lifecycle defect, not proof of the sole cause of historical ENOENT failures.
+
+Local uncommitted follow-up marks the instance stopped before close drains its existing writes; record/tick ignore late events. start checks the boundary both before and after asynchronous pruning so a closed instance cannot rearm its timer or reopen a segment. Existing pre-close final flush, warning/error handling, file format, read/prune/sample APIs and new-instance restart remain unchanged. Two additional contracts cover start after close and close during gated startup pruning. Existing tests already exercise restarting via a new Journal instance. No timer budget relaxed or secret/data output added.
+
+Typecheck and five-file focused validation now running; outcome not yet known. All earlier complete-suite failures remain blockers. No push, integration or release. Italiano: riprodotte nuove scritture durante/dopo chiusura; candidato locale blocca eventi/timer tardivi e riapertura dello stesso journal. Non prova la causa unica degli ENOENT; validazione ancora in corso.
+
+First follow-up validation stopped at typecheck (TS2322): the test-only mocked prune gate returned Promise<void> rather than Promise<number>. No tests ran in that job. Corrected only the gate result to numeric zero; restarted typecheck/focused validation with a distinct report name `journal-close-targeted-after-typed.json`. Original failed job output retained; no runtime change or assertion relaxation for this correction.
+
 ## Reproduction and scope
 
 Isolated candidate from dev5ef2f52. Original CEO-runtime/state-file/journal baseline passed23/23tests (`state-lifecycle-original-baseline.json`),without reproducing the earlier ENOENT. That earlier failure remains evidence,not disproved by a passing baseline.
