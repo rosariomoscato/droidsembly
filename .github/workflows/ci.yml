@@ -82,6 +82,11 @@ jobs:
           node-version: 24
           cache: npm
 
+      - name: Verify native Apple Silicon runtime
+        if: github.job == 'check-macos-arm64'
+        run: |
+          node -e "if (process.platform !== 'darwin' || process.arch !== 'arm64') throw new Error('Expected native darwin/arm64'); console.log(process.platform, process.arch, process.version)"
+
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
@@ -104,6 +109,17 @@ jobs:
     if: needs.changes.outputs.os-sensitive == 'true'
     # Temporary Intel runner: ARM64 capacity prevented three jobs from starting.
     runs-on: macos-26-intel
+    timeout-minutes: 15
+    env: *check-env
+    steps: *check-steps
+
+  # Additional coverage, never a replacement for the required Intel evidence.
+  # Keep a distinct check name so ARM capacity problems cannot be mistaken for a pass.
+  check-macos-arm64:
+    name: check (macos-arm64)
+    needs: changes
+    if: needs.changes.outputs.os-sensitive == 'true'
+    runs-on: macos-26
     timeout-minutes: 15
     env: *check-env
     steps: *check-steps

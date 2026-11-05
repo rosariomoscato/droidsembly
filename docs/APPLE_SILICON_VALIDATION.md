@@ -1,0 +1,9 @@
+# Apple Silicon CI preparation / Preparazione CI Apple Silicon
+
+Local branch from `dev`, not yet pushed or dispatched. Adds a separately named `check (macos-arm64)` on `macos-26`, without replacing the Intel job or changing the four currently required branch checks. It runs the same isolated install, typecheck, complete suite, build and installed-package demo smoke test. Before installation it explicitly verifies Node's native platform/architecture as `darwin/arm64`; a mislabeled or translated Intel runtime fails instead of counting as ARM evidence.
+
+Like the existing Windows/Intel jobs, it runs for OS-sensitive changes and all pushes, manual runs and promotions. The new job is not marked continue-on-error. It has not yet been made a required protection check: runner availability and actual results need establishing first, without weakening existing protections.
+
+Earlier three attempts were cancelled for hosted ARM capacity. A prepared YAML change or successful Intel job is **not** Apple Silicon validation. No ARM result is claimed here. Static YAML parsing now passed using the `yaml` CLI, with assertions that aliases resolve to identical shared steps, Intel remains macos-26-intel, ARM uses macos-26 with a distinct check name, no continue-on-error is enabled, and Release is untouched. This is syntax/structure validation, not GitHub Actions schema/expression linting or a real macOS run. Actual CI execution remains pending, as does resolution/validation of current suite blockers. Package versions, npm publishing, website deployment and real data are untouched.
+
+Italiano: job ARM aggiuntivo e distinto, stessi controlli completi e verifica esplicita `darwin/arm64`; Intel e protezioni esistenti conservati. Configurazione ancora locale e da validare; nessun risultato ARM dichiarato e nessun avvio di Release.
