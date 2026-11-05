@@ -20,6 +20,16 @@ The full suite is **not green**. Those client tests are unchanged and had failed
 
 The lockfile controls source-checkout installs; published npm consumers resolve dependency ranges independently. This validation is not an audit of every existing public or real installation. The package has not been published. All installs/tests occurred in an independent temporary worktree, not the real installation's node_modules junction.
 
+## Renewed validation with integrated temporal fixes
+
+After the independent temporal changes passed full local and real Ubuntu/Windows/macOS Intel CI and merged into `dev` via PR29, this isolated HTTP worktree combined the same changes and repeated the complete suite with `--maxWorkers=2`. Result: **2,672 passed, 1 failed /2,673; 251/252 files passed; 514.39s; exit1**. All12HTTP tests and21indoor tests passed; notifier passed all9tests in this run.
+
+The remaining failure is the unchanged `<8ms` walkway median: raw batches **[48.1010,18.5906,11.2086,38.9538,5.5469]ms**, median **18.5906ms**. The prior temporal-only suite's median6.2794ms and three targeted passes do not erase this failure or prove dependency causality. JSON timings show the scale test's body started after the walkway test ended; therefore no direct overlap with that test body is established. Concurrent worker startup/transforms or other host load are possible explanations, not proven causes.
+
+Current `dev` was then merged normally into the validation branch (only the combined temporal evidence document added; focused diff remains HTTP test/lock/document only). The HTTP change remains **unpublished and unintegrated**. Next planned controlled validation is one full run with a single worker after MCP's active full suite completes, retaining every test, sample, threshold and timeout. Any serial result must be identified as such and the failed two-worker results retained; multi-OS/default-CI validation is still required before integration. No repeated retry-until-green loop or old exception is authorized.
+
 ## Italiano
 
 Aggiornati soltanto `body-parser` e la sua dipendenza `qs` nel lockfile; conservati metadati piattaforma, parser e limiti applicativi. I tre test di errore tardivo falliscono prima e passano dopo la modifica; tutti i 12 test HTTP sono verdi. Typecheck/build passati, ma suite completa **2.657 passati e 2 falliti** in indoor/walkways: modifica mantenuta separata, nessun aggiramento dei controlli o pubblicazione. Nessun accesso all'ufficio reale; l'errore del decompressore è riprodotto in modo sintetico sul fixture isolato, non tramite un attacco a un servizio reale.
+
+Rivalidazione successiva con le correzioni temporali: **2672passati/1fallito**, ancora walkways18,59ms contro<8ms. Conservati tutti i campioni e il risultato negativo; parser ancora non integrato. Prevista una singola verifica completa seriale controllata, senza eliminare test o rilassare limiti, seguita da CI multipiattaforma se soddisfacente.
