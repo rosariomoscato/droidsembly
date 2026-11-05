@@ -2805,9 +2805,18 @@ export class Swarm {
   }
 
   private async saveTerminals(all = false) {
-    for (const [id, rt] of this.agentRt) {
-      if (rt.terminal && (all || rt.terminal.dirty)) await rt.terminal.save(terminalFile(id)).catch((err) => console.warn('could not save a terminal', err));
-    }
+    const pending = [...this.agentRt].flatMap(([id, rt]) =>
+      rt.terminal && (all || rt.terminal.dirty) ? [{ id, terminal: rt.terminal }] : [],
+    );
+    let next = 0;
+    // Independent files need not wait on every other terminal's I/O. Bound the
+    // batch; AgentTerminal.save still serializes overlapping saves of itself.
+    await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
+      while (next < pending.length) {
+        const { id, terminal } = pending[next++];
+        await terminal.save(terminalFile(id)).catch((err) => console.warn('could not save a terminal', err));
+      }
+    }));
   }
 
   /** A browser opened an agent's terminal (/ws/term?agent=<id>). */
