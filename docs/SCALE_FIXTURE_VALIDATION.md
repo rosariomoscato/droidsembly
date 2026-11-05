@@ -28,6 +28,10 @@ Follow-up candidate drains timers already due at the same fake instant with adva
 
 ## Complete-suite result: candidate held
 
+External-preload/original-order diagnostic reported2,742/2,742tests passing (`scale-scan-native-diagnostic.json`,906.88seconds),but emitted TWO `could not save a terminal:ENOENT` errors in AgentTerminal.save during awaited shutdown. The earlier teardown guard only checked state/journal warnings and therefore incorrectly allowed removal despite terminal-save errors. It now also rejects terminal-save warnings;no new passing outcome claimed for this stronger assertion. Preserve the terminal failures as blocking evidence,not harmless stderr.
+
+Scanner passed576ms in that diagnostic,without reproducing its9.54s stall. Expected per-process native-fs trace files were NOT produced;the external-preload measurement cannot be treated as successful filesystem profiling or root-cause evidence. The ordinary failed suite remains unwaived. Candidate stays held while concurrent terminal saves using the same tmp path are investigated independently.
+
 Ordinary-config serial suite **failed:2,741passed/1failed of2,742;259/260files;874.07seconds;exit1** (`scale-teardown-full-suite.json`). Scale test including awaited teardown passed (body63,969ms,file69,167ms),and all5helper tests passed. No scale journal ENOENT was observed in this execution;not proof of general persistence stability.
 
 Failure is unchanged notifier source scan:explicit measured9,535.9273ms against the preserved5,000ms limit. No baseline establishes that scale teardown caused it (scanner ran before scale). The command stopped:build/smoke did NOT run. Walkway median3.4004ms passed unchanged<8ms with batches[5.4800,5.6281,3.4004,3.2756,3.2675];earlier walkway/sky failures remain recorded elsewhere.

@@ -32,7 +32,7 @@ afterAll(async () => {
     warn(...args);
   });
   const remove = () => {
-    expect(warnings.filter(line => /could not (save the state|write the journal)/.test(line))).toEqual([]);
+    expect(warnings.filter(line => /could not (save the state|write the journal|save a terminal)/.test(line))).toEqual([]);
     fs.rmSync(home, { recursive: true, force: true, maxRetries: 5 });
   };
   try {
