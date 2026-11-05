@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Request, Response } from 'express';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { handleOfficeMcp } from './mcpHttp.ts';
 import { browserProblem, playwrightMcp } from './browser.ts';
 import { HOME_DIR } from './config.ts';
 import { BOX_CDP, BoxPty, boxHooksReady, finishedTurn, lookAtBoxCli, readFrom, type BoxCliRecord } from './boxCli.ts';
@@ -86,19 +86,7 @@ export function handleHook(token: string, body: unknown): Record<string, unknown
 
 /** The CEO's office tools over MCP (Streamable HTTP, stateless: a fresh server per request). */
 export async function handleMcp(token: string, req: Request, res: Response) {
-  const office = routes.get(token)?.office;
-  if (!office) {
-    res.status(404).json({ jsonrpc: '2.0', error: { code: -32001, message: 'This session has ended.' }, id: null });
-    return;
-  }
-  const server = office.serve();
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
-  res.on('close', () => {
-    void transport.close();
-    void server.close();
-  });
-  await server.connect(transport);
-  await transport.handleRequest(req, res, req.body);
+  await handleOfficeMcp(routes.get(token)?.office, req, res);
 }
 
 // ---------- helper scripts ----------
