@@ -30,6 +30,8 @@ No major upgrades, new direct dependencies or overrides; notably fast-uri remain
 
 This addresses only the production portion of the owner's new point1. Development dependency advisories (including concurrently/shell-quote and Vite/Vitest/source-map-js) remain for a later focused branch within point1. Do not call point1 complete or advance to temporal-flake investigation/beta preparation from this targeted result.
 
+Separate packaging verification after the failed full suite: **build and installed-package demo smoke passed**, including CLI/help,93bundled license texts,2floors/11agents and isolated persisted demo state. Existing Rapier/chunk warnings and a build-timing advisory remained. This packaging result does **not** clear the notifier timeout or authorize integration; no old exception, assertion change or full-suite retry was applied.
+
 ## Italiano
 
 Aggiornati soltanto quattro pacchetti transitivi nel lock, mantenendo versioni principali, manifest e metadati piattaforma. Audit di produzione da4voci moderate a0. Test offline riproducono difetti delle librerie, non attacchi dimostrati all'ufficio. Due aspettative iniziali URI erano errate: corrette dopo verifica del contratto, con risultati negativi e vecchie-versioni conservati;65test mirati e typecheck verdi. Suite completa**2708passati/1fallito**,timeout notifier invariato; build/smoke non eseguiti dalla catena interrotta. Modifica sospesa senza deroghe o ripetizioni fino al verde; resta la parte sviluppo del punto1, non sono iniziati i punti2/3. Nessun rilascio o accesso ai dati reali.
