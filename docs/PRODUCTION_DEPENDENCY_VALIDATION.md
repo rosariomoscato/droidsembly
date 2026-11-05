@@ -32,6 +32,14 @@ This addresses only the production portion of the owner's new point1. Developmen
 
 Separate packaging verification after the failed full suite: **build and installed-package demo smoke passed**, including CLI/help,93bundled license texts,2floors/11agents and isolated persisted demo state. Existing Rapier/chunk warnings and a build-timing advisory remained. This packaging result does **not** clear the notifier timeout or authorize integration; no old exception, assertion change or full-suite retry was applied.
 
+## Revalidation after independently integrated scan fix
+
+PR33 independently reproduced and corrected the notifier scan driver without changing its5-second timeout or secret-policy coverage; it passed full local validation and ordinary Ubuntu/Windows/Intel/ARM CI before merging into `dev`0406183. This production branch then merged that new base normally. Its focused diff is still only the four-record lock update,22regressions and this document; no scan-fix duplication or unrelated source change.
+
+New-combination serial suite **passed2,718/2,718tests,257/257files,638.48seconds,exit0** (`production-deps-scanfix-full-suite.json`). All22dependency regressions and9notifier tests passed (scan554ms). Walkway batches[3.7903,5.2280,2.8056,3.6500,4.0288]ms,median3.7903,unchanged<8ms. Typecheck/build and installed-package demo smoke passed again: CLI/help,93licenses,2floors/11agents,isolated persisted state. Existing Rapier/Three/chunk warnings retained. This is validation after a real test-driver change, not a waiver or retry of unchanged failing code; the previous2708pass/1failure remains recorded above. Ordinary four-OS CI still required before integration. Development advisories remain a separate candidate within point1.
+
 ## Italiano
 
 Aggiornati soltanto quattro pacchetti transitivi nel lock, mantenendo versioni principali, manifest e metadati piattaforma. Audit di produzione da4voci moderate a0. Test offline riproducono difetti delle librerie, non attacchi dimostrati all'ufficio. Due aspettative iniziali URI erano errate: corrette dopo verifica del contratto, con risultati negativi e vecchie-versioni conservati;65test mirati e typecheck verdi. Suite completa**2708passati/1fallito**,timeout notifier invariato; build/smoke non eseguiti dalla catena interrotta. Modifica sospesa senza deroghe o ripetizioni fino al verde; resta la parte sviluppo del punto1, non sono iniziati i punti2/3. Nessun rilascio o accesso ai dati reali.
+
+Successivamente integrata separatamente la correzione del driver di scansione(PR33): rivalidazione di questa nuova combinazione **2718/2718test,257file,638,48s**,build e smoke verdi. Fallimento precedente conservato, nessuna deroga; CI sui quattro sistemi ancora necessaria prima dell'integrazione delle dipendenze. La parte sviluppo e le altre instabilità restano separate, nessuna pubblicazione o modifica reale.
