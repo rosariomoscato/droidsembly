@@ -2,6 +2,12 @@
 
 ## Stato / Status
 
+### Candidata successiva / Next candidate
+
+**IT:** `0.4.0-beta.2` è in preparazione tramite PR verso `dev`, canale previsto `next`: **non pubblicata**. Note e rischio temporale ancora aperto: [note IT/EN](RELEASE_NOTES_0.4.0-beta.2.md), [issue #39](https://github.com/rosariomoscato/droidsembly/issues/39). Nessuna autorizzazione implicita a promuovere `main`, creare tag, avviare Release/OIDC, cambiare dist-tag o aggiornare installazioni/dati. La beta.1 pubblicata descritta sotto resta invariata.
+
+**EN:** `0.4.0-beta.2` is being prepared through a PR to `dev`, intended channel `next`: **not published**. See [IT/EN notes](RELEASE_NOTES_0.4.0-beta.2.md) and the unresolved timing investigation [#39](https://github.com/rosariomoscato/droidsembly/issues/39). This does not authorize main promotion, tags, Release/OIDC execution, dist-tag changes or installation/data updates. The published beta.1 described below remains unchanged.
+
 **IT:** Pubblicato e verificato [droidsembly@0.4.0-beta.1](https://www.npmjs.com/package/droidsembly), comando `droidsembly`, canale consigliato `next`, dal commit `803cb9eab25fc98a5312667f91b43fbd3a77fccc`. Prima pubblicazione effettuata con account `rosariomoscato` e verifica interattiva 2FA. Il publisher GitHub/OIDC resta da configurare e validare per una futura versione.
 
 **EN:** [droidsembly@0.4.0-beta.1](https://www.npmjs.com/package/droidsembly) is published and verified, with command `droidsembly` and recommended channel `next`, from commit `803cb9eab25fc98a5312667f91b43fbd3a77fccc`. The initial publication used account `rosariomoscato` and interactive 2FA. GitHub/OIDC publishing still needs configuration and validation for a future version.
