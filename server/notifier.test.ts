@@ -9,6 +9,7 @@ import type { NoteView, NotifySettings } from '../shared/types.ts';
 import { createDemoBackend } from './demo.ts';
 import { Notifier, type NotifyRequest } from './notifier.ts';
 import { Swarm } from './swarm.ts';
+import { scanClientSources } from '../scripts/clientSourcePolicy.ts';
 
 const SECRETS = {
   ntfy: { url: 'https://ntfy.sh/ntfySECRETtopic4242', token: 'tk_ntfySECRET4242' },
@@ -96,15 +97,12 @@ describe('notification secrets', () => {
     expect(Object.keys(n.channelsView().webhooks)).toEqual(['ntfy']);
   });
 
-  it('are never handled by the browser code', () => {
+  it('are never handled by the browser code', async () => {
     // The client gets hints over REST and the websocket; nothing under client/ may read the server's secrets files or import its code.
     const root = path.resolve(import.meta.dirname, '..', 'client');
-    const files = (fs.readdirSync(root, { recursive: true }) as string[]).filter((f) => /\.(tsx?|js|html|json|webmanifest)$/.test(f));
+    const { files, violations } = await scanClientSources(root);
     expect(files.length).toBeGreaterThan(20);
-    for (const f of files) {
-      const text = fs.readFileSync(path.join(root, f), 'utf8');
-      expect(text, f).not.toMatch(/secrets\.json|push\.json|from '(\.\.\/)+server\//);
-    }
+    expect(violations).toEqual([]);
   });
 });
 
