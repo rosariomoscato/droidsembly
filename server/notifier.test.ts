@@ -100,7 +100,11 @@ describe('notification secrets', () => {
   it('are never handled by the browser code', async () => {
     // The client gets hints over REST and the websocket; nothing under client/ may read the server's secrets files or import its code.
     const root = path.resolve(import.meta.dirname, '..', 'client');
+    const started = performance.now();
     const { files, violations } = await scanClientSources(root);
+    // Synchronous I/O must not evade the existing five-second asynchronous
+    // timeout by blocking its timer. Enforce the same budget explicitly too.
+    expect(performance.now() - started).toBeLessThan(5_000);
     expect(files.length).toBeGreaterThan(20);
     expect(violations).toEqual([]);
   });
