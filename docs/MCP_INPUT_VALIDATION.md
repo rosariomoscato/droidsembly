@@ -22,6 +22,14 @@ This bounds individual validation work; it is not a rate limiter, concurrency li
 
 References: GHSA-46jr-4wx8-v453 (SDK upgrade alone leaves its optional bound off), GHSA-mrhx-c7xc-m3w5 (Zod). No npm publication, main promotion, OIDC setup or real-installation modification.
 
+## Renewed full validation with temporal fixes
+
+After combining the same temporal fixes integrated into `dev` via PR29, the full local suite with `--maxWorkers=2` passed **2,675/2,675 tests, 254/254 files, 510.40seconds, exit0**. Report `mcp-temporal-full-suite.json` retained externally. All14new MCP tests passed in the full suite as well as the existing39CEO tests. Walkway raw batches(ms) **[9.7420,5.8912,6.4067,6.7753,5.7788]**, median **6.4067**, strict8msbudget unchanged. All21indoor and9notifier tests passed this run; earlier notifier failures remain historical observations, not permanently resolved defects.
+
+A passing CEO-runtime test logged an ENOENT during a temporary state-file rename; retained diagnostic, no real state involved. Existing Rapier/Three warnings remain. Subsequent merge of the newer `dev` adds CI/ARM documentation only, not runtime or dependency changes. Build and installed-package demo smoke of the realigned branch **passed**, including CLI/help,93license texts, served client and isolated persisted demo state (2floors/11agents). PR/default-multi-OS checks still required before any integration. HTTP/body-parser changes are not included in this branch, so this result does not clear the independently held HTTP failure.
+
 ## Italiano
 
-Versioni minime aggiornate anche nel manifest; limite effettivo applicato prima della validazione SDK senza inventare opzioni del wrapper Anthropic. Limiti: 10.000 elementi totali, profondità 64, JSON MCP 1 MiB. Gli input estremi prima accettati vengono ora rifiutati intenzionalmente. Verdi ora53test mirati e typecheck, inclusi handler/trasporto reale con strumenti offline e mappa token fittizia. Mancano suite completa e verifica multipiattaforma; non è un test end-to-end dell'ufficio. Nessuna integrazione o pubblicazione.
+Versioni minime aggiornate anche nel manifest; limite effettivo applicato prima della validazione SDK senza inventare opzioni del wrapper Anthropic. Limiti: 10.000 elementi totali, profondità 64, JSON MCP 1 MiB. Gli input estremi prima accettati vengono ora rifiutati intenzionalmente. Verdi53test mirati e typecheck, inclusi handler/trasporto reale con strumenti offline e mappa token fittizia; non è un test end-to-end dell'ufficio. Nessuna integrazione o pubblicazione.
+
+Aggiornamento: suite completa locale ora verde**2675/2675**,254file,510,40s,senza allentare soglie o saltare nuovi test. Build/smoke riallineati passati; CI multipiattaforma ancora da completare. Nessuna integrazione implicita del parser HTTP sospeso.
