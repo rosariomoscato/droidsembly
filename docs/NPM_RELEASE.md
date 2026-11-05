@@ -2,6 +2,12 @@
 
 ## Stato / Status
 
+### Candidata successiva / Next candidate
+
+**IT:** `0.4.0-beta.2` è in preparazione tramite PR verso `dev`, canale previsto `next`: **non pubblicata**. Note e rischio temporale ancora aperto: [note IT/EN](RELEASE_NOTES_0.4.0-beta.2.md), [issue #39](https://github.com/rosariomoscato/droidsembly/issues/39). Nessuna autorizzazione implicita a promuovere `main`, creare tag, avviare Release/OIDC, cambiare dist-tag o aggiornare installazioni/dati. La beta.1 pubblicata descritta sotto resta invariata.
+
+**EN:** `0.4.0-beta.2` is being prepared through a PR to `dev`, intended channel `next`: **not published**. See [IT/EN notes](RELEASE_NOTES_0.4.0-beta.2.md) and the unresolved timing investigation [#39](https://github.com/rosariomoscato/droidsembly/issues/39). This does not authorize main promotion, tags, Release/OIDC execution, dist-tag changes or installation/data updates. The published beta.1 described below remains unchanged.
+
 **IT:** Pubblicato e verificato [droidsembly@0.4.0-beta.1](https://www.npmjs.com/package/droidsembly), comando `droidsembly`, canale consigliato `next`, dal commit `803cb9eab25fc98a5312667f91b43fbd3a77fccc`. Prima pubblicazione effettuata con account `rosariomoscato` e verifica interattiva 2FA. Il publisher GitHub/OIDC resta da configurare e validare per una futura versione.
 
 **EN:** [droidsembly@0.4.0-beta.1](https://www.npmjs.com/package/droidsembly) is published and verified, with command `droidsembly` and recommended channel `next`, from commit `803cb9eab25fc98a5312667f91b43fbd3a77fccc`. The initial publication used account `rosariomoscato` and interactive 2FA. GitHub/OIDC publishing still needs configuration and validation for a future version.
@@ -64,7 +70,11 @@ The npm beta already exists. To document it on GitHub, after authorization creat
 
 ## Release successive / Subsequent releases
 
-1. PR con versione coerente fra package e lock e `publishConfig.tag`: `next` per `-beta.N`, `latest` per una versione stabile. / Review version and channel changes through a PR, keeping package and lock consistent.
+La preparazione avviene su branch dedicati da `dev`, con PR verso `dev`. Solo dopo revisione e approvazione della release si apre la promozione `dev` → `main`; non pubblicare da feature branch o da `dev`. Nella transizione iniziale `main` include già modifiche successive alla beta npm: non è stato riportato indietro. Il tag della beta resta il riferimento esatto al codice pubblicato. Vedi [flusso dei branch](BRANCH_WORKFLOW.md).
+
+Prepare changes on focused branches from `dev`, with PRs targeting `dev`. Only after release review and approval promote `dev` to `main`; never publish from a feature branch or `dev`. During the initial transition main already contains post-beta changes and is not reset; the beta tag remains the exact reference to published code.
+
+1. PR verso `dev` con versione coerente fra package e lock e `publishConfig.tag`: `next` per `-beta.N`, `latest` per una versione stabile; poi promozione approvata `dev` → `main` con CI verde su tutti e tre i sistemi. / Review version/channel changes through a PR to dev, keeping package and lock consistent, then approve dev-to-main promotion with all three OS checks green.
 2. Dopo autorizzazione, creare un tag `droidsembly-v<version>` sul commit approvato integrato in main. / After authorization, create the matching fork-specific tag on the approved commit merged into main.
 3. Avviare manualmente **Actions → Release** su `main`, indicando quel tag. Il semplice push di un tag non pubblica nulla. / Manually dispatch Release on main with that tag; pushing a tag alone does not publish.
 4. Il workflow verifica identità/tag, appartenenza alla storia di main e tutti e tre i sistemi operativi. Il job di pubblicazione ripete test/build/smoke sul codice del tag, pubblica sul canale previsto e crea la release GitHub. / The workflow validates identity/tag, main ancestry and all three operating systems. The publishing job repeats tests/build/smoke, publishes to the expected channel, then creates the GitHub release.

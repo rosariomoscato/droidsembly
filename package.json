@@ -1,6 +1,6 @@
 {
   "name": "droidsembly",
-  "version": "0.4.0-beta.1",
+  "version": "0.4.0-beta.2",
   "description": "Droidsembly: a visual 3D office and mobile dashboard for coordinating AI coding agents on your GitHub projects.",
   "keywords": [
     "claude-code",
@@ -54,14 +54,14 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.283",
     "@lydell/node-pty": "1.2.0-beta.15",
-    "@modelcontextprotocol/sdk": "^1.30.1",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@playwright/mcp": "0.0.83",
     "@upstash/box": "^0.7.9",
     "@xterm/addon-serialize": "^0.14.0",
     "@xterm/headless": "^6.0.0",
     "express": "^5.2.1",
     "ws": "^8.22.0",
-    "zod": "^4.0.0"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@dimforge/rapier3d-compat": "0.19.2",
@@ -79,7 +79,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
-    "concurrently": "^10.0.5",
+    "concurrently": "^10.0.6",
     "esbuild": "^0.28.2",
     "n8ao": "^2.0.1",
     "postprocessing": "^6.39.5",
@@ -91,8 +91,8 @@
     "three": "^0.186.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.3",
     "zustand": "^5.0.15"
   }
 }

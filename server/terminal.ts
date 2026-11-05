@@ -54,6 +54,7 @@ export class AgentTerminal {
   private sink: TerminalSink | null = null;
   private mouseEncoding: number | null = null;
   private resync: NodeJS.Timeout | null = null;
+  private saving: Promise<void> = Promise.resolve(); // saves share the same temp file
 
   constructor() {
     this.term.loadAddon(this.ser);
@@ -135,12 +136,17 @@ export class AgentTerminal {
     return new Promise((resolve) => this.term.write('', resolve));
   }
 
-  async save(file: string) {
-    this.dirty = false;
-    await this.flush();
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(`${file}.tmp`, this.snapshot());
-    await fs.rename(`${file}.tmp`, file);
+  save(file: string): Promise<void> {
+    const next = this.saving.then(async () => {
+      this.dirty = false;
+      await this.flush();
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(`${file}.tmp`, this.snapshot());
+      await fs.rename(`${file}.tmp`, file);
+    });
+    // The caller still observes its own failure; later saves must not inherit it.
+    this.saving = next.catch(() => undefined);
+    return next;
   }
 
   async load(file: string) {

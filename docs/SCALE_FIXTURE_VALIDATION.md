@@ -1,0 +1,70 @@
+# Scale fixture shutdown / Chiusura fixture di scala
+
+## Evidence and scope
+
+Independent test-only branch from accepted dev5ef2f52,not the held state-shutdown or telemetry candidate. Earlier instrumented full suite emitted journal ENOENT for the scale fixture after its test passed. Original scale afterAll reset fake timers and recursively removed home without awaiting office shutdown. This ordering allows pending journal writes to lose their directory;it is a concrete teardown gap,not proof of the cause of every recorded state/journal error.
+
+Standalone original scale baseline passed1/1test,80,352msfile duration (`scale-teardown-original-baseline.json`),without reproducing ENOENT. Retain that observation and the earlier failure;do not describe the baseline as a deterministic ENOENT reproduction.
+
+## Candidate
+
+Keep the created office available to afterAll. A test-only helper awaits shutdown before removal;failed shutdown propagates and retains the directory for diagnosis. Three deterministic helper cases verify a blocked shutdown prevents removal,a rejected shutdown preserves the fixture,and removal errors propagate. These test the NEW helper contract,not a claimed old-helper regression.
+
+Scale teardown restores ordinary logging before shutdown,forwards warnings rather than hiding them,and asserts no state/journal persistence warnings before removing files. A failed close/warning check retains the directory. Fake timers are cleared/reset and mocks restored even on cleanup failure. Gameplay logger suppression during measurement is unchanged.
+
+No production-runtime changes,serialization/dependency changes or test exceptions. Original10floors/15agentsperfloor(151total),busy-agent assertions,5-second startup fake-time advancement,2-minute workload plus1-minute traffic sample,snapshot600,000byte budget,traffic80,000bytes/sec budget,and120-secondtest timeout are unchanged. No hook timeout increase. No real services or installation/data access.
+
+This waits the existing accepted Swarm.shutdown contract;it does NOT claim full cancellation of every background operation or fix Journal.close semantics. Held state-shutdown changes remain separate. Scanner18second stall,walkway performance failure and skyLayout timeout also remain open.
+
+## Validation status
+
+First candidate run **failed its afterAll hook at the unchanged10,000ms hook limit**,despite4/4test assertions passing (scale1/helper3;`scale-teardown-targeted-after.json`). The chained typecheck did not run. This is a failed suite,not an accepted fix,and no hook timeout is increased. Fixture removal waits shutdown and therefore did not proceed past the blocked close. Investigate whether fake-clock timers or expensive/pending writes prevent shutdown completing;no cause proven yet.
+
+Temporary phase logging localized the wait (`scale-teardown-phase-diagnostic.json`):typecheck passed,state save205.5ms,journal close4.0ms,then terminal save started with243pending fake timers and did not finish before the unchanged10-secondhook timeout. All4test assertions passed,but the suite FAILED again. AgentTerminal.save awaits flush(),which schedules xterm asynchronous parsing;the fake clock remains frozen during the awaited shutdown. This identifies the blocked shutdown phase,not every possible rename error cause.
+
+Follow-up candidate drains timers already due at the same fake instant with advanceTimersByTimeAsync(0),clears future gameplay timers and restores real time BEFORE awaiting shutdown. Workload measurement has already ended;none of its sampling periods or assertions change. A new real-AgentTerminal test verifies a flush is pending with the clock frozen,zero-time advancement drains its text without changing Date.now,and a subsequent real-clock flush retains the text. Temporary phase spies are removed;diagnostic output/failures retained. Typecheck plus scale/helper5tests are running (`scale-teardown-live-clock-after.json`);no result claimed yet. No timeout increase or unrelated runtime change. Full suite/build/smoke and ordinary four-OS CI required before integration.
+
+## Italiano
+
+## Complete-suite result: candidate held
+
+External-preload/original-order diagnostic reported2,742/2,742tests passing (`scale-scan-native-diagnostic.json`,906.88seconds),but emitted TWO `could not save a terminal:ENOENT` errors in AgentTerminal.save during awaited shutdown. The earlier teardown guard only checked state/journal warnings and therefore incorrectly allowed removal despite terminal-save errors. It now also rejects terminal-save warnings;no new passing outcome claimed for this stronger assertion. Preserve the terminal failures as blocking evidence,not harmless stderr.
+
+Scanner passed576ms in that diagnostic,without reproducing its9.54s stall. Expected per-process native-fs trace files were NOT produced;the external-preload measurement cannot be treated as successful filesystem profiling or root-cause evidence. The ordinary failed suite remains unwaived. Candidate stays held while concurrent terminal saves using the same tmp path are investigated independently.
+
+Ordinary-config serial suite **failed:2,741passed/1failed of2,742;259/260files;874.07seconds;exit1** (`scale-teardown-full-suite.json`). Scale test including awaited teardown passed (body63,969ms,file69,167ms),and all5helper tests passed. No scale journal ENOENT was observed in this execution;not proof of general persistence stability.
+
+Failure is unchanged notifier source scan:explicit measured9,535.9273ms against the preserved5,000ms limit. No baseline establishes that scale teardown caused it (scanner ran before scale). The command stopped:build/smoke did NOT run. Walkway median3.4004ms passed unchanged<8ms with batches[5.4800,5.6281,3.4004,3.2756,3.2675];earlier walkway/sky failures remain recorded elsewhere.
+
+Candidate held locally,not integrated,no timeout/assertion/coverage waiver or unchanged acceptance retry. Further filesystem tracing is diagnostic only,not a retroactive green result. State-shutdown candidate remains separately held;point2 incomplete and beta preparation not started.
+
+## Parser continuation evidence and targeted result
+
+Transition diagnostic again failed the unchanged10shook limit (`scale-teardown-transition-diagnostic.json`):zero-time drain7ms,real-clock restoration10ms,state208.6ms,journal0.84ms,first terminal flush started but never completed. Xterm's WriteBuffer yields parsing after12ms and schedules a continuation;discarding fake timers can strand that pending buffer even after real clocks return.
+
+New deterministic real-xterm test forces this existing yield branch using a temporary performance.now spy. It proves zero-time advancement alone leaves a pending continuation;one further fake-clock tick drains both synthetic text chunks,and subsequent real-clock flush retains them. This spy is confined to the helper test,not the scale measurement or normal runtime.
+
+Final candidate requests a flush of every existing scale terminal,waits for those promises while advancing fake time1ms at a time,under an added5secondbound within the unchanged10secondhook. All of this is AFTER the original measurement and its assertions. Then clears future gameplay timers,restores real clocks,awaits office shutdown,checks forwarded persistence warnings,and removes its own home. Parser errors and cleanup errors propagate;failed shutdown/warning checks retain the fixture. Test-only private runtime-map access enumerates terminals,not real installation data. Temporary phase wrappers removed;all negative reports retained.
+
+Typecheck and all6targeted tests **passed** (scale1/helper5,2files;`scale-teardown-parser-drain-after.json`). Scale test body82,562ms,file88,837ms,teardown stayed inside the original10secondhook. Full ordinary-config serial suite/build/installed-package smoke are now running;not acceptance yet. Scanner stalls,walkway/sky timing failures and held state-shutdown candidate remain separate unresolved work.
+
+## Live-clock attempt still blocked
+
+The live-clock candidate passed typecheck and5test assertions,but scale afterAll again failed the unchanged10-secondlimit (`scale-teardown-live-clock-after.json`). The minimal real-xterm contract passed;this does not prove draining zero fake time suffices for all151agents,or that the clock transition preserves every pending parser task. No acceptance or unchanged-suite retry applied.
+
+Added diagnostic-only markers before/after zero-time drain,clock restoration,state/journal/terminal save,and parser flush start/completion counts (no terminal text). A distinct instrumented scale execution is pending (`scale-teardown-transition-diagnostic.json`);its outcome cannot retroactively clear prior failures. No workload/assertion/timeout changes.
+
+Correzione solo del teardown:attendere shutdown prima di eliminare la cartella,propagare errori e conservare il fixture se la chiusura/scrittura fallisce. Baseline singola passata,ma precedente ENOENT conservato. Carico,budget,numeroagenti e timeout invariati. Validazione in corso;nessuna integrazione o modifica all'installazione reale.
+# Queued-save clock-boundary follow-up — local, not accepted
+
+Follow-up focused result: **typecheck and41/41tests across8files passed**,110.77s (`shutdown-clock-drain-after.json`). Scale body75489ms;parser complete23.4ms,shutdown begin24.9ms/complete4824.7ms,removal complete5756.0ms,hook settled5757.1ms against unchanged10000ms. No persistence warnings reported. This is one observed targeted success after the demonstrated queued-parser mechanism,not proof every historical timeout is resolved. New ordinary five-environment CI (four OS plus Windows/Node22) required;prior17539fdIntel failure remains retained and not waived.
+
+After combined runtime lifecycle changes, ordinary Intel CI42016763487 still failed the unchanged10s scale afterAll. A local boundary diagnostic also failed: current-parser drain finished51.2ms,shutdown began54.3ms,but neither shutdown-complete nor removal began before timeout (`scale-boundary-trace-local.json`). Typecheck and workload body passed; this is not successful teardown.
+
+Short actual-filesystem gated diagnostic (`queued-save-parser-barrier-diagnostic.json`) proves a second queued AgentTerminal.save schedules a new fake parser callback after an initial flush barrier has completed with zero timers,once the first blocked rename completes. Therefore the old assumption that the current-parser barrier makes clearAllTimers safe is false. Both writes were drained before removing only the diagnostic home. This reproduces a concrete stranding mechanism,not proof of every historical timeout/ENOENT cause.
+
+New helper-ordering regression failed the old helper deterministically (`shutdown-clock-drain-before.json`:6passed/1failed);it never called the supplied drain. Existing five fixture contracts and queued-parser diagnostic passed. No test timeout used to produce the failure.
+
+Local test-only candidate adds an optional shutdown-drain callback to closeOfficeFixture,still independently awaits shutdown,then removes. Scale services fake callbacks until shutdown settles before clearing/restoring real time;initial parser5s bound,overall10s hook,full measured workload and warning rejection unchanged. Shutdown wait is capped by remaining original hook budget,not a new longer timeout. Added drain-failure retention and early-return safety contracts. Incremental boundary logs retained without private/prototype/runtime wrappers so future failure identifies the last phase. Runtime terminal/state/journal algorithms unchanged in this follow-up. Typecheck+eight-file focused validation underway,not yet known;remotePR38still17539fdDRAFT/CIred.
+
+Italiano: dimostrato callback parser generato dopo il primo drenaggio da salvataggi accodati. Correzione solo test mantiene i timer fino a shutdown completo,prima di ripristinare il clock reale/rimuovere il fixture;limiti e carico invariati. Validazione ancora in corso,nessuna integrazione.

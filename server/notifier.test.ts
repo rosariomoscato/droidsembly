@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import asyncFs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -9,6 +10,7 @@ import type { NoteView, NotifySettings } from '../shared/types.ts';
 import { createDemoBackend } from './demo.ts';
 import { Notifier, type NotifyRequest } from './notifier.ts';
 import { Swarm } from './swarm.ts';
+import { scanClientSources } from '../scripts/clientSourcePolicy.ts';
 
 const SECRETS = {
   ntfy: { url: 'https://ntfy.sh/ntfySECRETtopic4242', token: 'tk_ntfySECRET4242' },
@@ -23,7 +25,11 @@ function subscription(endpoint = 'https://push.example.net/push/pushSECRETendpoi
 }
 
 const tmpDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-notify-'));
-const settle = () => new Promise((r) => setTimeout(r, 30));
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((done) => { resolve = done; });
+  return { promise, resolve };
+}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -46,9 +52,9 @@ describe('notification secrets', () => {
     swarm.updateSettings({ notify: { ...DEFAULT_NOTIFY, events: { ...DEFAULT_NOTIFY.events, merge: true }, officeUrl: 'https://office.example.ts.net/' } });
 
     out.length = 0;
-    swarm.notifier.notify('needsHuman', 'PR #4 needs you', 'pixel-todo: Add login.');
+    const delivered = swarm.notifier.notify('needsHuman', 'PR #4 needs you', 'pixel-todo: Add login.');
     for (const c of ['desktop', 'push', 'ntfy']) answers.push(await swarm.notifier.test(c));
-    await settle();
+    await delivered;
 
     // The demo shows what each channel would get: one formatted line per chat app and device for the PR.
     const pr = out.filter((l) => l.includes('⚠️ PR #4 needs you'));
@@ -96,19 +102,20 @@ describe('notification secrets', () => {
     expect(Object.keys(n.channelsView().webhooks)).toEqual(['ntfy']);
   });
 
-  it('are never handled by the browser code', () => {
+  it('are never handled by the browser code', async () => {
     // The client gets hints over REST and the websocket; nothing under client/ may read the server's secrets files or import its code.
     const root = path.resolve(import.meta.dirname, '..', 'client');
-    const files = (fs.readdirSync(root, { recursive: true }) as string[]).filter((f) => /\.(tsx?|js|html|json|webmanifest)$/.test(f));
+    const started = performance.now();
+    const { files, violations } = await scanClientSources(root);
+    // Synchronous I/O must not evade the existing five-second asynchronous
+    // timeout by blocking its timer. Enforce the same budget explicitly too.
+    expect(performance.now() - started).toBeLessThan(5_000);
     expect(files.length).toBeGreaterThan(20);
-    for (const f of files) {
-      const text = fs.readFileSync(path.join(root, f), 'utf8');
-      expect(text, f).not.toMatch(/secrets\.json|push\.json|from '(\.\.\/)+server\//);
-    }
+    expect(violations).toEqual([]);
   });
 });
 
-function notifier(dir: string, status: (req: NotifyRequest) => number, settings: NotifySettings = notifySettings(DEFAULT_NOTIFY, { events: { merge: true } })) {
+function notifier(dir: string, status: (req: NotifyRequest) => number | Promise<number>, settings: NotifySettings = notifySettings(DEFAULT_NOTIFY, { events: { merge: true } })) {
   const posts: NotifyRequest[] = [];
   const notes: NoteView[] = [];
   const n = new Notifier({
@@ -124,6 +131,71 @@ function notifier(dir: string, status: (req: NotifyRequest) => number, settings:
 }
 
 describe('the notifier', () => {
+  it('exposes completion of an immediate notification without finishing before its transport', async () => {
+    const dir = tmpDir();
+    const gate = deferred<number>();
+    const { n } = notifier(dir, () => gate.promise);
+    let completed = false;
+    try {
+      await n.setWebhook('ntfy', SECRETS.ntfy);
+      const delivery = n.notify('ceoMessage', 'Morgan', 'Synthetic completion fixture');
+      expect(delivery).toBeInstanceOf(Promise);
+      const done = Promise.resolve(delivery).then(() => { completed = true; });
+      await Promise.resolve();
+      expect(completed).toBe(false);
+      gate.resolve(201);
+      await done;
+      expect(completed).toBe(true);
+    } finally {
+      gate.resolve(201);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('waits for a gone push device to be persisted, not only removed from memory', async () => {
+    const dir = tmpDir();
+    const { n } = notifier(dir, () => 410);
+    const entered = deferred<void>();
+    const release = deferred<void>();
+    const rename = asyncFs.rename.bind(asyncFs);
+    let delivery: Promise<unknown> | undefined;
+    try {
+      await n.pushKey();
+      await n.subscribe(subscription());
+      vi.spyOn(asyncFs, 'rename').mockImplementation(async (from, to) => {
+        if (String(to) === path.join(dir, 'push.json')) {
+          entered.resolve();
+          await release.promise;
+        }
+        await rename(from, to);
+      });
+      const result = n.notify('ceoMessage', 'Morgan', 'Synthetic persistence fixture');
+      expect(result).toBeInstanceOf(Promise);
+      let completed = false;
+      delivery = Promise.resolve(result).then(() => { completed = true; });
+      await entered.promise;
+      expect(n.channelsView().pushDevices).toBe(0);
+      expect(JSON.parse(fs.readFileSync(path.join(dir, 'push.json'), 'utf8')).devices).toHaveLength(1);
+      expect(completed).toBe(false);
+      release.resolve();
+      await delivery;
+      const again = notifier(dir, () => 201).n;
+      await again.init();
+      expect(again.channelsView().pushDevices).toBe(0);
+      expect((await again.pushKey()).publicKey).toBe((await n.pushKey()).publicKey);
+    } finally {
+      release.resolve();
+      // On the old API a delivery still runs even though notify returned void.
+      // Its gate must settle before the fixture directory can be removed.
+      if (!delivery) {
+        await entered.promise;
+        await n.unsubscribe(subscription().endpoint);
+      } else await delivery;
+      vi.restoreAllMocks();
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('sends a burst of 10 merges as one notification now and one summary a minute later, on every channel', async () => {
     vi.useFakeTimers({ now: Date.UTC(2026, 9, 4, 12) });
     const { n, posts, notes } = notifier(tmpDir(), () => 200);
@@ -148,15 +220,13 @@ describe('the notifier', () => {
     const settings = notifySettings(DEFAULT_NOTIFY, { channels: { desktop: false } });
     const { n, posts, notes } = notifier(tmpDir(), () => 200, settings);
     await n.setWebhook('ntfy', SECRETS.ntfy);
-    n.notify('merge', 'Merged PR #1', 'x'); // merges are off by default
-    n.notify('hire', 'A new agent waits for floor 1', 'Ada');
-    await settle();
+    await n.notify('merge', 'Merged PR #1', 'x'); // merges are off by default
+    await n.notify('hire', 'A new agent waits for floor 1', 'Ada');
     expect(notes).toEqual([]);
     expect(posts.map((p) => [p.channel, p.text])).toEqual([['ntfy', '📄 A new agent waits for floor 1\nAda']]);
     const quiet = notifier(tmpDir(), () => 200, notifySettings(DEFAULT_NOTIFY, { channels: { ntfy: false } }));
     await quiet.n.setWebhook('ntfy', SECRETS.ntfy);
-    quiet.n.notify('hire', 'A new agent waits for floor 1', 'Ada');
-    await settle();
+    await quiet.n.notify('hire', 'A new agent waits for floor 1', 'Ada');
     expect(quiet.posts).toEqual([]);
   });
 
@@ -167,8 +237,7 @@ describe('the notifier', () => {
     await n.subscribe(subscription('https://push.example.net/push/alive'));
     await n.subscribe(subscription('https://push.example.net/push/gone'));
     expect(n.channelsView().pushDevices).toBe(2);
-    n.notify('ceoMessage', 'Morgan', 'Floor 2 is done.');
-    await settle();
+    await n.notify('ceoMessage', 'Morgan', 'Floor 2 is done.');
     expect(posts.map((p) => [p.channel, p.url])).toEqual([
       ['push', 'https://push.example.net/push/alive'],
       ['push', 'https://push.example.net/push/gone'],
