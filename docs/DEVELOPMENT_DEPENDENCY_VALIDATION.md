@@ -40,6 +40,8 @@ Original local npm10 clean install **passed** with the npm11-generated lock; no 
 
 The command stopped at that failure: final build/smoke in that chain did not run. This branch is held locally, not integrated, with no retry-until-green, timeout change or prior exception. The same scan timed out on the independent production candidate; no dependency-causality proof is claimed. Point1 is now explicitly suspended pending investigation of the common validation blocker as point2; beta/release work has not begun. The dependency candidates remain separate from any temporal fix and must be revalidated later.
 
+Independent packaging check after that failure: **build and installed-package demo smoke passed** with Vite8.3.5,CLI/help,93license texts and isolated persisted2floor/11agent demo. This is packaging evidence only, not a waiver of the failed notifier test. The common scan fix is being validated separately; neither this candidate nor the production patch has been integrated by this observation.
+
 ## Italiano
 
 Aggiornamento mirato del solo toolchain di sviluppo, con Vitest bloccato nel lock alla patch5.0.3 e senza modifiche ai test esistenti. Corrette prima le due imprecisioni del fixture; baseline4passati/13falliti, poi17test mirati provvisori verdi. Audit ora senza voci alte/critiche; restano le4moderate di produzione, sospese su un altro branch. Npm11 usato soltanto dalla cache per un errore interno di npm10; installazione pulita finale e validazione completa ancora in corso. Nessun passaggio ai punti2/3 o modifica all'installazione reale.
