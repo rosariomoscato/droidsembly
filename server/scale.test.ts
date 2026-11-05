@@ -28,7 +28,38 @@ afterAll(async () => {
   // A timed-out hook may never reach finally. Emit each boundary as it occurs
   // so CI identifies the unfinished phase, without wrapping runtime methods.
   const started = performance.now();
-  const trace = (phase: string) => console.info('scale teardown', { phase, elapsedMs: performance.now() - started });
+  const terminalQueues = { observed: 0, settled: 0 };
+  const trace = (phase: string) => console.info('scale teardown', { phase, elapsedMs: performance.now() - started, terminalQueues: { ...terminalQueues } });
+  const timed = async (phase: string, work: () => Promise<void>) => {
+    trace(`${phase}-begin`);
+    try { await work(); }
+    finally { trace(`${phase}-settled`); }
+  };
+  // Diagnostic only: observe existing queued saves and pass through every
+  // shutdown call/argument/result/error. No queue or clock algorithm changes.
+  if (office) {
+    const runtime = office as unknown as {
+      agentRt: Map<string, { terminal?: { saving: Promise<void> } }>;
+      writeState(): Promise<void>;
+      saveTerminals(all?: boolean): Promise<void>;
+      backend: { releaseClis(restart: boolean): Promise<void> };
+      previews: { stopAll(repos: unknown): Promise<void> };
+    };
+    for (const rt of runtime.agentRt.values()) if (rt.terminal) {
+      terminalQueues.observed++;
+      void rt.terminal.saving.then(() => { terminalQueues.settled++; }, () => { terminalQueues.settled++; });
+    }
+    const writeState = runtime.writeState.bind(runtime);
+    vi.spyOn(runtime, 'writeState').mockImplementation(() => timed('state', writeState));
+    const closeJournal = office.journal.close.bind(office.journal);
+    vi.spyOn(office.journal, 'close').mockImplementation(() => timed('journal', closeJournal));
+    const releaseClis = runtime.backend.releaseClis.bind(runtime.backend);
+    vi.spyOn(runtime.backend, 'releaseClis').mockImplementation(restart => timed('clis', () => releaseClis(restart)));
+    const saveTerminals = runtime.saveTerminals.bind(runtime);
+    vi.spyOn(runtime, 'saveTerminals').mockImplementation(all => timed('terminals', () => saveTerminals(all)));
+    const stopPreviews = runtime.previews.stopAll.bind(runtime.previews);
+    vi.spyOn(runtime.previews, 'stopAll').mockImplementation(repos => timed('previews', () => stopPreviews(repos)));
+  }
   trace('parser-drain-begin');
   const warnings: string[] = [];
   const warn = console.warn.bind(console);
