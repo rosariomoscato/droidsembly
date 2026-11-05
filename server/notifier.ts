@@ -133,13 +133,17 @@ export class Notifier {
     return { webhooks, pushDevices: this.push.devices.length };
   }
 
-  /** Something happened: tell the manager on every channel that's on, unless the event is off or had its minute. */
-  notify(event: NotifyEvent, title: string, body: string, line?: string) {
-    if (!this.deps.settings().events[event]) return;
+  /** Something happened: tell the manager on every channel that's on, unless the event is off or had its minute.
+   * Resolves after this call's immediate deliveries (including expired-device persistence).
+   * Does not wait for a rate-limited summary scheduled for a later minute.
+   */
+  notify(event: NotifyEvent, title: string, body: string, line?: string): Promise<void> {
+    if (!this.deps.settings().events[event]) return Promise.resolve();
     const r = offer(this.gates, note(event, title, body, line), this.now());
     this.gates = r.gates;
-    if (r.send) void this.deliver(r.send);
+    const delivered = r.send ? this.deliver(r.send).then(() => undefined) : Promise.resolve();
     this.arm();
+    return delivered;
   }
 
   /** Sends the summaries whose minute is up. The timer calls it. */
