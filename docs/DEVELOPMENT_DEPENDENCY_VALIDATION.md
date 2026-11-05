@@ -1,5 +1,15 @@
 # Development dependency hardening / Dipendenze di sviluppo
 
+## Current combined validation — after PR33 and PR34
+
+Final new-combination result: original npm clean install and typecheck **passed**, followed by **2,735/2,735 tests,259/259 files,1,133.36 seconds**, build and installed-package demo smoke **passed** (`development-deps-combined-full-suite.json`). All17development regressions and22production regressions passed together. Notifier source scan551ms retained the5-second timeout. Walkway batches[5.6966,7.6159,5.7335,6.9575,6.0350]ms,median6.0350ms, passed the unchanged<8ms budget. This slower run is not evidence of permanent arbitrary-load stability. CLI/help,93bundled license texts and isolated persisted2floor/11agent demo verified. Existing Rapier/Three/chunk warnings remain. Earlier failures below are retained; no thresholds, samples or timeouts were relaxed. Ordinary four-OS CI remains required before integration.
+
+The earlier held states and results below are historical evidence, not the current base. The independently validated scanner fix (PR33) and production patches (PR34) have now been integrated into dev. This candidate normally merged dev0cbe7011091d04baab08a372ef8d3306621fe308, preserving all four production fixes and platform metadata. Structural comparison confirms only the reviewed development toolchain changes remain in its focused diff.
+
+The combined full-lock audit now reports **zero entries at every severity**, recorded in `development-deps-combined-audit.json`. This describes the candidate lock only, not published or real installations. New-combination clean install, typecheck, full serial suite, build and installed-package demo smoke passed as recorded above. The earlier failed suites remain recorded below. Ordinary four-OS CI is still required before integration.
+
+Italiano: integrate separatamente le PR33/34 in dev, aggiornato normalmente questo candidato senza perdere patch di produzione o metadati piattaforma. Audit combinato ora a0voci; nuova validazione completa verde2735/2735test,259file,1133,36s, più typecheck/build/smoke, senza cancellare i fallimenti precedenti. CI ancora necessaria. Nessun rilascio o modifica all'installazione reale.
+
 ## Scope
 
 Independent branch from dev7ef926a; production dependency patch remains separate and held after a notifier timeout. No app code, existing tests/thresholds/timeouts, launcher, package version, Release workflow, MIT attribution or real installation/data changes.
