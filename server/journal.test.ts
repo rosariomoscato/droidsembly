@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { isFrame, journalFrame, KEYFRAME_MS, type JournalAgent } from '../shared/journal.ts';
 import type { AgentView, PullInfo, RepoView, ServerEvent } from '../shared/types.ts';
 import { HttpError } from './httpError.ts';
@@ -200,6 +200,88 @@ describe('Journal', () => {
     emit({ type: 'repo', repo: repo(pulls) });
     expect(journal.stats.lines).toBe(1);
     expect(journal.stats.skipped).toBe(2);
+  });
+
+  it('does not record or schedule new writes after close has completed', async () => {
+    await journal.close();
+    const stats = { ...journal.stats };
+    const disk = await allText();
+    now += MIN;
+    setAgent({ currentTool: 'AfterClose' });
+    journal.tick();
+    await journal.close();
+    expect(journal.stats).toEqual(stats);
+    expect(await allText()).toBe(disk);
+  });
+
+  it('does not restart a closed journal instance', async () => {
+    await journal.close();
+    const stats = { ...journal.stats };
+    const interval = vi.spyOn(globalThis, 'setInterval');
+    try {
+      await journal.start();
+      journal.tick();
+      await journal.close();
+      expect(interval).not.toHaveBeenCalled();
+      expect(journal.stats).toEqual(stats);
+    } finally {
+      interval.mockRestore();
+    }
+  });
+
+  it('does not open a segment or timer if close runs during startup pruning', async () => {
+    // Gate startup, not a clock delay: closing must win before open()/setInterval.
+    const pending = make();
+    let release!: () => void;
+    const gate = new Promise<number>(done => { release = () => done(0); });
+    const prune = vi.spyOn(pending, 'prune').mockImplementationOnce(() => gate);
+    const interval = vi.spyOn(globalThis, 'setInterval');
+    const starting = pending.start();
+    try {
+      expect(prune).toHaveBeenCalledExactlyOnceWith(true);
+      await pending.close();
+      release();
+      await starting;
+      expect(interval).not.toHaveBeenCalled();
+      expect(pending.stats).toEqual({ lines: 0, bytes: 0, writes: 0, skipped: 0 });
+    } finally {
+      release();
+      await starting;
+      await pending.close();
+      interval.mockRestore();
+      prune.mockRestore();
+    }
+  });
+
+  it('stops accepting events as close begins while its final rename is gated', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(done => { release = done; });
+    let entered = false;
+    const rename = fs.rename.bind(fs);
+    const spy = vi.spyOn(fs, 'rename').mockImplementationOnce(async (...args) => {
+      entered = true;
+      await gate;
+      return rename(...args);
+    });
+    setAgent({ currentTool: 'BeforeClose' });
+    const closing = journal.close();
+    try {
+      await vi.waitFor(() => expect(entered).toBe(true));
+      const stats = { ...journal.stats };
+      now += MIN;
+      setAgent({ currentTool: 'DuringClose' });
+      journal.tick();
+      expect(journal.stats).toEqual(stats);
+    } finally {
+      release();
+      await closing;
+      // Defensive drain also covers the old behavior if the assertion fails.
+      await journal.close();
+      spy.mockRestore();
+    }
+    const disk = await allText();
+    expect(disk).toContain('BeforeClose');
+    expect(disk).not.toContain('DuringClose');
   });
 
   it('starts a new file with a keyframe every 10 minutes, so a seek starts close by', async () => {

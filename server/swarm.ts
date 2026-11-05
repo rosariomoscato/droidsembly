@@ -584,6 +584,8 @@ export class Swarm {
   private user: string | null = null;
   private ghError: string | undefined;
   private saveTimer: NodeJS.Timeout | null = null;
+  private shutdownTask: Promise<void> | null = null;
+  private stopping = false;
   private writing: Promise<void> = Promise.resolve(); // state file writes, one at a time: they share its temp file
   private logSeq = 1;
   private previews: Previews;
@@ -1300,7 +1302,7 @@ export class Swarm {
   // ---------- persistence ----------
 
   private save() {
-    if (this.saveTimer) return;
+    if (this.stopping || this.saveTimer) return;
     this.saveTimer = setTimeout(() => void this.writeState().catch((err) => console.warn('could not save the state', err)), 1500);
   }
 
@@ -1841,13 +1843,27 @@ export class Swarm {
    * Server shutdown: stop every floor's app so nothing is left holding a preview port. Agents' CLIs keep working
    * through a restart (the terminal keeper holds them for the next start) and stop when the office quits.
    */
-  async shutdown(restart = false): Promise<void> {
+  shutdown(restart = false): Promise<void> {
+    if (this.shutdownTask) return this.shutdownTask;
+    this.stopping = true;
+    this.shutdownTask = this.finishShutdown(restart);
+    return this.shutdownTask;
+  }
+
+  private async finishShutdown(restart: boolean): Promise<void> {
     this.backend.cloud.detach(); // cloud agents' CLIs carry on in their Boxes: their records are final from here
     await this.writeState().catch((err) => console.warn('could not save the state', err));
-    await this.journal.close().catch((err) => console.warn('could not write the journal', err));
-    await this.backend.releaseClis(restart); // before the terminals are saved: whatever they print next waits in the keeper
-    await this.saveTerminals(true);
-    await this.previews.stopAll(this.state.repos);
+    try {
+      await this.journal.close().catch((err) => console.warn('could not write the journal', err));
+      await this.backend.releaseClis(restart); // before the terminals are saved: whatever they print next waits in the keeper
+      await this.saveTerminals(true);
+      await this.previews.stopAll(this.state.repos);
+    } finally {
+      // Resource release may synchronously/async update state. Persist those
+      // changes before returning, even if cleanup fails, without arming timers
+      // that could outlive this instance and race its replacement's state file.
+      await this.writeState().catch((err) => console.warn('could not save the state', err));
+    }
   }
 
   private async cloneRepo(id: string) {
@@ -2805,9 +2821,18 @@ export class Swarm {
   }
 
   private async saveTerminals(all = false) {
-    for (const [id, rt] of this.agentRt) {
-      if (rt.terminal && (all || rt.terminal.dirty)) await rt.terminal.save(terminalFile(id)).catch((err) => console.warn('could not save a terminal', err));
-    }
+    const pending = [...this.agentRt].flatMap(([id, rt]) =>
+      rt.terminal && (all || rt.terminal.dirty) ? [{ id, terminal: rt.terminal }] : [],
+    );
+    let next = 0;
+    // Independent files need not wait on every other terminal's I/O. Bound the
+    // batch; AgentTerminal.save still serializes overlapping saves of itself.
+    await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
+      while (next < pending.length) {
+        const { id, terminal } = pending[next++];
+        await terminal.save(terminalFile(id)).catch((err) => console.warn('could not save a terminal', err));
+      }
+    }));
   }
 
   /** A browser opened an agent's terminal (/ws/term?agent=<id>). */

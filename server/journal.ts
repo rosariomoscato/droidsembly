@@ -124,6 +124,7 @@ export class Journal {
   private last = new Map<string, string>(); // what was last recorded about each repo, agent, QA record…
   private writing: Promise<void> = Promise.resolve();
   private timer: NodeJS.Timeout | null = null;
+  private stopped = false;
   private summaries = new Map<string, Summary>(); // `${file}|${bytes}` -> a closed file's span and marks
   private readonly now: () => number;
   /** Lines and bytes recorded since the office started, and files written (how busy the journal is). */
@@ -135,7 +136,11 @@ export class Journal {
 
   /** Prunes, then starts the first file with a keyframe of the office as it starts. */
   async start() {
+    if (this.stopped) return;
     await this.prune(true).catch((err) => console.warn('could not prune the journal', err));
+    // close() may run while startup is awaiting the filesystem. A stopped
+    // journal belongs to the old office and must never rearm its writer.
+    if (this.stopped) return;
     this.open(true);
     if (!this.timer) {
       this.timer = setInterval(() => this.tick(), this.opts.flushMs ?? FLUSH_MS);
@@ -145,6 +150,7 @@ export class Journal {
 
   /** Writes what's pending and stops the timer (the office is stopping). */
   async close() {
+    this.stopped = true;
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     if (this.cur?.dirty) this.flush(this.cur);
@@ -153,7 +159,7 @@ export class Journal {
 
   /** Swarm.broadcast's events: the ones that change the office's look are recorded, once each change. */
   record(ev: ServerEvent) {
-    if (!this.cur) return;
+    if (this.stopped || !this.cur) return;
     // The journal is a bystander: nothing in it may break what the office is broadcasting.
     try {
       const e = journalEvent(ev, this.opts.secrets());
@@ -174,7 +180,7 @@ export class Journal {
 
   /** The timer: a new file when this one's time is up, and a write when something changed. */
   tick() {
-    if (!this.cur) return;
+    if (this.stopped || !this.cur) return;
     try {
       this.rotate(this.now());
     } catch (err) {
