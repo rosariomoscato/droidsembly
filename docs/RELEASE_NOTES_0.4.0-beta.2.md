@@ -1,6 +1,6 @@
-# Droidsembly 0.4.0-beta.2 — candidate / candidata
+# Droidsembly 0.4.0-beta.2 — published / pubblicata
 
-**Not published. / Non pubblicata.** Preparation from accepted `dev` commit `5e15a875037535c7c8d23836db216b73067daa1a`. Version/channel preparation is not authorization to promote `main`, create a release tag, dispatch publication, update the website or replace an existing installation.
+**Published on `next`; public tarball verified November 6, 2026. / Pubblicata su `next`; tarball pubblico verificato il 6 novembre 2026.** `latest` remains / resta `0.4.0-beta.1`. Immutable annotated tag / tag annotato immutabile `droidsembly-v0.4.0-beta.2`: `3292f5c78483ca37eae198de93faf5da1d5cdb11`. [GitHub prerelease](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.2). No authorization for another release, dist-tag changes, website deployment or real-installation/data updates. / Nessuna autorizzazione a un altro rilascio, cambi dist-tag, deploy del sito o aggiornamenti di installazione/dati reali.
 
 ## Italiano
 
@@ -18,6 +18,14 @@
 Rimangono Node >=22, comando `droidsembly`, canale beta `next`, launcher, percorsi dati e formati di persistenza esistenti. Nessuna migrazione automatica. Attribuzioni MIT originali, avvisi Sora/OFL e testi delle licenze delle dipendenze conservati. Interfaccia IT/EN e controlli di accessibilità mantenuti.
 
 La candidata beta.2 e la PR di promozione hanno superato suite completa, typecheck, build e smoke del pacchetto installato su Ubuntu, Windows, macOS Intel e ARM nativo, con ulteriore Windows/Node22. Dopo il merge in `main` (`296b0ce`), la CI [42033638748](https://github.com/rosariomoscato/droidsembly/actions/runs/42033638748) ha però fallito su Windows/Node22 per il timeout di chiusura descritto nell'issue #42: le 2.762 asserzioni sono passate, ma il teardown non è terminato entro 10 s; build e smoke di quel job non sono stati eseguiti. Le successive verifiche diagnostiche sono passate senza riprodurlo: non sostituiscono il fallimento né ne dimostrano risolta la causa. La demo locale isolata ha ricevuto riscontro positivo e conservato la lingua dopo riavvio, senza riprodurre il carico di 151 agenti.
+
+### Pubblicazione e verifica pubblica
+
+La [Release 42100317893](https://github.com/rosariomoscato/droidsembly/actions/runs/42100317893), avviata dal workflow aggiornato in `main` con checkout del tag immutato, ha eseguito e superato Ubuntu, Windows e macOS Intel; il publish ha ripetuto test/build/smoke e usato OIDC, con provenance firmata (transparency log `3700388924`). Le modifiche successive al tag riguardano solo il runner Release, non il codice pubblicato.
+
+Il 6 novembre il tarball pubblico (99 file) ha superato identità/versione/gitHead, SHA1 contro registry e log publish, SHA512 contro registry e un unico smoke installato in isolamento: CLI/help, 93 testi di licenza, browser tool, HTTP e persistenza demo (2 piani, 11 agenti, non una verifica del carico di scala). SHA256: `1d5c84af873a9d2b8bdd29f043142a16089e1707015be57dd8c0a0d5b16d2d61`. Nessuna installazione reale o demo utente è stata aggiornata o riavviata.
+
+Restano conservati i cinque tentativi della prima Release `42054859208` senza esecuzione macOS né publish, e il verificatore pubblico del 5 novembre fermatosi dopo 15 risposte 404 fino alle 20:28 UTC, senza download/smoke. La successiva disponibilità non li trasforma in successi: nessuna ripubblicazione. La CI post-merge [42097779283](https://github.com/rosariomoscato/droidsembly/actions/runs/42097779283) **non è interamente verde**: quattro ambienti passati, ARM mai avviato per indisponibilità runner. Il titolare ha autorizzato solo questa verifica mancante; precedenti passaggi ARM PR/dev restano storici, non sostitutivi. Nessun controllo ARM eliminato, nessuna deroga a test eseguiti e falliti.
 
 ### Problema noto: rallentamenti intermittenti
 
@@ -48,6 +56,14 @@ Node >=22, the `droidsembly` command, beta channel `next`, existing launchers, d
 
 The beta.2 candidate and promotion PR passed full suites, typecheck, build and installed-package smoke on Ubuntu, Windows, Intel macOS and native ARM macOS, plus Windows/Node22. After merging into `main` (`296b0ce`), however, CI [42033638748](https://github.com/rosariomoscato/droidsembly/actions/runs/42033638748) failed Windows/Node22 on the shutdown timeout described in issue #42: all 2,762 assertions passed, but teardown did not complete within 10 s; that job's build and smoke did not run. Subsequent diagnostics passed without reproducing it: they do not replace the failure or establish its cause as fixed. The isolated local demo received positive user feedback and retained its language after restart, without reproducing the 151-agent workload.
 
+### Publication and public validation
+
+[Release 42100317893](https://github.com/rosariomoscato/droidsembly/actions/runs/42100317893), dispatched from the updated `main` workflow while checking out the unchanged tag, actually ran and passed Ubuntu, Windows and Intel macOS. Publication repeated tests/build/smoke and used OIDC with signed provenance (transparency log `3700388924`). Post-tag changes affect only the Release runner, not published code.
+
+On November 6 the public tarball (99 files) passed identity/version/gitHead, SHA1 against registry and publish log, SHA512 against registry, and one isolated installed-package smoke: CLI/help, 93 license texts, browser tool, HTTP and demo persistence (2 floors, 11 agents, not scale-load validation). SHA256: `1d5c84af873a9d2b8bdd29f043142a16089e1707015be57dd8c0a0d5b16d2d61`. No real installation or user demo was updated or restarted.
+
+Preserved failures include the first Release `42054859208`'s five attempts without macOS execution or publication, and the November 5 public verifier that stopped after 15 HTTP 404 responses through 20:28 UTC without download/smoke. Later availability does not turn them into successes: no republication occurred. Post-merge CI [42097779283](https://github.com/rosariomoscato/droidsembly/actions/runs/42097779283) is **not entirely green**: four environments passed; ARM never started because no runner was assigned. The owner authorized only this missing verification; earlier PR/dev ARM passes remain historical, not substitutes. No ARM check was removed and no exception covers executed, failing tests.
+
 ### Known issue: intermittent timing failures
 
 [Issue #39](https://github.com/rosariomoscato/droidsembly/issues/39) remains open. Earlier local complete suites exceeded the 5-second browser-source scan budget (up to 19.6 s) and measured a 9.92 ms median for 15 path plans against an 8 ms budget. Latest integrated-commit checks passed, but the variability's cause is unproven. No thresholds, samples or assertions were reduced. Possible intermittent validation failures and, if path-planning slowdowns also occur in application use, frame-time spikes; these timing failures do not demonstrate data loss or secret leakage. Integration into `dev` was explicitly accepted with this risk retained.
@@ -60,10 +76,9 @@ The owner explicitly accepted this uncertainty for beta.2 without claiming resol
 
 Future work: investigate shutdown thoroughly and evaluate a possible agent capacity cap, for example 150. **No cap is implemented now, and 150 is not a demonstrated safe limit.** CEO inclusion, per-floor versus whole-office scope, and active versus total agents must be defined, then validated under load and reviewed. The existing 151-agent test is not reduced as a CI workaround.
 
-## Release gates / Passaggi ancora richiesti
+## Stato dei passaggi e autorizzazioni future / Completed steps and future authorizations
 
-- Review and integrate this known-risk notes update through a PR to `dev`, then a separately approved promotion to `main`; earlier candidate integration does not include these later notes automatically.
-- Review final IT/EN notes and the separate open risks #39 and #42; risk acceptance is not proof of resolution.
-- Separate authorization for a version-matched tag and npm publication on `next`; beta.2 remains unpublished.
-- Maintainer-approved publishing authentication/OIDC; do not request credentials or re-publish beta.1.
-- Separate authorization for website or real-installation/data updates.
+- Note sui rischi integrate in `main` con PR #45; runner Release Intel integrato tramite PR #46/#47. / Risk notes merged into `main` via PR #45; Intel Release runner integrated via PR #46/#47.
+- Tag e pubblicazione beta.2 autorizzati ed eseguiti; OIDC e tarball pubblico verificati. Non ripubblicare beta.1 o beta.2, non spostare il tag. / Beta.2 tag and publication authorized and completed; OIDC and public tarball verified. Do not republish beta.1 or beta.2 or move the tag.
+- Issue #39/#42 ancora aperte e accettate per beta.2, non risolte; PR #43 resta draft diagnostica, non un fix. Esperimento I/O-turn drain escluso: nessun miglioramento materiale dimostrato. / Issues #39/#42 remain open and accepted for beta.2, not fixed; PR #43 remains a diagnostic draft, not a fix. The I/O-turn drain experiment is excluded: no material improvement demonstrated.
+- Ogni merge/promozione, nuova pubblicazione, cambio dist-tag, deploy del sito o aggiornamento di installazione/dati reali richiede autorizzazione distinta. Non richiedere credenziali o codici. / Every merge/promotion, new publication, dist-tag change, site deployment or real-installation/data update requires separate authorization. Do not request credentials or codes.
