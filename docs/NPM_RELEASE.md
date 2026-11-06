@@ -2,11 +2,28 @@
 
 ## Stato / Status
 
-### Candidata successiva / Next candidate
+### Beta.2 pubblicata e verificata / Beta.2 published and verified
 
-**IT:** `0.4.0-beta.2` è preparata e il codice è stato promosso in `main`, canale previsto `next`: **non pubblicata**. Le note sui rischi noti sono aggiornate tramite revisione separata: [note IT/EN](RELEASE_NOTES_0.4.0-beta.2.md), [issue #39](https://github.com/rosariomoscato/droidsembly/issues/39) e [issue #42](https://github.com/rosariomoscato/droidsembly/issues/42), ancora aperte. Il rischio shutdown dell'issue #42 è stato accettato per beta.2, non dichiarato risolto; nessun cap agenti è applicato. Nessuna autorizzazione implicita a creare tag, avviare Release/OIDC, cambiare dist-tag o aggiornare installazioni/dati. La beta.1 pubblicata descritta sotto resta invariata.
+**IT:** `droidsembly@0.4.0-beta.2` è pubblicata su `next` e il tarball pubblico è stato verificato il 6 novembre 2026. `latest` resta `0.4.0-beta.1`: `npm install droidsembly` seleziona beta.1, mentre `npm install droidsembly@next` seleziona beta.2. Questi comandi descrivono i canali, non autorizzano aggiornamenti delle installazioni reali. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.2.md) conservano i rischi accettati e non risolti delle issue [#39](https://github.com/rosariomoscato/droidsembly/issues/39) e [#42](https://github.com/rosariomoscato/droidsembly/issues/42). Nessun nuovo cap agenti è implementato.
 
-**EN:** `0.4.0-beta.2` is prepared and its code has been promoted into `main`, intended channel `next`: **not published**. Known-risk notes are updated through separate review: [IT/EN notes](RELEASE_NOTES_0.4.0-beta.2.md), open issues [#39](https://github.com/rosariomoscato/droidsembly/issues/39) and [#42](https://github.com/rosariomoscato/droidsembly/issues/42). Issue #42's shutdown risk was accepted for beta.2, not declared fixed; no agent cap is applied. This does not authorize tags, Release/OIDC execution, dist-tag changes or installation/data updates. The published beta.1 described below remains unchanged.
+**EN:** `droidsembly@0.4.0-beta.2` is published on `next`; its public tarball was verified on November 6, 2026. `latest` remains `0.4.0-beta.1`: `npm install droidsembly` selects beta.1, while `npm install droidsembly@next` selects beta.2. These commands describe channels, not authorization to update real installations. The [IT/EN notes](RELEASE_NOTES_0.4.0-beta.2.md) retain the accepted, unresolved risks in issues [#39](https://github.com/rosariomoscato/droidsembly/issues/39) and [#42](https://github.com/rosariomoscato/droidsembly/issues/42). No new agent cap is implemented.
+
+- Tag annotato immutabile / Immutable annotated tag: `droidsembly-v0.4.0-beta.2` → `3292f5c78483ca37eae198de93faf5da1d5cdb11`.
+- [Release 42100317893](https://github.com/rosariomoscato/droidsembly/actions/runs/42100317893): Ubuntu, Windows e macOS Intel eseguiti e passati; il publish ha ripetuto test/build/smoke e pubblicato tramite OIDC. / Ubuntu, Windows and Intel macOS actually ran and passed; publication repeated tests/build/smoke and used OIDC.
+- [Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.2) creata il 5 novembre 2026. Provenance firmata nel transparency log, indice `3700388924`. / GitHub prerelease created November 5, 2026; signed provenance recorded at transparency-log index `3700388924`.
+- Tarball pubblico / Public tarball: 99 file/files; SHA1 `89984f6215a6539f7b756608096ac5de279d7811`, corrispondente al log publish / matching the publish log; SHA512 verificato contro il registry / checked against the registry.
+- SHA256: `1d5c84af873a9d2b8bdd29f043142a16089e1707015be57dd8c0a0d5b16d2d61`.
+- Smoke del tarball pubblico passato una volta: versione/help, 93 testi di licenza client, browser tool, HTTP e persistenza demo in installazione/home temporanee isolate (2 piani, 11 agenti; non il test di scala). / Public-tarball smoke passed once: version/help, 93 client license texts, browser tool, HTTP and demo persistence in isolated temporary installation/home (2 floors, 11 agents; not the scale test).
+
+**IT:** I cinque tentativi della prima Release `42054859208` sono rimasti bloccati prima dell'esecuzione macOS, con publish saltato. Dopo il publish riuscito, il verificatore pubblico del 5 novembre ha ricevuto 404 per 15 controlli fino alle 20:28 UTC e si è fermato: nessun download o smoke allora. Il successo del 6 novembre è evidenza successiva, non cancella quel fallimento e non deriva da una ripubblicazione. Non ripubblicare beta.2, non spostare il tag e non rilanciare Release. La CI post-merge [42097779283](https://github.com/rosariomoscato/droidsembly/actions/runs/42097779283) non è interamente verde: quattro ambienti passati, ARM mai avviato per indisponibilità runner; il titolare ha autorizzato solo questa verifica mancante. I precedenti passaggi ARM PR/dev sono storici, non sostituiscono il job mancante. Nessun controllo ARM è stato eliminato e nessuna deroga copre test eseguiti e falliti.
+
+**EN:** The first Release `42054859208` had five attempts blocked before macOS execution, with publication skipped. After successful publication, the November 5 public verifier received 404 for 15 checks through 20:28 UTC and stopped without downloading or smoke-testing. November 6 success is later evidence: it neither erases that failure nor follows a republication. Do not republish beta.2, move its tag or redispatch Release. Post-merge CI [42097779283](https://github.com/rosariomoscato/droidsembly/actions/runs/42097779283) is not entirely green: four environments passed; ARM never started because no runner was assigned. The owner authorized only this missing verification. Earlier PR/dev ARM passes are historical, not substitutes for the missing job. No ARM check was removed and no exception covers executed, failing tests.
+
+### Storico beta.1 / Beta.1 history
+
+**IT:** I paragrafi seguenti descrivono lo stato alla prima pubblicazione, non i dist-tag o lo stato OIDC attuali riportati sopra.
+
+**EN:** The following paragraphs describe the initial publication state, not the current dist-tags or OIDC status reported above.
 
 **IT:** Pubblicato e verificato [droidsembly@0.4.0-beta.1](https://www.npmjs.com/package/droidsembly), comando `droidsembly`, canale consigliato `next`, dal commit `803cb9eab25fc98a5312667f91b43fbd3a77fccc`. Prima pubblicazione effettuata con account `rosariomoscato` e verifica interattiva 2FA. Il publisher GitHub/OIDC resta da configurare e validare per una futura versione.
 
@@ -47,7 +64,11 @@ Su macOS/Linux usare `npm` e la sintassi della shell per le variabili. La suite 
 
 Lo smoke installa il tarball effettivo in una cartella temporanea, controlla versione/help tramite il comando installato, verifica licenze e avvia solo la demo. `CI=1` disabilita il controllo degli aggiornamenti. Non usa l'ufficio reale né richieste AI. / The smoke installs the actual tarball in a temporary folder, checks the installed command's version/help and license files, and starts only a demo. `CI=1` disables update checks. It does not use the real office or make AI requests.
 
-## Bootstrap completato e OIDC futuro / Completed bootstrap and future OIDC
+## Bootstrap e configurazione OIDC / Bootstrap and OIDC configuration
+
+**IT:** Bootstrap e primo publish OIDC sono completati: beta.2 ha validato il trusted publisher con successo nella Release sopra collegata. Le istruzioni di configurazione e i riferimenti alla prima validazione qui sotto sono storici, utili per future riconfigurazioni; non richiedono di configurare nuovamente il publisher o ripubblicare una versione esistente.
+
+**EN:** Bootstrap and the first OIDC publication are complete: beta.2 successfully validated the trusted publisher in the Release linked above. Configuration instructions and first-validation references below are historical guidance for future reconfiguration, not a request to configure the publisher again or republish an existing version.
 
 Per verificare un artefatto già conservato, passarlo come argomento: `node scripts/smoke-package.mjs "percorso/droidsembly-0.4.0-beta.1.tgz"`. Non viene ricreato. / To validate a retained artifact without repacking it, pass its path as the script's argument.
 
@@ -62,7 +83,7 @@ Il bootstrap descritto ai punti 1–2 è già completato per questa beta. Config
 
 Bootstrap steps 1–2 above are complete for this beta. Configure OIDC close to the next publication: current npm documentation requires a first successful publish within two days. GitHub fields: owner `rosariomoscato`, repository `droidsembly`, workflow `release.yml`, environment empty (the job does not use one), allow `npm publish`. The workflow uses Node 24/npm 11 and `id-token: write`. Saving the configuration does not prove it works; do not republish this beta to validate it.
 
-## Prima release GitHub / First GitHub release
+## Procedura storica per beta.1 / Historical beta.1 procedure
 
 La beta npm esiste già. Per documentarla su GitHub, dopo autorizzazione creare il tag `droidsembly-v0.4.0-beta.1` sul commit esatto `803cb9eab25fc98a5312667f91b43fbd3a77fccc` e una release marcata **prerelease**, con note EN/IT. Non avviare il workflow Release per questa versione: tenterebbe un'altra pubblicazione npm. Il tag deve identificare il codice pubblicato, non un successivo commit di sola documentazione.
 
