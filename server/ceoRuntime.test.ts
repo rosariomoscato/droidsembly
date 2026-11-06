@@ -52,22 +52,62 @@ describe('the CEO coding agent', () => {
     expect(third.swarm.snapshot().settings.language).toBe('en');
   });
   it('saves the language, rejects invalid changes and updates an active CEO without changing stored user text', async () => {
-    const { swarm, sessions, send } = await office();
-    expect(swarm.snapshot().settings.language).toBe('en');
-    swarm.updateSettings({ language: 'it' });
-    swarm.updateSettings({ language: 'de' as 'it' });
-    expect(swarm.snapshot().settings.language).toBe('it');
-    await swarm.messageCeo('Ciao');
-    await vi.waitFor(() => expect(sessions).toHaveLength(1));
-    expect(sessions[0].opts.systemAppend).toContain('Reply to the manager in Italian');
-    expect(sessions[0].opts.systemAppend).toContain('GitHub issue titles/bodies');
-    swarm.updateSettings({ language: 'en' });
-    await swarm.messageCeo('Hello again');
-    expect(send).toHaveBeenLastCalledWith(expect.stringContaining('Office language: English'));
-    expect(swarm.snapshot().messages.filter((m) => m.from === 'manager').map((m) => m.text)).toEqual(['Ciao', 'Hello again']);
-    await swarm.shutdown();
-    const saved = JSON.parse(await fs.readFile(`${home}/state.json`, 'utf8'));
-    expect(saved.settings.language).toBe('en');
+    const { swarm, sessions, send, backend } = await office();
+    // Diagnostic only: preserve every return value, rejection, timer and assertion.
+    // No prompts, user text, filesystem paths or provider settings enter this trace.
+    const started = performance.now();
+    const phases: { phase: string; ms: number; allowed?: boolean }[] = [];
+    let dropped = 0;
+    const mark = (phase: string, allowed?: boolean) => {
+      if (phases.length >= 64) { dropped++; return; }
+      phases.push({ phase, ms: Math.round((performance.now() - started) * 10) / 10, ...(allowed === undefined ? {} : { allowed }) });
+    };
+    const methods = ['schedule', 'startCeoWork', 'mayStart', 'slotsFull', 'runCeoJob', 'limited'] as const;
+    const observed = swarm as unknown as Record<typeof methods[number], (...args: unknown[]) => unknown>;
+    const spies = methods.map((method) => {
+      const original = observed[method];
+      return vi.spyOn(observed, method).mockImplementation((...args) => {
+        mark(`${method}:enter`);
+        const result = original.apply(swarm, args);
+        mark(`${method}:return`, typeof result === 'boolean' ? result : undefined);
+        return result;
+      });
+    });
+    const startSession = backend.startSession;
+    const sessionSpy = vi.spyOn(backend, 'startSession').mockImplementation((opts, cb) => {
+      mark('startSession');
+      return startSession(opts, cb);
+    });
+    let startupObserved = false;
+    try {
+      expect(swarm.snapshot().settings.language).toBe('en');
+      swarm.updateSettings({ language: 'it' });
+      swarm.updateSettings({ language: 'de' as 'it' });
+      expect(swarm.snapshot().settings.language).toBe('it');
+      await swarm.messageCeo('Ciao');
+      mark('messageCeo:queued');
+      await vi.waitFor(() => expect(sessions).toHaveLength(1));
+      startupObserved = true;
+      expect(sessions[0].opts.systemAppend).toContain('Reply to the manager in Italian');
+      expect(sessions[0].opts.systemAppend).toContain('GitHub issue titles/bodies');
+      swarm.updateSettings({ language: 'en' });
+      await swarm.messageCeo('Hello again');
+      expect(send).toHaveBeenLastCalledWith(expect.stringContaining('Office language: English'));
+      expect(swarm.snapshot().messages.filter((m) => m.from === 'manager').map((m) => m.text)).toEqual(['Ciao', 'Hello again']);
+      await swarm.shutdown();
+      const saved = JSON.parse(await fs.readFile(`${home}/state.json`, 'utf8'));
+      expect(saved.settings.language).toBe('en');
+    } finally {
+      sessionSpy.mockRestore();
+      for (const spy of spies) spy.mockRestore();
+      const state = swarm.snapshot();
+      console.info('[ceo-startup-trace]', JSON.stringify({
+        startupObserved, phases, dropped, sessions: sessions.length,
+        ceoStatus: state.agents.find((agent) => agent.id === CEO_ID)?.status,
+        queuedKinds: state.ceo.queue.map((job) => job.kind),
+        jobKind: state.ceo.job?.kind ?? null,
+      }));
+    }
   });
   it('loads the model inventory in the CEO or repository context and rejects unknown agents', async () => {
     const { swarm } = await office();
