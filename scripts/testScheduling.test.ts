@@ -44,6 +44,10 @@ describe('test resource scheduling', () => {
     expect(timing.test.maxWorkers).toBe(1);
   });
 
+  it('keeps the notification source-policy scan with its strict I/O deadline in the quiet phase', () => {
+    expect(timingSensitiveTests).toContain('server/notifier.test.ts');
+  });
+
   it('does not override timeouts, retries, sampling, isolation or the functional worker count', () => {
     for (const project of testSchedulingProjects) {
       for (const key of ['testTimeout', 'hookTimeout', 'retry', 'isolate', 'testNamePattern', 'passWithNoTests']) {

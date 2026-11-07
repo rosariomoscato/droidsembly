@@ -2,6 +2,14 @@
 
 ## Stato / Status
 
+### Beta.3 candidata — non pubblicata / Beta.3 candidate — not published
+
+**IT:** `0.4.0-beta.3` è in preparazione su un branch isolato da `dev`, per distribuire separatamente le correzioni successive alla beta.2: salvataggi terminali, completamento pulizia anteprime, orchestrazione dei test, branding OpenCode e popup merge italiano. Vedi le [note della candidata IT/EN](RELEASE_NOTES_0.4.0-beta.3.md). Il solo cambio versione non attesta test, CI, pubblicazione o aggiornamento dell'installazione reale: gli esiti del nuovo candidato devono essere registrati separatamente. Dipendenze, carichi, soglie e timeout originali restano invariati.
+
+**EN:** `0.4.0-beta.3` is being prepared on an isolated branch from `dev`, covering post-beta.2 terminal persistence, preview-cleanup completion, test scheduling, OpenCode branding and Italian merge-dialog improvements. See the [IT/EN candidate notes](RELEASE_NOTES_0.4.0-beta.3.md). A version change alone is not evidence of tests, CI, publication or a real-installation update: record this candidate's results separately. Dependency resolutions, original workloads, thresholds and timeouts remain unchanged.
+
+**IT/EN:** Beta.3 **non pubblicata / not published**. Canali pubblici verificati il 7 novembre 2026 / public channels checked November 7, 2026: `next=0.4.0-beta.2`, `latest=0.4.0-beta.1`. Nessun tag beta.3 creato / no beta.3 tag created. Il tag beta.2 resta immutabile / beta.2's tag remains immutable. Merge, promozione, nuovo tag/pubblicazione, deploy e aggiornamento reale richiedono autorizzazioni distinte / integration, promotion, tagging/publication, deployment and real-installation updates require separate approvals.
+
 ### Beta.2 pubblicata e verificata / Beta.2 published and verified
 
 **IT:** `droidsembly@0.4.0-beta.2` è pubblicata su `next` e il tarball pubblico è stato verificato il 6 novembre 2026. `latest` resta `0.4.0-beta.1`: `npm install droidsembly` seleziona beta.1, mentre `npm install droidsembly@next` seleziona beta.2. Questi comandi descrivono i canali, non autorizzano aggiornamenti delle installazioni reali. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.2.md) conservano i rischi accettati e non risolti delle issue [#39](https://github.com/rosariomoscato/droidsembly/issues/39) e [#42](https://github.com/rosariomoscato/droidsembly/issues/42). Nessun nuovo cap agenti è implementato.
