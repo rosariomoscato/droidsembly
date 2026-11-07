@@ -328,8 +328,13 @@ export function launchArgs(id: AgentCli, ctx: LaunchContext): Launch {
         plugins: [{ package: ctx.plugin, options: { sessionID, notifyUrl: ctx.notify.url, model: openCodeModelRef(model) } }],
         instructions: [ctx.files.system],
         // A dedicated primary agent also retains a model's explicit #variant (the root model setting doesn't).
-        default_agent: 'cubefarm',
-        agents: { cubefarm: { description: 'The Droidsembly office session', mode: 'primary', ...(model ? { model } : {}) } },
+        default_agent: 'droidsembly',
+        agents: {
+          droidsembly: { description: 'The Droidsembly office session', mode: 'primary', ...(model ? { model } : {}) },
+          // OpenCode keeps the agent ID on an existing session. Keep the old profile available on resume,
+          // but out of the picker: do not migrate session IDs or rewrite the user's OpenCode history.
+          ...(ctx.resumeId ? { cubefarm: { description: 'The Droidsembly office session (legacy)', mode: 'primary', hidden: true, ...(model ? { model } : {}) } } : {}),
+        },
         ...opencodeLocal(local),
         ...(Object.keys(servers).length ? { mcp: { servers } } : {}),
       };

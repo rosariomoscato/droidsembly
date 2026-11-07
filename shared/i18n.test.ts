@@ -27,6 +27,17 @@ describe('office language', () => {
     const slots = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
     for (const [key, value] of Object.entries(italian)) expect(slots(value), key).toEqual(slots(key));
   });
+  it('explains squash merging in Italian without changing the English dialog', () => {
+    expect(translate('it', 'Merge PR #{number}?', { number: 10 })).toBe('Integrare la PR #10?');
+    expect(translate('it', 'Squash & merge')).toBe('Integra unificando i commit');
+    expect(translate('it', 'Cancel')).toBe('Annulla');
+    expect(translate('it', '“{title}” passed QA. It will be squash-merged into {branch}.', { title: 'Aggiungi subtract', branch: 'main' }))
+      .toBe('“Aggiungi subtract” ha superato la verifica QA. I suoi commit verranno unificati in un unico commit e integrati nel ramo main.');
+    expect(translate('en', 'Squash & merge')).toBe('Squash & merge');
+    expect(translate('en', 'Cancel')).toBe('Cancel');
+    expect(translate('en', '“{title}” passed QA. It will be squash-merged into {branch}.', { title: 'Add subtract', branch: 'main' }))
+      .toBe('“Add subtract” passed QA. It will be squash-merged into main.');
+  });
   it('separates manager communication from English repository artifacts', () => {
     expect(communicationInstructions('it')).toContain('Reply to the manager in Italian');
     expect(communicationInstructions('it')).toContain('pull request text and repository QA briefs in English');
