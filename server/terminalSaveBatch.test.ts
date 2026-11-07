@@ -9,6 +9,7 @@ function fixture(terminals: FakeTerminal[]) {
   const swarm = new Swarm(createDemoBackend()) as unknown as {
     agentRt: Map<string, { terminal: FakeTerminal }>;
     saveTerminals(all?: boolean): Promise<void>;
+    stopping: boolean;
   };
   swarm.agentRt.clear();
   terminals.forEach((terminal, i) => swarm.agentRt.set(`fixture-${i}`, { terminal }));
@@ -17,6 +18,69 @@ function fixture(terminals: FakeTerminal[]) {
 afterEach(() => vi.restoreAllMocks());
 
 describe('bounded terminal save batch', () => {
+  it('coalesces overlapping periodic requests instead of multiplying the eight-save batch', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    const saves = Array.from({ length: 20 }, () => vi.fn(async () => {
+      active++;
+      peak = Math.max(peak, active);
+      try { await gate; } finally { active--; }
+    }));
+    const swarm = fixture(saves.map((save) => ({ dirty: true, save })));
+    const first = swarm.saveTerminals();
+    const overlapping = Array.from({ length: 5 }, () => swarm.saveTerminals());
+    try {
+      expect(active).toBe(8);
+      for (const pending of overlapping) expect(pending).toBe(first);
+    } finally {
+      release();
+      await Promise.all([first, ...overlapping]);
+    }
+    expect(peak).toBe(8);
+    for (const save of saves) expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('queues a complete final save after an active batch and retains the newest screen', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let screen = 'before shutdown';
+    const written: string[] = [];
+    const dirty = { dirty: true, save: vi.fn(async () => {
+      const captured = screen;
+      await gate;
+      written.push(captured);
+    }) };
+    const clean = { dirty: false, save: vi.fn(async () => undefined) };
+    const swarm = fixture([dirty, clean]);
+    const periodic = swarm.saveTerminals();
+    screen = 'latest screen at shutdown';
+    swarm.stopping = true;
+    const final = swarm.saveTerminals(true);
+    const latePeriodic = swarm.saveTerminals();
+    try {
+      expect(dirty.save).toHaveBeenCalledTimes(1);
+      expect(clean.save).not.toHaveBeenCalled();
+      expect(latePeriodic).toBe(final);
+    } finally {
+      release();
+      await Promise.all([periodic, final, latePeriodic]);
+    }
+    expect(written).toEqual(['before shutdown', 'latest screen at shutdown']);
+    expect(clean.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start periodic writes once shutdown has begun', async () => {
+    const save = vi.fn(async () => undefined);
+    const swarm = fixture([{ dirty: true, save }]);
+    swarm.stopping = true;
+    await swarm.saveTerminals();
+    expect(save).not.toHaveBeenCalled();
+    await swarm.saveTerminals(true);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
   it('starts eight independent saves without exceeding eight active operations', async () => {
     let release!: () => void;
     const gate = new Promise<void>(done => { release = done; });
