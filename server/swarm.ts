@@ -587,6 +587,7 @@ export class Swarm {
   private shutdownTask: Promise<void> | null = null;
   private stopping = false;
   private writing: Promise<void> = Promise.resolve(); // state file writes, one at a time: they share its temp file
+  private terminalSaving: Promise<void> | null = null;
   private logSeq = 1;
   private previews: Previews;
   private officeHead: string | null = null; // the commit the office runs (null: not a git checkout, so no self-update)
@@ -2820,7 +2821,20 @@ export class Swarm {
     return t;
   }
 
-  private async saveTerminals(all = false) {
+  private saveTerminals(all = false): Promise<void> {
+    // A periodic tick must not multiply the eight-save bound while an older
+    // batch is still doing I/O. A final save waits for it, then saves every
+    // terminal afresh; no new periodic work may race the shutdown barrier.
+    if (!all && (this.stopping || this.terminalSaving)) return this.terminalSaving ?? Promise.resolve();
+    const write = () => this.writeTerminals(all);
+    const next = this.terminalSaving ? this.terminalSaving.then(write, write) : write();
+    this.terminalSaving = next;
+    const clear = () => { if (this.terminalSaving === next) this.terminalSaving = null; };
+    void next.then(clear, clear);
+    return next;
+  }
+
+  private async writeTerminals(all: boolean) {
     const pending = [...this.agentRt].flatMap(([id, rt]) =>
       rt.terminal && (all || rt.terminal.dirty) ? [{ id, terminal: rt.terminal }] : [],
     );

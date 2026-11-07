@@ -78,6 +78,9 @@ describe('OpenCode failed turns', () => {
     const args = spawn.mock.calls[1][1] as string[];
     expect(args[args.indexOf('--session') + 1]).toBe('ses_existing');
     const config = JSON.parse(spawn.mock.calls[1][2].env.OPENCODE_CONFIG_CONTENT);
+    expect(config.default_agent).toBe('droidsembly');
+    expect(config.agents.droidsembly.model).toBe('openai/other#medium');
+    expect(config.agents.cubefarm).toMatchObject({ hidden: true, model: 'openai/other#medium' });
     expect(config.plugins[0].options.model).toEqual({ providerID: 'openai', id: 'other', variant: 'medium' });
     next.stop();
     await vi.advanceTimersByTimeAsync(3000);

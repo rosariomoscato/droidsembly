@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Backend } from './backend.ts';
 import { PR_PREVIEW_IDLE_MS, PREVIEW_PORT } from './config.ts';
 import type { PreviewCallbacks, PreviewJob } from './previewRunner.ts';
@@ -149,12 +149,40 @@ describe('a PR preview stops', () => {
 
   it('after the idle time with nobody watching', async () => {
     await previews.startPr(floor(1), 1, 'x');
-    previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS / 2);
+    await previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS / 2);
     expect(previews.prViews()).toHaveLength(1);
-    previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS + 1000);
-    await settle();
+    await previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS + 1000);
     expect(previews.prViews()).toHaveLength(0);
     expect(calls).toContain('remove acme/app1 preview-pr-1');
+  });
+
+  it('waits for delayed idle cleanup and does not stop the same preview twice', async () => {
+    await previews.startPr(floor(1), 1, 'x');
+    let release!: () => void;
+    let entered!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const releasing = new Promise<void>((resolve) => { entered = resolve; });
+    const releaseDesk = vi.spyOn(backend, 'releaseDesk').mockImplementationOnce(async () => {
+      calls.push('release acme/app1 preview-pr-1');
+      entered();
+      await blocked;
+    });
+    let settled = false;
+    const sweep = previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS + 1000).then(() => { settled = true; });
+    try {
+      await releasing;
+      expect(previews.prViews()).toHaveLength(0);
+      expect(calls).toEqual(['release acme/app1 preview-pr-1']);
+      await previews.sweepPrs(Date.now() + PR_PREVIEW_IDLE_MS + 2000);
+      expect(settled).toBe(false);
+      expect(releaseDesk).toHaveBeenCalledTimes(1);
+    } finally {
+      release();
+      await sweep;
+      releaseDesk.mockRestore();
+    }
+    expect(settled).toBe(true);
+    expect(calls).toEqual(['release acme/app1 preview-pr-1', 'remove acme/app1 preview-pr-1']);
   });
 
   it('when the office stops, worktrees and all; the next start clears what a hard stop left', async () => {
