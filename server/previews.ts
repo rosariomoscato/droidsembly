@@ -317,15 +317,17 @@ export class Previews {
     this.tellScreen(watched);
   }
 
-  /** Every few seconds: forget viewers that went quiet, and stop PR previews nobody has watched for the idle time. */
+  /** Forget quiet viewers and stop idle previews. Resolves after their app/worktree cleanup, not just removal from the view. */
   sweepPrs(now = Date.now()) {
+    const stopping: Promise<void>[] = [];
     for (const [viewer, w] of this.watches) if (now - w.at > WATCH_MS) this.watches.delete(viewer);
     for (const key of expired(this.prInfos(), this.screen(now), now, PR_PREVIEW_IDLE_MS)) {
       const r = this.prRuns.get(key)!;
       console.log(`PR theatre: PR #${r.pr} of ${r.fullName} stopped after ${+(PR_PREVIEW_IDLE_MS / 60_000).toFixed(2)} minutes off screen`);
-      void this.endPr(r);
+      stopping.push(this.endPr(r));
     }
     this.tellScreen();
+    return Promise.all(stopping).then(() => undefined);
   }
 
   /** The floor's PRs as the office knows them now: previews of PRs that merged or closed stop. */
