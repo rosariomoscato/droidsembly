@@ -5,6 +5,7 @@ import { configDefaults } from 'vitest/config';
 export const timingSensitiveTests = [
   'server/scale.test.ts',
   'server/httpParser.test.ts',
+  'server/notifier.test.ts',
   'client/src/world/appearance.test.ts',
   'client/src/world/face.test.ts',
   'client/src/world/walkways.test.ts',
