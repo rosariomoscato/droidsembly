@@ -183,6 +183,8 @@ describe('launchArgs', () => {
     expect(launch.args.slice(-2)).toEqual(['--prompt', '--looks like a flag']);
     const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
     expect(config.plugins).toEqual([{ package: 'file:///cubefarm-plugin', options: { sessionID: 'ses_cubefarm11111111111111111111111111111111', notifyUrl: ctx().notify.url, model: null } }]);
+    expect(config.default_agent).toBe('droidsembly');
+    expect(config.agents).toEqual({ droidsembly: { description: 'The Droidsembly office session', mode: 'primary' } });
     for (const deprecated of ['plugin', 'permission', 'provider', 'autoupdate']) expect(config).not.toHaveProperty(deprecated);
   });
 
@@ -190,7 +192,9 @@ describe('launchArgs', () => {
     const launch = launchArgs('opencode', ctx({ role: 'ceo', resumeId: 'ses_existing', officeUrl: 'http://127.0.0.1:4417/api/mcp/token', model: 'openai/test-model#high' }));
     const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
     expect(config.mcp.servers.office).toEqual({ type: 'remote', url: 'http://127.0.0.1:4417/api/mcp/token', oauth: false, codemode: false });
-    expect(config.agents.cubefarm.model).toBe('openai/test-model#high');
+    expect(config.default_agent).toBe('droidsembly');
+    expect(config.agents.droidsembly.model).toBe('openai/test-model#high');
+    expect(config.agents.cubefarm).toEqual({ description: 'The Droidsembly office session (legacy)', mode: 'primary', hidden: true, model: 'openai/test-model#high' });
     expect(config.plugins[0].options.model).toEqual({ providerID: 'openai', id: 'test-model', variant: 'high' });
     expect(launch.args.slice(launch.args.indexOf('--session'), launch.args.indexOf('--session') + 2)).toEqual(['--session', 'ses_existing']);
     expect(config.plugins[0].options.sessionID).toBe('ses_existing');
@@ -200,6 +204,17 @@ describe('launchArgs', () => {
   it('connects the existing browser through native OpenCode V2 MCP configuration', () => {
     const config = JSON.parse(launchArgs('opencode', ctx({ browser: { command: 'node', args: ['browser.js'] } })).env.OPENCODE_CONFIG_CONTENT);
     expect(config.mcp.servers.playwright).toEqual({ type: 'local', command: ['node', 'browser.js'] });
+  });
+
+  it.each(['agent', 'ceo'] as const)('keeps a historical OpenCode session ID and model variant intact for a %s', (role) => {
+    const resumeId = 'ses_cubefarm11111111111111111111111111111111';
+    const launch = launchArgs('opencode', ctx({ role, resumeId, model: 'openai/test-model#medium' }));
+    const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
+    expect(launch.args[launch.args.indexOf('--session') + 1]).toBe(resumeId);
+    expect(config.plugins[0].options.sessionID).toBe(resumeId);
+    expect(config.default_agent).toBe('droidsembly');
+    expect(config.agents.droidsembly.model).toBe('openai/test-model#medium');
+    expect(config.agents.cubefarm).toMatchObject({ mode: 'primary', hidden: true, model: 'openai/test-model#medium' });
   });
 
   it('runs Codex on a local model through its own --oss, or a provider of the office\'s', () => {
@@ -216,7 +231,7 @@ describe('launchArgs', () => {
 
   it('gives OpenCode the local server a model runs on', () => {
     const launch = launchArgs('opencode', ctx({ model: 'llama.cpp/qwen/coder' }));
-    expect(JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT).agents.cubefarm.model).toBe('llamacpp/qwen/coder');
+    expect(JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT).agents.droidsembly.model).toBe('llamacpp/qwen/coder');
     expect(JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT).providers).toEqual({
       llamacpp: { package: '@opencode/ai/providers/openai-compatible', name: 'llama.cpp', settings: { baseURL: 'http://127.0.0.1:8080/v1' }, models: { 'qwen/coder': { name: 'qwen/coder', capabilities: { tools: true } } } },
     });

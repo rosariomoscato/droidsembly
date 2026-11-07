@@ -120,12 +120,13 @@ export function KanbanView({ repoId, embedded }: { repoId: string; embedded?: bo
     const passed = c.qa?.status === 'passed';
     const ok = await confirmDialog(
       passed
-        ? { icon: '🎉', title: t('Merge PR #{number}?', { number: c.number }), body: t('“{title}” passed QA. It will be squash-merged into {branch}.', { title: c.title, branch: repo.defaultBranch }), confirm: t('Squash & merge') }
+        ? { icon: '🎉', title: t('Merge PR #{number}?', { number: c.number }), body: t('“{title}” passed QA. It will be squash-merged into {branch}.', { title: c.title, branch: repo.defaultBranch }), confirm: t('Squash & merge'), cancel: t('Cancel') }
         : {
             tone: 'warn',
             title: t('Merge PR #{number} without QA?', { number: c.number }),
             body: t('“{title}” has not passed QA yet. Merge it into {branch} anyway?', { title: c.title, branch: repo.defaultBranch }),
             confirm: t('Merge anyway'),
+            cancel: t('Cancel'),
           },
     );
     if (ok) void act(c.key, () => api.mergePull(repo.id, c.number));
