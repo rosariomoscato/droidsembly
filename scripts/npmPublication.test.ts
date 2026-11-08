@@ -62,6 +62,25 @@ describe('read-only npm publication availability', () => {
     expect(await inspectPublication(expected, fixture({ tarballStatus: 404 }))).toMatchObject({ available: false, reason: 'tarball-not-visible' });
   });
 
+  it('keeps an originally absent target channel pending while it remains absent', async () => {
+    const previousChannels = { latest: expected.previousChannels.latest };
+    const fetcher = fixture({ channels: previousChannels });
+    expect(await inspectPublication({ ...expected, previousChannels }, fetcher)).toMatchObject({ available: false, reason: 'channel-not-visible', channels: previousChannels });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails immediately without sleeping if the target channel changes to an unrelated version or disappears', async () => {
+    for (const changed of [{ latest: channels.latest, next: '0.4.0-beta.99' }, { latest: channels.latest }]) {
+      let clock = 0;
+      const fetcher = fixture({ channels: changed });
+      const sleep = vi.fn(async (ms: number) => { clock += ms; });
+      await expect(waitForPublication(expected, { fetcher, now: () => clock, sleep })).rejects.toThrow('Target channel changed unexpectedly');
+      expect(sleep).not.toHaveBeenCalled();
+      expect(fetcher).toHaveBeenCalledTimes(2);
+      expect(clock).toBe(0);
+    }
+  });
+
   it('rejects wrong package identity, version, source commit or integrity immediately', async () => {
     for (const bad of [{ ...version, name: 'another' }, { ...version, version: '0.4.0-beta.3' }, { ...version, gitHead: 'b'.repeat(40) }, { ...version, dist: { ...version.dist, integrity: 'sha512-wrong' } }]) {
       const fetcher = fixture({ version: bad });

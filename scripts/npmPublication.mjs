@@ -53,7 +53,10 @@ export async function inspectPublication(expected, fetcher = fetch, budgetMs = 3
   assert.equal(tagsResponse.status, 200);
   const channels = await tagsResponse.json();
   if (expected.channel !== 'latest') assert.equal(channels.latest, expected.previousChannels.latest, 'latest changed during prerelease publication');
-  if (channels[expected.channel] !== expected.version) return { available: false, reason: 'channel-not-visible', channels };
+  if (channels[expected.channel] !== expected.version) {
+    assert.equal(channels[expected.channel], expected.previousChannels[expected.channel], 'Target channel changed unexpectedly from the pre-publish snapshot');
+    return { available: false, reason: 'channel-not-visible', channels };
+  }
   // Use the canonical URL, never cache-busting query parameters, to test what npm installs.
   const response = await request(tarball.href, fetcher, remaining());
   if (response.status === 404) return { available: false, reason: 'tarball-not-visible', channels };
