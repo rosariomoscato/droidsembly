@@ -1,11 +1,17 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { performance as nodePerformance } from 'node:perf_hooks';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { WebSocket } from 'ws';
 import type { ServerEvent } from '../shared/types.ts';
 import { closeOfficeFixture } from '../scripts/officeFixture.ts';
 import type { AgentTerminal } from './terminal.ts';
+import { createPrefixSampler, createShutdownObservation } from '../scripts/shutdownObservation.ts';
+
+// Capture real diagnostic timer functions before the workload freezes globals.
+const realSetInterval = globalThis.setInterval;
+const realClearInterval = globalThis.clearInterval;
 
 // A whole office writes its state, secrets and voice cache: a folder of its own, so other tests' files are left alone.
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-scale-'));
@@ -26,8 +32,52 @@ afterAll(async () => {
   // cleanup. Surface write failures and retain the fixture if closing fails.
   vi.restoreAllMocks();
   // A timed-out hook may never reach finally. Emit each boundary as it occurs
-  // so CI identifies the unfinished phase, without wrapping runtime methods.
+  // so CI identifies the unfinished phase. Coarse pass-through observations
+  // below do not replace any result/promise or change the clock driver.
   const started = performance.now();
+  const observer = createShutdownObservation();
+  const initialCpu = process.cpuUsage();
+  const initialLoop = nodePerformance.eventLoopUtilization();
+  const detail = (phase: string) => {
+    console.info('issue42-detail', JSON.stringify({
+      phase, elapsedMs: performance.now() - started,
+      cpuMicroseconds: process.cpuUsage(initialCpu),
+      loop: nodePerformance.eventLoopUtilization(initialLoop),
+      ...observer.snapshot(),
+    }));
+  };
+  let samplePrefixes = () => {};
+  // Only coarse native checkpoints, not per-save/per-file instrumentation.
+  // Sampling a queue prefix does not count all active or subsequent writes.
+  const pulse = realSetInterval(() => { samplePrefixes(); detail('pending-checkpoint'); }, 2_000);
+  pulse.unref();
+  if (office) {
+    const runtime = office as unknown as {
+      agentRt: Map<string, { terminal?: { saving: Promise<void> } }>;
+      terminalSaving: Promise<void> | null;
+      writeState(): Promise<void>;
+      saveTerminals(all?: boolean): Promise<void>;
+      backend: { releaseClis(restart: boolean): Promise<void> };
+      previews: { stopAll(repos: unknown): Promise<void> };
+    };
+    const sample = createPrefixSampler(promise => observer.measure('sampled-terminal-prefix', () => promise));
+    samplePrefixes = () => {
+      for (const rt of runtime.agentRt.values()) if (rt.terminal) sample(rt.terminal, rt.terminal.saving);
+    };
+    if (runtime.terminalSaving) observer.measure('initial-periodic-batch', () => runtime.terminalSaving!);
+    const state = runtime.writeState.bind(runtime);
+    vi.spyOn(runtime, 'writeState').mockImplementation(() => { detail('state-begin'); return observer.measure('state', state); });
+    const journal = office.journal.close.bind(office.journal);
+    vi.spyOn(office.journal, 'close').mockImplementation(() => { detail('journal-begin'); return observer.measure('journal', journal); });
+    const release = runtime.backend.releaseClis.bind(runtime.backend);
+    vi.spyOn(runtime.backend, 'releaseClis').mockImplementation(restart => { detail('clis-begin'); return observer.measure('clis', () => release(restart)); });
+    const terminals = runtime.saveTerminals.bind(runtime);
+    vi.spyOn(runtime, 'saveTerminals').mockImplementation(all => { detail(all ? 'final-batch-begin' : 'periodic-batch-begin'); return observer.measure(all ? 'final-batch' : 'periodic-batch', () => terminals(all)); });
+    const previews = runtime.previews.stopAll.bind(runtime.previews);
+    vi.spyOn(runtime.previews, 'stopAll').mockImplementation(repos => { detail('previews-begin'); return observer.measure('previews', () => previews(repos)); });
+  }
+  samplePrefixes();
+  detail('observer-installed');
   const trace = (phase: string) => console.info('scale teardown', { phase, elapsedMs: performance.now() - started });
   trace('parser-drain-begin');
   const warnings: string[] = [];
@@ -75,6 +125,9 @@ afterAll(async () => {
       remove();
     }
   } finally {
+    realClearInterval(pulse);
+    samplePrefixes();
+    detail('observer-final');
     if (vi.isFakeTimers()) vi.clearAllTimers();
     vi.useRealTimers();
     vi.restoreAllMocks();
