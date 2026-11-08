@@ -64,6 +64,7 @@ jobs:
     env:
       SWARM_HOME: ${{ github.workspace }}/.ci-swarm-home
       SWARM_PORT: '0'
+      RELEASE_EVIDENCE: ${{ runner.temp }}/droidsembly-release
     steps:
       - uses: actions/checkout@v5
         with:
@@ -86,11 +87,26 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - run: node scripts/smoke-package.mjs
+      - id: artifact
+        name: Pack exact artifact and snapshot unpublished identity and channels
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          mkdir -p "$RELEASE_EVIDENCE"
+          npm pack --ignore-scripts --json --pack-destination "$RELEASE_EVIDENCE" > "$RELEASE_EVIDENCE/pack.json"
+          node scripts/verify-npm-publication.mjs capture
+      - name: Smoke the exact artifact before publishing
+        run: node scripts/smoke-package.mjs "${{ steps.artifact.outputs.tarball }}"
       - name: Publish public package with OIDC
         env:
           CHANNEL: ${{ steps.release.outputs.channel }}
+        # Keep directory publication so npm records gitHead. The public bytes must
+        # still match the exact pre-publish pack (verified below, fail closed).
         run: npm publish --ignore-scripts --access public --tag "$CHANNEL"
+      - name: Confirm canonical public artifact and channels (read-only, bounded)
+        run: node scripts/verify-npm-publication.mjs verify
+      - name: Smoke the downloaded public artifact
+        run: node scripts/smoke-package.mjs "$RELEASE_EVIDENCE/public.tgz"
       - name: Create fork release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -105,3 +121,10 @@ jobs:
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag "${flags[@]}" --title "$TAG" --notes "First Droidsembly npm release. Based on CubeFarm by Leon van Zyl, MIT licensed. See the repository README for installation, provider costs and compatibility."
           fi
+      - name: Preserve publication artifacts and availability diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-${{ inputs.tag }}
+          path: ${{ env.RELEASE_EVIDENCE }}
+          if-no-files-found: ignore
