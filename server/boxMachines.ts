@@ -35,10 +35,15 @@ import type { BoxApi, BoxInfo } from './box.ts';
 import type { MachineProvider } from './machines.ts';
 import type { DeskBase } from './workspace.ts';
 import type { DepsCallbacks, DepsOutcome } from './deps.ts';
-import type { BoxSize, CloudMachineState } from '../shared/types.ts';
+import type { AgentCli, BoxSize, CloudMachineState } from '../shared/types.ts';
+import { OPENCODE_BOX_ENV, openCodeBoxQuery, parseOpenCodeReadiness } from './openCodeBox.ts';
+import type { OpenCodeReadiness } from '../shared/opencodeReadiness.ts';
+import { GateDiagnosticError } from '../shared/opencodeGateDiagnostics.ts';
+import { sanitizeCatalog } from './opencodeModels.ts';
+import { sanitizeConnections } from '../shared/opencodeConnections.ts';
 
 /** Bump when setupScript changes in a way existing Boxes need. */
-const SETUP_REV = 2;
+const SETUP_REV = 4;
 const SETUP_TIMEOUT_MS = 20 * 60_000;
 const LIVE: BoxInfo['status'][] = ['running', 'idle', 'creating'];
 
@@ -47,6 +52,9 @@ export interface BoxMachinesDeps {
   office: () => string;
   size: () => BoxSize;
   versions: BoxVersions;
+  /** Install only this machine's coding agent. Omitted by legacy callers: all CLIs. */
+  cli?: (machine: string) => AgentCli;
+  browser?: (machine: string) => boolean;
   /** Who the Box's commits are by (the manager's git identity). */
   git: () => Promise<{ name: string; email: string }>;
   /** GitHub's token for a command that clones or fetches (as its environment only). */
@@ -73,7 +81,7 @@ const stamp = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStar
 
 export class BoxMachines implements MachineProvider {
   private ids = new Map<string, string>(); // machine -> Box id
-  private ready = new Map<string, Promise<string>>(); // machine -> its Box, set up (once per office run)
+  private ready = new Map<string, { profile: string; promise: Promise<string> }>();
   private states = new Map<string, CloudMachineState>();
 
   constructor(private deps: BoxMachinesDeps) {}
@@ -127,18 +135,22 @@ export class BoxMachines implements MachineProvider {
 
   /** The machine's Box, created, running and set up: the first time takes a few minutes. */
   ensure(machine: string, note?: (text: string) => void): Promise<string> {
-    let p = this.ready.get(machine);
-    if (!p) {
-      p = this.bringUp(machine, note).catch((err) => {
-        this.ready.delete(machine);
+    const cli = this.deps.cli?.(machine);
+    const browser = this.deps.browser?.(machine) ?? !cli;
+    const profile = `${cli ?? 'all'}:${browser}`;
+    const previous = this.ready.get(machine);
+    if (!previous || previous.profile !== profile) {
+      // A profile change is serialized after setup, never a second concurrent create for this machine.
+      const p = (previous ? previous.promise : Promise.resolve()).then(() => this.bringUp(machine, note, cli, browser)).catch((err) => {
+        if (this.ready.get(machine)?.promise === p) this.ready.delete(machine);
         this.setState(machine, 'error');
         throw err;
       });
-      this.ready.set(machine, p);
+      this.ready.set(machine, { profile, promise: p });
       return p;
     }
     // Set up earlier this run: just make sure it's awake.
-    return p.then(async (id) => {
+    return previous.promise.then(async (id) => {
       const info = await this.api().get(id);
       if (!info) {
         this.ready.delete(machine);
@@ -154,7 +166,7 @@ export class BoxMachines implements MachineProvider {
     });
   }
 
-  private async bringUp(machine: string, note?: (text: string) => void): Promise<string> {
+  private async bringUp(machine: string, note?: (text: string) => void, cli?: AgentCli, browser = false): Promise<string> {
     const api = this.api();
     let id = await this.boxId(machine);
     if (id) {
@@ -177,7 +189,7 @@ export class BoxMachines implements MachineProvider {
     }
     this.setState(machine, 'setting-up');
     const git = await this.deps.git();
-    const setup = await api.run(id, setupScript({ versions: this.deps.versions, rev: SETUP_REV, gitName: git.name, gitEmail: git.email }), { timeoutMs: SETUP_TIMEOUT_MS });
+    const setup = await api.run(id, setupScript({ versions: this.deps.versions, rev: SETUP_REV, gitName: git.name, gitEmail: git.email, cli, browser }), { timeoutMs: SETUP_TIMEOUT_MS });
     if (setup.code !== 0 || !setup.output.includes('CUBEFARM_SETUP_OK')) throw failure("Couldn't set up the cloud machine", setup.output, this.deps.secrets());
     for (const [name, source] of Object.entries(BOX_HELPERS)) await api.write(id, `${BOX_BIN}/${name}`, source);
     await api.write(id, BOX_TMUX_CONF, TMUX_CONF);
@@ -320,16 +332,57 @@ export class BoxMachines implements MachineProvider {
    * Is the Box's own CLI signed in (its login in the Box user's home)? Run with no credentials of any kind, so only that
    * login counts. Wakes the Box. Throws when Upstash can't say.
    */
-  async signedIn(machine: string, cli: 'claude' | 'codex'): Promise<boolean> {
+  async signedIn(machine: string, cli: AgentCli, directory?: string, model = ''): Promise<boolean> {
     const id = await this.ensure(machine);
-    const r = await this.api().run(id, signInCheckScript(cli), { timeoutMs: 60_000 });
+    const r = await this.api().run(id, cli === 'opencode' ? openCodeBoxQuery('status', directory, model) : signInCheckScript(cli), { timeoutMs: 60_000, ...(cli === 'opencode' ? { env: OPENCODE_BOX_ENV } : {}) });
     const out = signInOutcome(r.output);
-    if (out === null) throw new Error(`Couldn't ask ${cli === 'claude' ? 'Claude Code' : 'Codex'} in the cloud machine whether it's signed in.`);
+    if (r.code !== 0 || out === null) throw new Error(`Couldn't check the coding agent's connection in the cloud machine. Check its provider and model setup.`);
     return out;
   }
 
+  async openCodeConnections(machine: string, directory: string) {
+    const id = await this.boxId(machine);
+    if (!id) throw new Error('The cloud machine is not ready. Connection settings never create a Box.');
+    const r = await this.api().run(id, openCodeBoxQuery('connections', directory), { env: OPENCODE_BOX_ENV, timeoutMs: 60_000 });
+    if (r.code !== 0) throw new Error('Could not read OpenCode connections in the cloud machine.');
+    try { return sanitizeConnections(JSON.parse(r.output)); }
+    catch { throw new Error('Invalid OpenCode connections from the cloud machine.'); }
+  }
+
+  /** Post-login metadata check. Unlike task setup, this must never provision a missing Box. */
+  async openCodeConnectionReady(machine: string, directory: string, model: string) {
+    const id = await this.boxId(machine);
+    if (!id) return false;
+    const r = await this.api().run(id, openCodeBoxQuery('status', directory, model), { env: OPENCODE_BOX_ENV, timeoutMs: 60_000 });
+    const outcome=signInOutcome(r.output);
+    if(r.code!==0||outcome===null)throw new GateDiagnosticError('remote-query-output-failed');
+    return outcome;
+  }
+
+  /** OAuth-only gate probe: existing Box only, no resume/setup, no raw remote output in the result. */
+  async openCodeReadiness(machine: string, directory: string, model: string): Promise<OpenCodeReadiness> {
+    try {
+      const id=await this.boxId(machine);
+      if(!id)return {state:'query-failed',check:'box'};
+      const r=await this.api().run(id,openCodeBoxQuery('readiness',directory,model),{env:OPENCODE_BOX_ENV,timeoutMs:60_000});
+      return parseOpenCodeReadiness(r.code,r.output);
+    }catch {return {state:'query-failed',check:'transport'};}
+  }
+
+  async openCodeModels(machine: string, directory: string) {
+    // Browsing must never provision another machine or use the PC's provider connections.
+    const id = await this.boxId(machine);
+    if (!id) throw new Error('The cloud machine is not ready yet. Wait for setup before browsing its models.');
+    const r = await this.api().run(id, openCodeBoxQuery('models', directory), { env: OPENCODE_BOX_ENV, timeoutMs: 60_000 });
+    if (r.code !== 0) throw new Error('Could not read OpenCode models in the cloud machine.');
+    try {
+      const data = JSON.parse(r.output);
+      return sanitizeCatalog(data.list, data.selected, directory);
+    } catch { throw new Error('Invalid OpenCode model inventory from the cloud machine.'); }
+  }
+
   /** Forget a login its CLI's servers turned away (an expired one), so it reads as signed out until it's signed in again. */
-  async signOut(machine: string, cli: 'claude' | 'codex'): Promise<void> {
+  async signOut(machine: string, cli: AgentCli): Promise<void> {
     const id = await this.ensure(machine);
     await this.api().run(id, signOutScript(cli), { timeoutMs: 60_000 });
   }

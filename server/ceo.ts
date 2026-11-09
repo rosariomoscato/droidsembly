@@ -29,8 +29,8 @@ export interface CeoJob {
 export const askedFor = (job: Pick<CeoJob, 'kind'>) => job.kind === 'plan' || job.kind === 'chat';
 
 export interface OfficeHandlers {
-  companyStatus(): string;
-  agentDetail(a: { agent_id: string }): string;
+  companyStatus(): string | Promise<string>;
+  agentDetail(a: { agent_id: string }): string | Promise<string>;
   setFloorProfile(a: { floor: number; summary?: string; qa_brief?: string; preview_command?: string; preview_env?: Record<string, string> }): string;
   scaleTeam(a: { floor: number; size: number; reason: string; cli?: AgentCli; model?: string; effort?: string }): string;
   configureAgent(a: { agent_id: string; cli?: AgentCli | ''; model?: string; effort?: string }): string;

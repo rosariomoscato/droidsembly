@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { OPENCODE_PLUGIN_SOURCE } from './clis.ts';
 
 const SESSION = 'ses_cubefarm_test';
@@ -7,7 +10,7 @@ const user = { id: 'user', type: 'user', text: 'Plan the work' };
 const reply = { id: 'reply', type: 'assistant', content: [{ type: 'reasoning', text: 'private reasoning' }, { type: 'text', text: 'The plan is ready.' }] };
 const idle = { id: 'idle', type: 'idle', outcome: 'succeeded' };
 
-async function plugin(events: Record<string, unknown>[], messages: unknown[] = [user, reply, idle], model?: { providerID: string; id: string; variant?: string }, rejectUsage = false) {
+async function plugin(events: Record<string, unknown>[], messages: unknown[] = [user, reply, idle], model?: { providerID: string; id: string; variant?: string }, rejectUsage = false, eventsFile?: string) {
   const posts: Record<string, unknown>[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
     expect(url).toBe(URL);
@@ -22,7 +25,7 @@ async function plugin(events: Record<string, unknown>[], messages: unknown[] = [
   const switchModel = vi.fn();
   const defaultModel = vi.fn(async () => ({ providerID: 'openai', id: 'configured-default' }));
   const dispose = await definition.setup({
-    options: { sessionID: SESSION, notifyUrl: URL, model },
+    options: { sessionID: SESSION, ...(eventsFile ? { eventsFile } : { notifyUrl: URL }), model },
     model: { default: defaultModel },
     provider: { get: async () => ({ integrationID: 'fixture', headers: { authorization: 'secret' } }) },
     integration: { connection: { active: async () => ({ type: 'credential', id: 'credential-fixture', method: 'oauth', label: 'private account label' }) } },
@@ -38,6 +41,30 @@ async function plugin(events: Record<string, unknown>[], messages: unknown[] = [
 afterEach(() => vi.unstubAllGlobals());
 
 describe('OpenCode V2 turn notifications', () => {
+  it('writes replayable ASCII events in a Box, with no callback to the local office', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-box-plugin-'));
+    const file = path.join(dir, 'events.jsonl');
+    const p = await plugin([{ type: 'session.execution.succeeded', data: { sessionID: SESSION } }], [user, { ...reply, content: [{ type: 'text', text: 'Finito: città 🚀' }] }, idle], undefined, false, file);
+    await vi.waitFor(() => expect(fs.existsSync(file)).toBe(true));
+    const raw = fs.readFileSync(file, 'utf8');
+    expect(raw).toMatch(/^[\x00-\x7f]*$/);
+    expect(JSON.parse(raw)).toMatchObject({ hook_event_name: 'TurnComplete', session_id: SESSION, last_assistant_message: 'Finito: città 🚀' });
+    expect(p.posts).toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+    p.dispose();
+  });
+
+  it('reports remote tool names without exporting tool arguments or output', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opencode-box-plugin-'));
+    const file = path.join(dir, 'events.jsonl');
+    const messages = [user, { ...reply, content: [{ type: 'tool', id: 'call-1', name: 'shell', state: { input: { command: 'secret' }, output: 'private' } }] }];
+    const p = await plugin([{ type: 'session.tool.called', data: { sessionID: SESSION, id: 'call-1', input: { key: 'secret' } } }], messages, undefined, false, file);
+    await vi.waitFor(() => expect(fs.existsSync(file)).toBe(true));
+    const raw = fs.readFileSync(file, 'utf8');
+    expect(JSON.parse(raw)).toMatchObject({ hook_event_name: 'PreToolUse', tool_name: 'shell', tool_use_id: 'call-1' });
+    expect(raw).not.toMatch(/secret|private/);
+    p.dispose();
+  });
   it('discovers active metadata for arbitrary providers and forwards 429 without modifying retries or HTTP', async () => {
     const p = await plugin([]);
     const hook = (name: string) => p.promptHook.mock.calls.find((call) => call[0] === name)![1];

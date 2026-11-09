@@ -48,6 +48,10 @@ describe('test resource scheduling', () => {
     expect(timingSensitiveTests).toContain('server/notifier.test.ts');
   });
 
+  it('keeps the protected launcher subprocess with its original deadline in the quiet phase', () => {
+    expect(timingSensitiveTests).toContain('scripts/opencodeGateLauncher.test.ts');
+  });
+
   it('does not override timeouts, retries, sampling, isolation or the functional worker count', () => {
     for (const project of testSchedulingProjects) {
       for (const key of ['testTimeout', 'hookTimeout', 'retry', 'isolate', 'testNamePattern', 'passWithNoTests']) {

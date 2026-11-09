@@ -81,6 +81,7 @@ export function HireSetupFields({ value, onChange, disabled, repo }: { value: Hi
   const cloudKey = useStore((s) => s.cloud.keySet);
   const sdk = settings.runtime !== 'terminal';
   const cli = hireCli(value.cli, settings);
+  const cloud = (value.host || settings.cloud.machineKind) === 'box';
   const set = (patch: Partial<HireSetup>) => onChange({ ...value, ...patch });
   return (
     <div className="hire-setup">
@@ -101,9 +102,9 @@ export function HireSetupFields({ value, onChange, disabled, repo }: { value: Hi
           {[...clis]
             .sort((a, b) => Number(b.installed) - Number(a.installed))
             .map((c) => (
-              <option key={c.id} value={c.id} disabled={!c.installed || !!c.problem} title={c.problem}>
+              <option key={c.id} value={c.id} disabled={!cloud && (!c.installed || !!c.problem)} title={cloud ? undefined : c.problem}>
                 {c.label}
-                {t(!c.installed ? ' (not installed)' : c.problem ? ' (incompatible version)' : '')}
+                {t(cloud ? '' : !c.installed ? ' (not installed)' : c.problem ? ' (incompatible version)' : '')}
               </option>
             ))}
         </select>
@@ -125,10 +126,10 @@ export function HireSetupFields({ value, onChange, disabled, repo }: { value: Hi
           ))}
         </datalist>
       </label>
-      {cli === 'opencode' && <OpenCodeModelPicker value={value.model} repo={repo} disabled={disabled} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => set({ model })} />}
+      {cli === 'opencode' && <OpenCodeModelPicker value={value.model} repo={repo} disabled={disabled || cloud} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => set({ model })} />}
       <label className="field" htmlFor={`${id}-effort`}>
         <span>{t(cli === 'opencode' ? 'Variant' : 'Effort')}</span>
-        {cli === 'opencode' ? <OpenCodeVariantSelect id={`${id}-effort`} value={value.model} repo={repo} disabled={disabled} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => set({ model })} /> : <select id={`${id}-effort`} value={value.effort} disabled={disabled} onChange={(e) => set({ effort: e.target.value as EffortLevel | '' })}>
+        {cli === 'opencode' ? <OpenCodeVariantSelect id={`${id}-effort`} value={value.model} repo={repo} disabled={disabled || cloud} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => set({ model })} /> : <select id={`${id}-effort`} value={value.effort} disabled={disabled} onChange={(e) => set({ effort: e.target.value as EffortLevel | '' })}>
           <option value="">{t('default ({effort})', { effort: settings.defaultEffort })}</option>
           {EFFORTS.map((x) => (
             <option key={x} value={x}>
@@ -143,8 +144,8 @@ export function HireSetupFields({ value, onChange, disabled, repo }: { value: Hi
           <select id={`${id}-host`} value={value.host} disabled={disabled} onChange={(e) => set({ host: e.target.value as MachineHost | '' })}>
             <option value="">{settings.cloud.machineKind === 'box' ? '☁️ Upstash Box' : t('🖥️ This computer')} {t('(default)')}</option>
             <option value="local">{t('🖥️ This computer')}</option>
-            <option value="box" disabled={cli === 'opencode'}>
-              ☁️ Upstash Box{cli === 'opencode' ? t(' (OpenCode can’t run there)') : ''}
+            <option value="box">
+              ☁️ Upstash Box
             </option>
           </select>
         </label>
