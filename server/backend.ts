@@ -2,12 +2,14 @@ import { existsSync } from 'node:fs';
 import * as github from './github.ts';
 import * as workspace from './workspace.ts';
 import { startSession, type SessionCallbacks, type SessionHandle, type SessionOptions } from './agentRunner.ts';
-import { detachBoxClis, hooksReady, officeProcesses, reconnectBoxClis, reconnectClis, releaseClis, startBoxSignIn, startCliSession, terminalsAvailable, type BoxSignIn, type KeptBoxCli, type ReconnectedCli } from './cliRunner.ts';
+import { detachBoxClis, hooksReady, officeProcesses, reconnectBoxClis, reconnectClis, releaseClis, startBoxSignIn, startCliSession, startOpenCodeAuth, terminalsAvailable, type BoxSignIn, type KeptBoxCli, type ReconnectedCli } from './cliRunner.ts';
 import { upstashBoxes, type BoxApi } from './box.ts';
 import { run } from './exec.ts';
 import { localMachines, type MachineProvider } from './machines.ts';
 import { detectClis } from './clis.ts';
 import { openCodeModels } from './opencodeModels.ts';
+import { openCodeConnections } from './opencodeConnections.ts';
+import type { OpenCodeIntegration } from '../shared/opencodeConnections.ts';
 import type { OpenCodeCatalog } from '../shared/opencodeModels.ts';
 import { installDesk, type DepsCallbacks, type DepsOutcome } from './deps.ts';
 import { realPreviews, type PreviewBackend } from './previewRunner.ts';
@@ -19,7 +21,8 @@ import { openMeteo, type WeatherApi } from './weather.ts';
 import type { AgentTerminal } from './terminal.ts';
 import type { OpsHistory } from './metrics.ts';
 import type { UsageWarning } from './pacing.ts';
-import type { CliView, GhRepoSummary, IssueInfo, PullInfo } from '../shared/types.ts';
+import type { AgentCli, CliView, GhRepoSummary, IssueInfo, PullInfo } from '../shared/types.ts';
+import type { CloudSecrets } from './cloud.ts';
 
 /** Everything the swarm needs from the outside world. The demo backend fakes all of it. */
 export interface Backend {
@@ -78,6 +81,8 @@ export interface Backend {
   releaseDesk(fullName: string, agentSlug: string, port: number): Promise<void>;
   /** An agent session: the real CLI in the agent's terminal when opts.terminal is set, else an Agent SDK session. */
   startSession(opts: SessionOptions, cb: SessionCallbacks): SessionHandle;
+  /** Optional run policy, checked by every automatic/manual work gate before an AI session starts. */
+  allowWork?(kind: import('./pacing.ts').WorkKind, agent: { id: string; role: string; host?: string }): boolean;
   /** Terminals can run here (the native pseudo-terminal module loaded). */
   terminals: boolean;
   /** The office started: the CLIs its terminal keeper kept running through a restart, back in their agents' terminals. */
@@ -87,8 +92,10 @@ export interface Backend {
   /** The office is stopping: its CLIs carry on in the keeper through a restart (true), or stop with it. */
   releaseClis(restart: boolean): Promise<void>;
   /** The coding-agent CLIs installed on this machine. */
-  detectClis(): Promise<CliView[]>;
+  detectClis(ids?: readonly AgentCli[]): Promise<CliView[]>;
   openCodeModels(directory: string, refresh?: boolean): Promise<OpenCodeCatalog>;
+  openCodeConnections?(directory: string): Promise<OpenCodeIntegration[]>;
+  openCodeAuth?: typeof startOpenCodeAuth;
   /** Run a floor's app for the preview monitor (its own worktree, its own port). */
   previews: PreviewBackend;
   /** The running office's own folder and its launcher, for the office's self-update. */
@@ -112,6 +119,10 @@ export interface Backend {
 }
 
 export interface CloudBackend {
+  /** Manually supplied credentials retained only by this process, for an isolated test runner. */
+  credentials?: Readonly<CloudSecrets>;
+  /** False in a device-code-gated runner: authentication is explicitly started after method discovery. */
+  automaticSignIn?: boolean;
   /** The Box API behind an Upstash Box API key. */
   boxes(key: string): BoxApi;
   /** The environment cloud credentials are read from (CUBEFARM_CLAUDE_TOKEN): the office's own, or the demo's. */
@@ -125,7 +136,7 @@ export interface CloudBackend {
   /** The office is stopping: stop following cloud agents' CLIs, which carry on. */
   detach(): void;
   /** A cloud agent's CLI signing in with its own login, in their terminal (docs/cloud.md). */
-  signIn(o: { api: BoxApi; boxId: string; cli: 'claude' | 'codex'; term: AgentTerminal; agentId: string }, exited: (code: number) => void): BoxSignIn;
+  signIn(o: { api: BoxApi; boxId: string; cli: AgentCli; term: AgentTerminal; agentId: string; authArgs?: string[] }, exited: (code: number) => void): BoxSignIn;
   /** The demo only: every Box's sign-in expires, as a login Anthropic or OpenAI turned away would. */
   expireSignIns?(): void;
 }
@@ -202,6 +213,8 @@ export const realBackend: Backend = {
   releaseClis,
   detectClis,
   openCodeModels,
+  openCodeConnections,
+  openCodeAuth: startOpenCodeAuth,
   previews: realPreviews,
   office: realOffice,
   voice: elevenLabs,

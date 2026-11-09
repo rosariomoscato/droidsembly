@@ -1,5 +1,6 @@
 import { useStore } from './store';
 import type { OpenCodeCatalog } from '../../shared/opencodeModels';
+import type { OpenCodeConnections, OpenCodeConnectionAction } from '../../shared/opencodeConnections';
 import type { PongResult } from '../../shared/pong';
 import type { AgentStyle } from '../../shared/looks';
 import type { AgentCli, AgentPromptView, AgentView, CloudView, DoctorFinding, DoctorFix, EffortLevel, GhRepoSummary, NotifyChannel, NotifyChannelsView, NotifyWebhook, OfficeUpdateView, PreviewView, ProjectFolderView, PrPreviewView, RepoView, SwarmSettings, UsageView, VoiceCacheView, VoiceOption, MachineHost } from '../../shared/types';
@@ -116,6 +117,9 @@ export const api = {
   message: (id: string, text: string) => call('POST', `/api/agents/${id}/message`, { text }),
   /** Start a cloud agent's sign-in again in their terminal (docs/cloud.md). */
   signIn: (id: string) => call('POST', `/api/agents/${id}/sign-in`),
+  openCodeConnections: (id: string) => call<OpenCodeConnections>('GET', `/api/agents/${id}/opencode/connections`, undefined, false),
+  configureOpenCode: (id: string, action: OpenCodeConnectionAction, scope: string) => call('POST', `/api/agents/${id}/opencode/connections`, { selection: action, scope }),
+  cancelOpenCodeConfiguration: (id: string) => call('DELETE', `/api/agents/${id}/opencode/connections`),
   agentPrompt: (id: string) => call<AgentPromptView>('GET', `/api/agents/${id}/prompt`),
   updateSettings: (patch: Partial<SwarmSettings>) => call('PATCH', '/api/settings', patch),
   updateOffice: async (action: 'now' | 'later') => {

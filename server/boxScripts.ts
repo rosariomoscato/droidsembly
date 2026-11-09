@@ -4,6 +4,7 @@
 // from the command's own environment.
 
 import type { DeskBase } from './workspace.ts';
+import type { AgentCli } from '../shared/types.ts';
 
 export const BOX_HOME = '/workspace/home';
 export const BOX_CF = `${BOX_HOME}/.cubefarm`;
@@ -37,10 +38,13 @@ export interface BoxVersions {
   claude: string;
   playwrightMcp: string;
   codex: string;
+  opencode: string;
 }
 
 /** The setup marker: a new one (new versions, a new setup) runs the setup again. */
-export const setupMarker = (v: BoxVersions, rev: number) => `${BOX_CF}/setup-${rev}-${v.claude}-${v.playwrightMcp}-${v.codex}`.replace(/[^\w./-]/g, '_');
+export const setupMarker = (v: BoxVersions, rev: number, cli?: AgentCli, browser = false) => (cli
+  ? `${BOX_CF}/setup-${rev}-${cli}-${v[cli]}${browser ? `-browser-${v.playwrightMcp}` : ''}`
+  : `${BOX_CF}/setup-${rev}-${v.claude}-${v.playwrightMcp}-${v.codex}-${v.opencode}`).replace(/[^\w./-]/g, '_');
 
 /** The tmux the office runs CLIs in: no status line or prefix key, keys passed straight through, no alternate screen. */
 export const TMUX_CONF = [
@@ -58,33 +62,49 @@ export const TMUX_CONF = [
 ].join('\n');
 
 /** The one-time setup of a Box: tools, the pinned CLIs, git, and the office's folders. Prints CUBEFARM_SETUP_OK. */
-export function setupScript(o: { versions: BoxVersions; rev: number; gitName: string; gitEmail: string }): string {
-  const marker = setupMarker(o.versions, o.rev);
-  const pkgs = [`@anthropic-ai/claude-code@${o.versions.claude}`, `@playwright/mcp@${o.versions.playwrightMcp}`, `@openai/codex@${o.versions.codex}`];
+export function setupScript(o: { versions: BoxVersions; rev: number; gitName: string; gitEmail: string; cli?: AgentCli; browser?: boolean }): string {
+  const marker = setupMarker(o.versions, o.rev, o.cli, o.browser);
+  const selected = o.cli ? [o.cli] : ['claude', 'codex', 'opencode'] as const;
+  const packages = { claude: `@anthropic-ai/claude-code@${o.versions.claude}`, codex: `@openai/codex@${o.versions.codex}`, opencode: `@opencode/cli@${o.versions.opencode}` };
+  const browser = !o.cli || o.browser === true;
+  // Preserve the legacy all-tools call, but a selected CLI never installs another coding agent.
+  const pkgs = o.cli ? [...selected.map(cli => packages[cli]), ...(browser ? [`@playwright/mcp@${o.versions.playwrightMcp}`] : [])]
+    : [packages.claude, `@playwright/mcp@${o.versions.playwrightMcp}`, packages.codex, packages.opencode];
+  const bins = [...selected, ...(browser ? ['playwright-mcp'] : [])];
+  const verify = [
+    `for c in ${bins.join(' ')}; do test -x ${sq(BOX_CLI_BIN)}/$c || { echo "$c was not installed" >&2; exit 4; }; done`,
+    ...(selected.includes('opencode') ? [`V="$("${BOX_CLI_BIN}/opencode" --version)"; case "$V" in ${[o.versions.opencode, `v${o.versions.opencode}`, `opencode ${o.versions.opencode}`, `opencode v${o.versions.opencode}`].map(sq).join('|')}) ;; *) echo "OpenCode version mismatch" >&2; exit 4;; esac`] : []),
+  ];
   // git asks the helper with "get" (and later "store" / "erase", which it ignores): the token comes from the
   // environment of whichever command runs git, so it's never on the Box's disk.
   const helper = `!f() { test "$1" = get || exit 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f`;
   return [
     'set -e',
-    `mkdir -p ${sq(BOX_BIN)} ${sq(BOX_SESSIONS)}`,
-    `if [ -f ${sq(marker)} ]; then echo CUBEFARM_SETUP_OK; exit 0; fi`,
+    `mkdir -p ${sq(`${BOX_BIN}/opencode-plugin`)} ${sq(BOX_SESSIONS)}`,
+    `if [ -f ${sq(marker)} ]; then`,
+    ...verify,
+    'echo CUBEFARM_SETUP_OK; exit 0; fi',
+    'command -v node >/dev/null && command -v npm >/dev/null || { echo "Node/npm are required" >&2; exit 3; }',
     'missing=""',
-    'for t in tmux lsof gh; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done',
+    'for t in tmux lsof gh git; do command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; done',
     'if [ -n "$missing" ]; then',
-    '  sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq >/dev/null 2>&1 || true',
-    '  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $missing >/dev/null 2>&1 || true',
+    '  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=0 -o APT::Update::Error-Mode=any update -qq',
+    '  sudo -n env DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=0 -o DPkg::Lock::Timeout=0 install -y --no-install-recommends $missing',
     'fi',
     'command -v tmux >/dev/null 2>&1 || { echo "tmux could not be installed in the Box" >&2; exit 3; }',
     // Into the office's own folder, not the image's global one: the Box image ships its own CLIs first on the PATH.
-    `npm install -g --prefix ${sq(`${BOX_CF}/cli`)} --no-fund --no-audit --loglevel=error ${pkgs.map(sq).join(' ')} > /tmp/cubefarm-cli.log 2>&1 || { tail -n 5 /tmp/cubefarm-cli.log >&2; exit 4; }`,
-    `for c in claude codex playwright-mcp; do test -x ${sq(BOX_CLI_BIN)}/$c || { echo "$c was not installed" >&2; exit 4; }; done`,
+    `npm install -g --prefix ${sq(`${BOX_CF}/cli`)} --fetch-retries=0 --no-fund --no-audit --loglevel=error ${pkgs.map(sq).join(' ')} > /tmp/cubefarm-cli.log 2>&1 || { tail -n 5 /tmp/cubefarm-cli.log >&2; exit 4; }`,
+    ...verify,
+    ...(selected.includes('opencode') ? [
+      `mkdir -p ${sq(`${BOX_CF}/opencode/config/opencode`)}`,
+      `test -f ${sq(`${BOX_CF}/opencode/config/opencode/opencode.json`)} || printf '%s' '{"update":"disable"}' > ${sq(`${BOX_CF}/opencode/config/opencode/opencode.json`)}`,
+    ] : []),
     'git config --global --unset-all credential.helper >/dev/null 2>&1 || true',
     `git config --global credential.https://github.com.helper ${sq(helper)}`,
     `git config --global user.name ${sq(o.gitName || 'cubefarm')}`,
     `git config --global user.email ${sq(o.gitEmail || 'cubefarm@users.noreply.github.com')}`,
     'git config --global init.defaultBranch main',
     'git config --global advice.detachedHead false',
-    `rm -f ${sq(BOX_CF)}/setup-*`,
     `touch ${sq(marker)}`,
     'echo CUBEFARM_SETUP_OK',
   ].join('\n');
@@ -247,13 +267,13 @@ export function signInOutcome(output: string): boolean | null {
 }
 
 /** Forget a login the CLI's servers turned away, so the next check says signed out until the manager signs in again. */
-export const signOutScript = (cli: 'claude' | 'codex') => `${sq(`${BOX_CLI_BIN}/${cli}`)} ${cli === 'claude' ? 'auth logout' : 'logout'} >/dev/null 2>&1; true`;
+export const signOutScript = (cli: AgentCli) => cli === 'opencode' ? 'true' : `${sq(`${BOX_CLI_BIN}/${cli}`)} ${cli === 'claude' ? 'auth logout' : 'logout'} >/dev/null 2>&1; true`;
 
 /**
  * The CLI's own sign-in, in a terminal with no browser: Claude Code shows a link and asks for the code the page gives
  * back; Codex shows a link and a one-time code for the page (its usual login waits for a browser on the Box itself).
  */
-export const signInCommand = (cli: 'claude' | 'codex') => ({ file: `${BOX_CLI_BIN}/${cli}`, args: cli === 'claude' ? ['auth', 'login'] : ['login', '--device-auth'] });
+export const signInCommand = (cli: AgentCli) => ({ file: `${BOX_CLI_BIN}/${cli}`, args: cli === 'codex' ? ['login', '--device-auth'] : ['auth', 'login'] });
 
 /** What the launcher runs: the CLI's command line, where, and the session's events file (for its exit). */
 export interface LaunchSpec {

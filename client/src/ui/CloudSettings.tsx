@@ -257,6 +257,11 @@ export function CloudSettings() {
       </div>
 
       <h4 className="notify-h"><T>How cloud agents sign in</T></h4>
+      <div className="notify-hook">
+        <b>OpenCode V2</b>
+        <p className="muted small"><T>OpenCode signs in to its selected provider in each Box. Use Sign in in the agent terminal, then browse models in that agent’s Setup. Local OpenCode accounts and the Claude/Codex keys below are not copied or reused.</T></p>
+        <p className="muted small"><T>In the agent’s Setup, open OpenCode connections to choose a provider, authentication method and saved account. Account changes apply to that Box, not to this computer or other Boxes.</T></p>
+      </div>
       <p className="muted small">
         <T>GitHub is set up once for every Box. Coding agents sign in with your own subscription in each cloud agent’s terminal, once per cloud machine, unless you give them a key here.</T>
       </p>

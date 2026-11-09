@@ -1,13 +1,17 @@
 import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ANTHROPIC_KEY_ENV, boxLabels, boxName, Cloud, credentialViews, githubEnv, machineOfBox, redact, resolveCredentials, type CredentialInput } from './cloud.ts';
 import { CloudError, type BoxApi, type BoxInfo } from './box.ts';
 
 const none: CredentialInput = { claudeToken: '', secrets: {}, ghToken: '' };
 
 describe('resolveCredentials', () => {
+  it('keeps OpenCode on its own Box login and never borrows Claude/Codex provider keys', () => {
+    const c = resolveCredentials('opencode', { claudeToken: 'private-subscription', secrets: { anthropicApiKey: 'private-anthropic', openaiApiKey: 'private-openai', cloudGithubToken: 'scoped-test-repo' }, ghToken: 'broad-manager-token' });
+    expect(c).toEqual({ env: { GH_TOKEN: 'scoped-test-repo' }, apiKeyHelper: null, ownLogin: true, missing: [] });
+  });
   it('gives Claude Code the subscription token when the office has one, and blanks every other Claude variable', () => {
     const c = resolveCredentials('claude', { claudeToken: 'sk-ant-oat01-sub', secrets: { anthropicApiKey: 'sk-ant-api-key' }, ghToken: 'gho_login' });
     expect(c.env).toEqual({ GH_TOKEN: 'gho_login', CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat01-sub', ANTHROPIC_API_KEY: '', ANTHROPIC_AUTH_TOKEN: '', [ANTHROPIC_KEY_ENV]: '' });
@@ -102,6 +106,20 @@ function fakeApi(boxes: BoxInfo[], ok = true): BoxApi {
 }
 
 describe('Cloud', () => {
+  it('keeps explicit run credentials in memory, never reads a secret file or ambient token, and refuses persistence', async () => {
+    const file=path.join(process.env.SWARM_HOME!,'volatile-cloud','never-written.json');
+    const read=vi.spyOn(fs,'readFile');
+    const gh=vi.fn(async()=> 'ambient-PC-token-must-not-be-read');
+    const cloud=new Cloud({secretsFile:file,credentials:{upstashBoxKey:'manual-box',cloudGithubToken:'github_pat_manual'},env:{},boxes:()=>fakeApi([]),ghToken:gh,office:()=> 'isolated',machines:()=>new Set(),changed:()=>{},log:()=>{}});
+    try {
+      await cloud.init();expect(read).not.toHaveBeenCalled();expect(gh).not.toHaveBeenCalled();
+      expect((await cloud.credentials('opencode')).env).toEqual({GH_TOKEN:'github_pat_manual'});
+      await cloud.test();expect(gh).not.toHaveBeenCalled();
+      await expect(cloud.setKey('another')).rejects.toThrow('in-memory');
+      await expect(cloud.setToken('github','another')).rejects.toThrow('in-memory');
+    } finally {read.mockRestore();}
+    await expect(fs.stat(file)).rejects.toMatchObject({code:'ENOENT'});
+  });
   const setup = async (boxes: BoxInfo[] = [], ok = true) => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'cubefarm-cloud-'));
     const views: unknown[] = [];

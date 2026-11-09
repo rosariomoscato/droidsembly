@@ -22,6 +22,23 @@ function office() {
 afterEach(() => vi.useRealTimers());
 
 describe('AI quota scheduling integration', () => {
+  it.each(['queued','failed'])('respects backend admission before preparing automatic pipeline work (%s)',status=>{
+    const s=office();s.backend.allowWork=vi.fn((kind:string)=>kind==='issue'||kind==='ceo');
+    const rec={repoId:'repo',prNumber:1,status,devAgentId:'a',updatedAt:0};s.state.qa=[rec];
+    expect(s.startPipelineWork({id:'repo'})).toBe(false);
+    expect(s.runQa).not.toHaveBeenCalled();expect(s.runFix).not.toHaveBeenCalled();expect(rec.status).toBe(status);
+    expect(s.state.agents.every((a:any)=>a.status==='idle'&&a.task===null)).toBe(true);
+  });
+  it.each(['qa','fix'])('refuses direct %s preparation when backend admission is denied',async kind=>{
+    const s=office();s.backend.allowWork=()=>false;s.beginTask=vi.fn();s.setQa=vi.fn();
+    const method=kind==='qa'?'runQa':'runFix';
+    await (Swarm.prototype as any)[method].call(s,s.agent('a'),{id:'repo'},{prNumber:1,status:'queued'});
+    expect(s.beginTask).not.toHaveBeenCalled();expect(s.setQa).not.toHaveBeenCalled();expect(s.agent('a')).toMatchObject({status:'idle',task:null});
+  });
+  it('uses only policy-eligible testers without falling back to a denied resource',()=>{
+    const s=office();s.backend.allowWork=(kind:string,a:{id:string})=>kind==='qa'&&a.id==='b';const rec={repoId:'repo',prNumber:1,status:'queued',devAgentId:'a',updatedAt:0};s.state.qa=[rec];
+    expect(s.startPipelineWork({id:'repo'})).toBe(true);expect(s.runQa).toHaveBeenCalledExactlyOnceWith(s.agent('b'),{id:'repo'},rec);expect(s.runFix).not.toHaveBeenCalled();
+  });
   it('cancels a deferred launch when its task is cleared', () => {
     const s = office();
     const launch = vi.fn();

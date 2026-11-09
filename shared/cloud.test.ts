@@ -15,10 +15,10 @@ describe('cloudSettings', () => {
 });
 
 describe('cloud agents', () => {
-  it("run Claude Code or Codex, not OpenCode (yet)", () => {
+  it('run Claude Code, Codex or OpenCode', () => {
     expect(boxCli('claude')).toBe(true);
     expect(boxCli('codex')).toBe(true);
-    expect(boxCli('opencode')).toBe(false);
+    expect(boxCli('opencode')).toBe(true);
   });
 
   it('say where they work', () => {

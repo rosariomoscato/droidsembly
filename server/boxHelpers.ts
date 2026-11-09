@@ -4,6 +4,8 @@
 // append, so a reader that counts bytes never splits a line or a character.
 
 import { CODEX_USAGE_READER_SOURCE } from './codexUsage.ts';
+import { OPENCODE_PLUGIN_SOURCE } from './clis.ts';
+import { OPENCODE_BOX_QUERY_SOURCE } from './openCodeBox.ts';
 
 /** Shared by the scripts below: one event, one line. */
 const PUT = String.raw`
@@ -185,6 +187,9 @@ fs.writeFileSync(file, JSON.stringify(c, null, 2));
 
 /** Each helper's file name in BOX_BIN and its source. */
 export const BOX_HELPERS: Record<string, string> = {
+  'opencode-query.cjs': OPENCODE_BOX_QUERY_SOURCE,
+  'opencode-plugin/index.js': OPENCODE_PLUGIN_SOURCE,
+  'opencode-plugin/package.json': JSON.stringify({ name: 'droidsembly-box-plugin', type: 'module', exports: './index.js' }),
   'launch.cjs': BOX_LAUNCH_SOURCE,
   'hook.cjs': BOX_HOOK_SOURCE,
   'statusline.cjs': BOX_STATUSLINE_SOURCE,

@@ -147,9 +147,9 @@ export async function checkOpenCodeVersion(cmd: { file: string; args: string[] }
 }
 
 /** Which CLIs this machine has, with their versions and any compatibility problem. */
-export async function detectClis(): Promise<CliView[]> {
+export async function detectClis(ids?: readonly AgentCli[]): Promise<CliView[]> {
   return Promise.all(
-    CLIS.map(async (c) => {
+    CLIS.filter(c => !ids || ids.includes(c.id)).map(async (c) => {
       const cmd = commandFor(c.id);
       const version = cmd ? await run(cmd.file, [...cmd.args, '--version'], { timeoutMs: 20_000 }).catch(() => null) : null;
       const problem = c.id === 'opencode' && cmd ? openCodeVersionProblem(version) : null;
@@ -161,6 +161,7 @@ export async function detectClis(): Promise<CliView[]> {
 // ---------- starting one on a task ----------
 
 export interface LaunchContext {
+  openCodePermissions?: import('../shared/opencodePermissions.ts').OpenCodePermissionRule[];
   prompt: string;
   systemAppend: string;
   model: string; // '' = the CLI's own default
@@ -189,6 +190,7 @@ export interface LaunchContext {
 
 /** Pinned for cloud agents' Boxes (docs/cloud.md); Claude Code and Playwright's MCP follow the office's own (boxVersions). */
 export const BOX_CODEX_VERSION = '0.163.0';
+export const BOX_OPENCODE_VERSION = '2.2.6';
 
 /** A field of an installed package's package.json, found from its entry file (its exports may not offer package.json). */
 function packageField(pkg: string, field: string): string | null {
@@ -214,6 +216,7 @@ export function boxVersions(): BoxVersions {
     claude: packageField('@anthropic-ai/claude-agent-sdk', 'claudeCodeVersion') ?? 'latest',
     playwrightMcp: packageField('@playwright/mcp', 'version') ?? 'latest',
     codex: BOX_CODEX_VERSION,
+    opencode: BOX_OPENCODE_VERSION,
   };
 }
 
@@ -325,15 +328,15 @@ export function launchArgs(id: AgentCli, ctx: LaunchContext): Launch {
       };
       const config = {
         $schema: 'https://opencode.ai/config.json',
-        plugins: [{ package: ctx.plugin, options: { sessionID, notifyUrl: ctx.notify.url, model: openCodeModelRef(model) } }],
+        plugins: [{ package: ctx.plugin, options: { sessionID, ...(ctx.posix ? { eventsFile: ctx.notify.url } : { notifyUrl: ctx.notify.url }), model: openCodeModelRef(model) } }],
         instructions: [ctx.files.system],
         // A dedicated primary agent also retains a model's explicit #variant (the root model setting doesn't).
         default_agent: 'droidsembly',
         agents: {
-          droidsembly: { description: 'The Droidsembly office session', mode: 'primary', ...(model ? { model } : {}) },
+          droidsembly: { description: 'The Droidsembly office session', mode: 'primary', ...(model ? { model } : {}), ...(ctx.openCodePermissions ? { permissions: ctx.openCodePermissions } : {}) },
           // OpenCode keeps the agent ID on an existing session. Keep the old profile available on resume,
           // but out of the picker: do not migrate session IDs or rewrite the user's OpenCode history.
-          ...(ctx.resumeId ? { cubefarm: { description: 'The Droidsembly office session (legacy)', mode: 'primary', hidden: true, ...(model ? { model } : {}) } } : {}),
+          ...(ctx.resumeId ? { cubefarm: { description: 'The Droidsembly office session (legacy)', mode: 'primary', hidden: true, ...(model ? { model } : {}), ...(ctx.openCodePermissions ? { permissions: ctx.openCodePermissions } : {}) } } : {}),
         },
         ...opencodeLocal(local),
         ...(Object.keys(servers).length ? { mcp: { servers } } : {}),
@@ -499,12 +502,19 @@ export const OPENCODE_PLUGIN_SOURCE = String.raw`// cubefarm: forward only this 
 export default {
   id: 'cubefarm.office',
   async setup(ctx) {
-    const { sessionID, notifyUrl } = ctx.options;
-    if (!sessionID || !notifyUrl) throw new Error('Missing Droidsembly callback configuration');
+    const { sessionID, notifyUrl, eventsFile } = ctx.options;
+    if (!sessionID || (!notifyUrl && !eventsFile)) throw new Error('Missing Droidsembly callback configuration');
+    const fs = eventsFile ? await import('node:fs') : null;
     const controller = new AbortController();
     let lastIdle;
+    let authFailed = false;
     const reportedUsage = new Map();
     const post = async (body) => {
+      if (fs) {
+        const line = JSON.stringify({ ...body, session_id: sessionID }).replace(/[\u007f-￿]/g, (c) => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
+        fs.appendFileSync(eventsFile, line + '\n');
+        return;
+      }
       const response = await fetch(notifyUrl, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ ...body, session_id: sessionID }),
@@ -549,7 +559,10 @@ export default {
     };
     await observe('model.request', (event) => reportResource(event));
     await observe('http.response', async (event) => {
-      if (event.sessionID !== sessionID || event.response.status !== 429) return;
+      if (event.sessionID !== sessionID) return;
+      if (event.response.status === 401) authFailed = true;
+      else if (event.response.status < 400) authFailed = false;
+      if (event.response.status !== 429) return;
       const retry = event.response.headers.get('retry-after');
       const seconds = retry && /^\d+(?:\.\d+)?$/.test(retry) ? Number(retry) : NaN;
       const at = Number.isFinite(seconds) ? Date.now() + seconds * 1000 : retry ? Date.parse(retry) : NaN;
@@ -562,6 +575,13 @@ export default {
       for await (const event of ctx.event.subscribe({ signal: controller.signal })) {
         const props = event.data ?? event.properties ?? event;
         if ((props.sessionID ?? props.info?.id ?? props.session?.id) !== sessionID) continue;
+        if (eventsFile && ['session.tool.called', 'session.tool.success', 'session.tool.failed'].includes(event.type)) {
+          // Tool names only: do not copy tool arguments, output, credentials or private reasoning into telemetry.
+          const messages = await ctx.session.context({ sessionID });
+          const tool = messages.flatMap(m => m.type === 'assistant' ? m.content ?? [] : []).find(p => p.type === 'tool' && p.id === props.id);
+          if (tool) await post({ hook_event_name: event.type === 'session.tool.called' ? 'PreToolUse' : event.type === 'session.tool.failed' ? 'PostToolUseFailure' : 'PostToolUse', tool_name: tool.name, tool_use_id: props.id, ...(event.type === 'session.tool.failed' ? { error: 'Tool failed (see the remote terminal)' } : {}) });
+          continue;
+        }
         if (!['session.execution.succeeded', 'session.execution.failed', 'session.execution.interrupted', 'session.idle'].includes(event.type)) continue;
         const [messages, session] = await Promise.all([
           ctx.session.context({ sessionID }), ctx.session.get({ sessionID }),
@@ -593,7 +613,7 @@ export default {
         if (outcome === 'interrupted') {
           await post({ hook_event_name: 'Interrupt' });
         } else if (outcome === 'failed') {
-          await post({ hook_event_name: 'TurnError', error: JSON.stringify(props.error ?? idle?.error ?? 'OpenCode session failed') });
+          await post({ hook_event_name: 'TurnError', error: JSON.stringify(props.error ?? idle?.error ?? 'OpenCode session failed'), ...(eventsFile && authFailed ? { signed_out: true } : {}) });
         } else {
           const user = messages.findLastIndex((m) => m.type === 'user');
           const reply = messages.slice(user + 1).findLast((m) => m.type === 'assistant');

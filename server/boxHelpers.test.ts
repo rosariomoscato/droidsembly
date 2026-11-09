@@ -8,7 +8,10 @@ import { EventLines } from './boxCli.ts';
 
 // The helpers run in a Box with its node; here they run with this one, in a temp folder, the way the CLIs call them.
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-boxhelpers-'));
-for (const [name, source] of Object.entries(BOX_HELPERS)) fs.writeFileSync(path.join(dir, name), source);
+for (const [name, source] of Object.entries(BOX_HELPERS)) {
+  fs.mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
+  fs.writeFileSync(path.join(dir, name), source);
+}
 afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
 const node = (script: string, args: string[], input = '', env: Record<string, string> = {}) =>

@@ -9,6 +9,7 @@ import { LookPreview } from '../world/LookPreview';
 import { workerCli } from './floorRows';
 import { confirmDialog } from './Confirm';
 import { OpenCodeModelPicker, OpenCodeVariantSelect } from './OpenCodeModelPicker';
+import { OpenCodeConnections } from './OpenCodeConnections';
 import { T, useT } from '../i18n';
 
 // One agent's setup (name, look, coding agent, model, effort), edited in place: the Team tab's row cells and the
@@ -29,14 +30,14 @@ async function save(id: string, patch: Patch) {
 }
 
 /** The coding agents to pick from, installed ones first, each saying if it's missing on this machine. */
-export function CliOptions({ clis }: { clis: CliView[] }) {
+export function CliOptions({ clis, cloud = false }: { clis: CliView[]; cloud?: boolean }) {
   const t = useT();
   return (
     <>
       {[...clis].sort((a, b) => Number(b.installed) - Number(a.installed)).map((c) => (
-        <option key={c.id} value={c.id} disabled={!c.installed || !!c.problem} title={c.problem}>
+        <option key={c.id} value={c.id} disabled={!cloud && (!c.installed || !!c.problem)} title={cloud ? undefined : c.problem}>
           {c.label}
-          {t(!c.installed ? ' (not installed)' : c.problem ? ' (incompatible version)' : '')}
+          {t(cloud ? '' : !c.installed ? ' (not installed)' : c.problem ? ' (incompatible version)' : '')}
         </option>
       ))}
     </>
@@ -74,7 +75,7 @@ export function CliSelect({ agent, id, style }: FieldProps) {
   return (
     <select id={id} value={agent.cli} title={t('Their coding agent')} aria-label={id ? undefined : t('Coding agent')} style={style} onChange={(e) => void save(agent.id, { cli: e.target.value as AgentCli | '' })}>
       <option value="">{cliName(clis, ceo ? 'claude' : settings.defaultCli)} {t('(default)')}</option>
-      <CliOptions clis={ceo ? clis.filter((c) => c.id === 'claude' || c.id === 'opencode') : clis} />
+      <CliOptions clis={ceo ? clis.filter((c) => c.id === 'claude' || c.id === 'opencode') : clis} cloud={!ceo && agent.host === 'box'} />
     </select>
   );
 }
@@ -93,10 +94,8 @@ export const CLOUD_STATE: Record<CloudMachineState, string> = {
 /** Where they work: this computer or an Upstash Box of their own (docs/cloud.md). A move waits until they have no task. */
 export function HostSelect({ agent, id, style }: FieldProps) {
   const t = useT();
-  const settings = useStore((s) => s.settings);
   const keySet = useStore((s) => s.cloud.keySet);
   const box = agent.host === 'box';
-  const opencode = workerCli(agent, settings) === 'opencode';
   const busy = !!agent.task || isBusy(agent);
   const move = async (to: MachineHost) => {
     const ok = await confirmDialog({
@@ -109,8 +108,8 @@ export function HostSelect({ agent, id, style }: FieldProps) {
   return (
     <select id={id} value={box ? 'box' : 'local'} disabled={busy} style={style} title={t(busy ? 'Move them once their task is done' : 'Where they work')} aria-label={id ? undefined : t('Works on')} onChange={(e) => void move(e.target.value as MachineHost)}>
       <option value="local">{t('🖥️ This computer')}</option>
-      <option value="box" disabled={!box && (!keySet || opencode)}>
-        ☁️ Upstash Box{t(!box && !keySet ? ' (connect Upstash in Settings first)' : !box && opencode ? ' (OpenCode can’t run there)' : '')}
+      <option value="box" disabled={!box && !keySet}>
+        ☁️ Upstash Box{t(!box && !keySet ? ' (connect Upstash in Settings first)' : '')}
       </option>
     </select>
   );
@@ -321,6 +320,7 @@ export function PromptPreview({ agent }: { agent: Agent }) {
 export function AgentSetup({ agent }: { agent: Agent }) {
   const t = useT();
   const terminal = useStore((s) => s.settings.runtime === 'terminal');
+  const defaultCli = useStore((s) => s.settings.defaultCli);
   const id = useId();
   const ceo = agent.role === 'ceo';
   return (
@@ -369,6 +369,7 @@ export function AgentSetup({ agent }: { agent: Agent }) {
           <EffortSelect agent={agent} id={`${id}-effort`} />
         </label>
       </div>
+      {(agent.cli || (ceo ? 'claude' : defaultCli)) === 'opencode' && <OpenCodeConnections agent={agent} />}
       <LookEditor agent={agent} />
       <PromptPreview agent={agent} />
       <p className="muted small"><T>Name and model save when you leave them; the rest, and looks, as you pick them. Running sessions aren’t restarted.</T></p>

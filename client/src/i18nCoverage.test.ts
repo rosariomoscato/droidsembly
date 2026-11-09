@@ -24,6 +24,7 @@ import type { OfficeUpdateView } from '../../shared/types';
 import type { Agent } from './store';
 
 const surfaces = [
+  'ui/OpenCodeConnections.tsx',
   'ui/PhoneAccess.tsx',
   'world/CoffeeMachine.tsx',
   'ui/focusText.ts', 'world/fridgeState.ts',

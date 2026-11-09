@@ -12,7 +12,7 @@ export function OpenCodeModelPicker({ value, onSelect, agent, repo, disabled, in
   return <span style={{ display: 'inline-block', maxWidth: '100%' }}>
     <button type="button" className="btn btn-small" disabled={disabled} aria-expanded={open} onClick={() => setOpen(!open)}><T>Browse OpenCode models</T></button>
     <span className="muted small" style={{ display: 'block', overflowWrap: 'anywhere' }}><T>Selected:</T> {value || inherited || <T>OpenCode default</T>}</span>
-    {open && <ModelChoices key={`${agent}:${repo}`} value={value} agent={agent} repo={repo} inherited={inherited} onSelect={(model) => { onSelect(model); setOpen(false); }} />}
+    {open && !disabled && <ModelChoices key={`${agent}:${repo}`} value={value} agent={agent} repo={repo} inherited={inherited} onSelect={(model) => { onSelect(model); setOpen(false); }} />}
   </span>;
 }
 function ModelChoices({ value, onSelect, agent, repo, inherited }: {
@@ -78,12 +78,13 @@ export function OpenCodeVariantSelect({ value, inherited, agent, repo, onSelect,
   const [catalog, setCatalog] = useState<OpenCodeCatalog | null>(null);
   const [error, setError] = useState('');
   useEffect(() => {
+    if (disabled) return;
     let active = true;
     void api.openCodeModels({ ...(agent ? { agent } : {}), ...(repo ? { repo } : {}) })
       .then((data) => { if (active) { setCatalog(data); setError(''); } })
       .catch(() => { if (active) setError('Could not load variants; use Browse OpenCode models to refresh or enter #variant manually.'); });
     return () => { active = false; };
-  }, [agent, repo]);
+  }, [agent, repo, disabled]);
   const effective = value || inherited || catalog?.defaultModel || '';
   const [base, variant = ''] = effective.split('#');
   const variants = catalog?.models.find((m) => m.id === base)?.variants ?? [];

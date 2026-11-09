@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BoxMachines } from './boxMachines.ts';
 import { boxLabels } from './cloud.ts';
 import type { BoxApi, BoxInfo } from './box.ts';
-import type { CloudMachineState } from '../shared/types.ts';
+import type { AgentCli, CloudMachineState } from '../shared/types.ts';
 
 interface Call {
   op: string;
@@ -61,12 +61,14 @@ function fakeAccount(boxes: BoxInfo[] = [], answer: (script: string) => { code: 
   return { api, calls, files, boxes };
 }
 
-function machines(api: BoxApi, states: [string, CloudMachineState][] = []) {
+function machines(api: BoxApi, states: [string, CloudMachineState][] = [], profile?: {cli:()=>AgentCli;browser:()=>boolean}) {
   const m: BoxMachines = new BoxMachines({
     api: () => api,
     office: () => 'k3f9qa',
     size: () => 'small',
-    versions: { claude: '2.1.283', playwrightMcp: '0.0.83', codex: '0.163.0' },
+    cli: profile?.cli,
+    browser: profile?.browser,
+    versions: { claude: '2.1.283', playwrightMcp: '0.0.83', codex: '0.163.0', opencode: '2.2.6' },
     git: async () => ({ name: 'Ada', email: 'ada@example.com' }),
     githubEnv: async () => ({ GH_TOKEN: 'gho_token' }),
     state: (machine) => states.push([machine, m.stateOf(machine)]),
@@ -77,6 +79,85 @@ function machines(api: BoxApi, states: [string, CloudMachineState][] = []) {
 }
 
 describe('BoxMachines', () => {
+  it('does not collapse a failed post-login metadata query into signed-out',async()=>{
+    const {api}=fakeAccount([],()=>({code:2,output:'CUBEFARM_OPENCODE_QUERY_FAILED'}));
+    const m=machines(api);await m.ensure('a1b2c3d4');
+    await expect(m.openCodeConnectionReady('a1b2c3d4','/remote/work','openai/test#medium')).rejects.toThrow('remote-query');
+  });
+  it('reads detailed readiness only from an existing Box and passes no provider or GitHub credentials',async()=>{
+    const {api,calls}=fakeAccount([],()=>({code:0,output:'{"state":"ready"}'}));const m=machines(api);
+    expect(await m.openCodeReadiness('a1b2c3d4','/remote/work','openai/test#medium')).toEqual({state:'query-failed',check:'box'});
+    expect(calls).toEqual([]);
+    await m.ensure('a1b2c3d4');calls.length=0;
+    expect(await m.openCodeReadiness('a1b2c3d4','/remote/work','openai/test#medium')).toEqual({state:'ready'});
+    expect(calls).toHaveLength(1);expect(calls[0].script).toContain("'readiness' '/remote/work' 'openai/test#medium'");
+    expect(calls[0].env).toMatchObject({XDG_DATA_HOME:'/workspace/home/.cubefarm/opencode/data'});
+    expect(calls[0].env).not.toHaveProperty('GH_TOKEN');expect(calls[0].env).not.toHaveProperty('OPENAI_API_KEY');
+  });
+  it.each([
+    [{code:2,output:'{"state":"query-failed","check":"models"}'},{state:'query-failed',check:'models'}],
+    [{code:0,output:'{"state":"no-connection"}'},{state:'no-connection'}],
+    [{code:0,output:'{"state":"connection-needs-auth"}'},{state:'connection-needs-auth'}],
+    [{code:0,output:'{"state":"model-not-listed"}'},{state:'model-not-listed'}],
+    [{code:0,output:'{"state":"ready","token":"secret"}'},{state:'query-failed',check:'output'}],
+  ])('does not confuse failure, missing login, model state or hostile output (%#)',async(result,expected)=>{
+    const {api}=fakeAccount([],()=>result);const m=machines(api);await m.ensure('a1b2c3d4');
+    expect(await m.openCodeReadiness('a1b2c3d4','/remote/work','openai/test#medium')).toEqual(expected);
+    api.run=async()=>{throw new Error('raw transport secret');};
+    expect(await m.openCodeReadiness('a1b2c3d4','/remote/work','openai/test#medium')).toEqual({state:'query-failed',check:'transport'});
+  });
+  it('performs the real selected-CLI setup and reruns a changed profile without another creation', async () => {
+    let cli:AgentCli='opencode';let browser=false;
+    const {api,calls}=fakeAccount();const m=machines(api,[],{cli:()=>cli,browser:()=>browser});
+    await Promise.all([m.ensure('a1b2c3d4'),m.ensure('a1b2c3d4')]);
+    const setups=()=>calls.filter(c=>c.script?.includes('CUBEFARM_SETUP_OK'));
+    expect(calls.filter(c=>c.op==='create')).toHaveLength(1);expect(setups()).toHaveLength(1);
+    expect(setups()[0].script).not.toMatch(/@anthropic-ai|@openai\/codex|@playwright\/mcp/);
+    cli='codex';await m.ensure('a1b2c3d4');
+    expect(setups()).toHaveLength(2);expect(setups()[1].script).toContain('@openai/codex');
+    expect(setups()[1].script).not.toContain('@opencode/cli');
+    browser=true;await m.ensure('a1b2c3d4');expect(setups()[2].script).toContain('@playwright/mcp');
+    expect(calls.filter(c=>c.op==='create')).toHaveLength(1);
+  });
+  it('never reports a failed setup as ready or writes helper files after that failure', async () => {
+    const {api,files}=fakeAccount();api.run=async()=>({code:4,output:'installation failed'});
+    const states:[string,CloudMachineState][]=[];
+    const m=machines(api,states,{cli:()=> 'opencode',browser:()=>false});
+    await expect(m.ensure('a1b2c3d4')).rejects.toThrow('set up');
+    expect(files.size).toBe(0);expect(states.at(-1)).toEqual(['a1b2c3d4','error']);
+  });
+  it('never creates a Box while reading connections, and reads only the remote inventory', async () => {
+    const { api, calls } = fakeAccount([], () => ({ code: 0, output: JSON.stringify({ data: [{ id: 'remote', name: 'Remote', methods: [{ type: 'key' }], connections: [] }] }) }));
+    const m = machines(api);
+    await expect(m.openCodeConnections('a1b2c3d4', '/remote/work')).rejects.toThrow('not ready');
+    expect(await m.openCodeConnectionReady('a1b2c3d4', '/remote/work', 'openai/fake')).toBe(false);
+    expect(calls).toEqual([]);
+    await m.ensure('a1b2c3d4'); // explicit fake setup, not performed by connection reads
+    calls.length = 0;
+    expect(await m.openCodeConnections('a1b2c3d4', '/remote/work')).toMatchObject([{ id: 'remote' }]);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].script).toContain("'connections' '/remote/work'");
+    expect(calls[0].env).toEqual(expect.objectContaining({ XDG_DATA_HOME: '/workspace/home/.cubefarm/opencode/data' }));
+    expect(JSON.stringify(calls)).not.toMatch(/gho_token|OPENAI_API_KEY/);
+  });
+  it('checks OpenCode in its Box-owned folders for the selected remote model, with no provider/GitHub credentials', async () => {
+    const { api, calls } = fakeAccount([], () => ({ code: 0, output: 'CUBEFARM_SIGNED_IN' }));
+    const m = machines(api);
+    expect(await m.signedIn('a1b2c3d4', 'opencode', '/remote/work', 'openai/test#medium')).toBe(true);
+    const check = calls.find(c => c.script?.includes('opencode-query.cjs'))!;
+    expect(check.script).toContain("'status' '/remote/work' 'openai/test#medium'");
+    expect(check.env?.XDG_DATA_HOME).toBe('/workspace/home/.cubefarm/opencode/data');
+    expect(check.env).not.toHaveProperty('GH_TOKEN');
+    expect(check.env).not.toHaveProperty('OPENAI_API_KEY');
+  });
+
+  it('does not provision a Box for model browsing, or mistake a failed query for a successful connection', async () => {
+    const { api, calls } = fakeAccount([], () => ({ code: 2, output: 'CUBEFARM_OPENCODE_QUERY_FAILED' }));
+    const m = machines(api);
+    await expect(m.openCodeModels('a1b2c3d4', '/remote/work')).rejects.toThrow(/not ready/);
+    expect(calls).toEqual([]);
+    await expect(m.signedIn('a1b2c3d4', 'opencode')).rejects.toThrow(/provider and model setup/);
+  });
   it('creates and sets up a Box the first time, then reuses it', async () => {
     const { api, calls, files } = fakeAccount();
     const states: [string, CloudMachineState][] = [];

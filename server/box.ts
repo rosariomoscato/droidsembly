@@ -46,7 +46,7 @@ export interface BoxFile {
 export interface BoxApi {
   /** Every Box on the account (they all count towards the plan's limit); the office's carry the `cubefarm` label. */
   list(): Promise<BoxInfo[]>;
-  create(o: { name: string; labels: string[]; size: BoxSize }): Promise<BoxInfo>;
+  create(o: { name: string; labels: string[]; size: BoxSize; browser?: boolean }): Promise<BoxInfo>;
   /** null: there's no such Box any more. */
   get(id: string): Promise<BoxInfo | null>;
   resume(id: string): Promise<void>;
@@ -101,7 +101,7 @@ function decoder(onText: (text: string) => void) {
 }
 
 /** The real Upstash account behind an API key. */
-export function upstashBoxes(apiKey: string): BoxApi {
+export function upstashBoxes(apiKey: string, options: { browser?: boolean } = {}): BoxApi {
   const conn = { apiKey, enableTelemetry: false };
   const boxes = new Map<string, Box>();
   const box = async (id: string) => {
@@ -142,7 +142,7 @@ export function upstashBoxes(apiKey: string): BoxApi {
     list: () => guard('list your Boxes', async () => (await Box.list(conn)).map((d) => ({ id: d.id, name: d.name ?? '', labels: d.labels ?? [], status: state(d.status) }))),
     create: (o) =>
       guard('create a Box', async () => {
-        const b = await Box.create({ ...conn, name: o.name, labels: o.labels, size: o.size, runtime: 'node', browser: true, timeout: 300_000 });
+        const b = await Box.create({ ...conn, name: o.name, labels: o.labels, size: o.size, runtime: 'node', browser: o.browser ?? options.browser ?? true, keepAlive: false, timeout: 300_000 });
         boxes.set(b.id, b);
         return { id: b.id, name: o.name, labels: o.labels, status: 'running' };
       }),

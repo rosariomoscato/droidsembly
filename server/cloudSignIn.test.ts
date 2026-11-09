@@ -3,6 +3,10 @@ import type { WebSocket } from 'ws';
 import { createDemoBackend } from './demo.ts';
 import { Swarm } from './swarm.ts';
 
+// This file runs beside other demo offices. Their per-module write queues must not share one secrets file.
+const { home } = vi.hoisted(() => ({ home: `${process.env.SWARM_HOME}/cloud-signin` }));
+vi.mock('./config.ts', async (original) => ({ ...await original<typeof import('./config.ts')>(), HOME_DIR: home }));
+
 // A cloud agent's coding agent signs in with its own login in their Box (docs/cloud.md). In a demo office the fake
 // Upstash account's new Boxes are signed out, the fake sign-in in the agent's terminal signs them in, and
 // expireSignIns() signs every Box out again, as a login Anthropic or OpenAI turned away would.
@@ -35,6 +39,30 @@ function viewer() {
 }
 
 describe('signing cloud agents in', () => {
+  it('signs an OpenCode worker in in its Box, lists remote models and holds an expired task for another login', async () => {
+    const { swarm, repo, agent } = await office();
+    const ada = swarm.hireAgent(repo.id, { name: 'OpenCode', host: 'box', cli: 'opencode', strict: true });
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(agent(ada.id)).toMatchObject({ host: 'box', cli: 'opencode', needsSignIn: true });
+    const models = await swarm.openCodeModels(ada.id);
+    expect(models.directory).toContain('/workspace/home/work/');
+    expect(models.models[0].id).toBe('demo/cloud-model');
+    const issue = swarm.snapshot().repos.find(r => r.id === repo.id)!.issues[0];
+    swarm.assign(ada.id, issue.number);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(agent(ada.id)).toMatchObject({ status: 'preparing', needsSignIn: true });
+    const v = viewer();
+    swarm.attachTerminal(ada.id, v.ws);
+    v.type('done\r');
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(agent(ada.id)).toMatchObject({ host: 'box', status: 'working', needsSignIn: false });
+    swarm.expireSignIns();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(agent(ada.id)).toMatchObject({ host: 'box', status: 'preparing', needsSignIn: true, issueNumber: issue.number });
+    v.type('again\r');
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(agent(ada.id)).toMatchObject({ host: 'box', status: 'working', needsSignIn: false, issueNumber: issue.number });
+  });
   it('asks to sign a new cloud hire in, keeps work from them meanwhile, and signs them in in their terminal', async () => {
     const { swarm, repo, agent } = await office();
     const ada = swarm.hireAgent(repo.id, { name: 'Ada', host: 'box', strict: true });
