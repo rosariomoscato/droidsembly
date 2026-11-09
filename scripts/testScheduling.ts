@@ -3,6 +3,7 @@ import { configDefaults } from 'vitest/config';
 // These complete files contain wall-clock budgets or CPU-heavy simulations with
 // strict deadlines. Give them a quiet phase, rather than relaxing their tests.
 export const timingSensitiveTests = [
+  'scripts/opencodeGateLauncher.test.ts',
   'server/scale.test.ts',
   'server/httpParser.test.ts',
   'server/notifier.test.ts',
