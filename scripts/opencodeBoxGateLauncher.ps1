@@ -13,7 +13,7 @@ $pb=[IntPtr]::Zero
 try {
   $pa=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($a)
   $pb=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($b)
-  $info=New-Object System.Diagnostics.ProcessStartInfo
+  $info=[System.Diagnostics.ProcessStartInfo]::new()
   $info.FileName=$node
   $info.Arguments='--import "'+$loader+'" "'+$script+'" --plan "'+([IO.Path]::GetFullPath($PlanFile))+'" --execute-approved'
   $info.WorkingDirectory=$source
@@ -22,7 +22,7 @@ try {
   foreach($name in @($info.EnvironmentVariables.Keys)){if($keep -notcontains $name){$info.EnvironmentVariables.Remove($name)}}
   $info.EnvironmentVariables['DS_TEST_UPSTASH_KEY']=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pa)
   $info.EnvironmentVariables['DS_TEST_GITHUB_TOKEN']=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pb)
-  $p=New-Object System.Diagnostics.Process
+  $p=[System.Diagnostics.Process]::new()
   $p.StartInfo=$info
   [void]$p.Start()
   $info.EnvironmentVariables.Remove('DS_TEST_UPSTASH_KEY')
@@ -36,7 +36,7 @@ try {
   $b.Dispose()
 }
 if ($result -ne 0) {
-  Write-Host ('STOP. Runner exit code: ' + $result + '. Read the safe stage/category above; no automatic retry.') -ForegroundColor Yellow
+  [Console]::WriteLine('STOP. Runner exit code: ' + $result + '. Read the safe stage/category above; no automatic retry.')
   [void](Read-Host 'Press Enter to close (do not enter credentials here)')
 }
 exit $result

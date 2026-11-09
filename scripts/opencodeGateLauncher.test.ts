@@ -25,11 +25,14 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     // Milestones contain fixed labels/times only and make a subprocess stall diagnosable on hosted runners.
     const traced = launcher.replaceAll(/^(.*)$/gm, (line) => {
       const label = line.startsWith('& $node') ? 'preflight-start' : line.startsWith('$a = Read-Host') ? 'preflight-done'
+        : line.startsWith('$b = Read-Host') ? 'first-input-done' : line.startsWith('$pa=') ? 'inputs-done'
+          : line.includes('$pa=[Runtime.') ? 'marshal-start' : line.includes('$info=[System.') ? 'marshal-done'
+            : line.includes('$keep=@') ? 'process-info-ready' : line.includes('$p=[System.') ? 'environment-ready'
         : line.includes('[void]$p.Start()') ? 'child-start' : line.includes('$p.WaitForExit()') ? 'child-wait'
           : line.startsWith('if ($result -ne 0)') ? 'disposed' : '';
       return label ? `[Console]::Error.WriteLine('probe ${label} ms=' + $probeClock.ElapsedMilliseconds)\n${line}` : line;
     });
-    fs.writeFileSync(script,`$probeClock=[Diagnostics.Stopwatch]::StartNew()\nfunction Read-Host { param([string]$Prompt,[switch]$AsSecureString)\nif($AsSecureString){$secure=New-Object Security.SecureString; foreach($c in 'synthetic-not-a-secret'.ToCharArray()){$secure.AppendChar($c)}; return $secure}\n[IO.File]::WriteAllText('${quote(path.join(dir,'acknowledged.txt'))}', $Prompt)\nreturn ''\n}\n${traced}`.replace('param([Parameter(Mandatory=$true)][string]$PlanFile)',"$PlanFile = 'synthetic-plan-not-read-by-probe'"));
+    fs.writeFileSync(script,`$probeClock=[Diagnostics.Stopwatch]::StartNew()\nfunction Read-Host { param([string]$Prompt,[switch]$AsSecureString)\nif($AsSecureString){$secure=[Security.SecureString]::new(); foreach($c in 'synthetic-not-a-secret'.ToCharArray()){$secure.AppendChar($c)}; return $secure}\n[IO.File]::WriteAllText('${quote(path.join(dir,'acknowledged.txt'))}', $Prompt)\nreturn ''\n}\n${traced}`.replace('param([Parameter(Mandatory=$true)][string]$PlanFile)',"$PlanFile = 'synthetic-plan-not-read-by-probe'"));
     const keep=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','LOCALAPPDATA','APPDATA','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','HOMEDRIVE','HOMEPATH','USERNAME','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS']);
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{env,encoding:'utf8',timeout:4000,windowsHide:true});
