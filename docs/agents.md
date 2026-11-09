@@ -26,7 +26,7 @@ CubeFarm checks `opencode --version` during detection and immediately before sta
 
 Choose a model as `provider/model`, optionally with `#variant` (for example your provider's supported reasoning variant), or leave it empty for OpenCode's default. For OpenCode, the effort control selects the model's supported variants and saves `#variant` in the model; it never shows or uses Claude's separate effort value. Model and variant changes apply to the next task, including resumed chats. Changing the coding agent clears the previous model and starts a fresh conversation on the next task; a running task finishes on its current coding agent. The CEO's default remains Claude Code and does not follow the workers' default.
 
-The CEO receives the office's management tools through a session-scoped MCP connection. Each OpenCode terminal uses a private server (`--standalone`) and the V2 callback plugin, keeping its instructions, model and callbacks separate from your shared OpenCode service. The CEO's workflow rules remain in its instructions, just as for other agents; this is not a sandbox. OpenCode cloud agents are not supported.
+The CEO receives the office's management tools through a session-scoped MCP connection. Each OpenCode terminal uses a private server (`--standalone`) and the V2 callback plugin, keeping its instructions, model and callbacks separate from your shared OpenCode service. The CEO's workflow rules remain in its instructions, just as for other agents; this is not a sandbox. OpenCode workers can also use the Box terminal path on this branch; see [validation limits](OPENCODE_BOX_VALIDATION.md). The CEO itself remains local (Claude Code or OpenCode, not Codex).
 
 ### Browse available OpenCode models
 
@@ -105,6 +105,7 @@ Cloud agents work this way today ([Signing a cloud agent in](cloud.md#signing-a-
 
 - **Claude Code**: signs in once per Box with its own login (`claude auth login` in the agent's terminal), kept in the Box user's `~/.claude`. Before each task the office checks it (`claude auth status`); signed out, or failing on an expired login mid-task, the agent is marked *needs sign-in* and their task waits for you. Or, for every Box at once: `CLAUDE_CODE_OAUTH_TOKEN` from the office's environment (`CUBEFARM_CLAUDE_TOKEN`: you run `claude setup-token` yourself; the office never writes it down) or an Anthropic API key.
 - **Codex**: the same with `codex login --device-auth` (a link and a one-time code, since nobody can open a browser on the Box) and `codex login status`, kept in `~/.codex`; or an OpenAI API key for every Box.
+- **OpenCode V2**: official provider login in the Box terminal, with Box-owned XDG configuration/data. Model and connection browsing reads that Box, not the PC. Connection metadata is not proof of a working token or available quota; see [validation limits](OPENCODE_BOX_VALIDATION.md).
 - **GitHub**: `GH_TOKEN` for each machine (a fine-grained token scoped to the floors' repos, or your `gh auth token`), later a GitHub App's short-lived tokens.
 
 Other machines elsewhere (roadmap step 3) will get their own config folders (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, OpenCode's XDG folders) with onboarding and folder trust filled in, signed in the same way.
