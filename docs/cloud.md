@@ -1,5 +1,7 @@
 # Cloud agents
 
+**OpenCode validation note:** OpenCode V2 Box workers use the existing terminal runtime. An explicitly authorized instrumented end-to-end run passed; this does not certify ordinary uninstrumented operation or pause/restart survival. See [OpenCode Box validation and limits](OPENCODE_BOX_VALIDATION.md).
+
 Out of the box every agent works on your computer: close the office or shut your laptop and they stop. **Cloud agents** work in an [Upstash Box](https://upstash.com/docs/box/overall/quickstart) each instead, a small Linux machine in the cloud, so they carry on with their task while the office is closed. It's optional: agents on your computer stay the default, and you can have both on one floor.
 
 ## What keeps going while the office is closed
@@ -21,15 +23,18 @@ The demo office (`npx cubefarm --demo`) has a fake Upstash account: any key work
 
 ## Signing a cloud agent in
 
-A cloud agent's Claude Code or Codex signs in with **your own subscription** (Claude Pro or Max, a ChatGPT plan), through the coding agent's own login, run in that agent's terminal. You finish Anthropic's or OpenAI's sign-in yourself, once per cloud machine:
+A cloud agent's coding agent signs in through its own login, run in that agent's terminal. Claude Code and Codex can use their supported subscriptions; OpenCode uses the selected provider's supported login or API-key method. You finish the official sign-in yourself, once per cloud machine:
 
 1. When a new cloud agent's Box is ready, the office asks their coding agent whether it's signed in. If it isn't, the agent is marked **needs sign-in**: they take no work (a task they were starting waits), their desk gets a 🔑 note on the monitor, and their card a **🔑 Sign in** button. The phone tells you too.
 2. Walk to their desk and press `E`, or tap **🔑 Sign in** (the manager's console → Team, the phone's Team tab, or the list view). Their terminal opens with the sign-in running:
    - **Claude Code** (`claude auth login`) shows a link. Open it, approve with your Claude account, paste the code the page gives you into the terminal and press Enter.
    - **Codex** (`codex login --device-auth`) shows a link and a one-time code. Open the link, sign in to ChatGPT and enter the code there. (Codex's usual sign-in waits for a browser on the Box itself, which nobody can open; this one works from anywhere.) The code lasts 15 minutes: **↻ Start over** above the terminal shows a new one.
+   - **OpenCode V2** (`opencode auth login`) lets you choose the provider and its official login method in the Box terminal. Choose a method that works without a browser in the Box, such as the provider's device-code flow where offered. After connecting, choose a model in that cloud agent's Setup. Model browsing reads the Box's inventory, not your PC's. Before hiring, enter a model manually or leave the Box's default; browsing is available after its machine is ready. A provider connection is not proof of current quota or a working token.
 3. The office sees the sign-in is done, clears the flag and starts the task that waited.
 
 The Box keeps the sign-in (Claude Code's in `~/.claude`, Codex's in `~/.codex`, in the Box user's home) through pauses and office restarts, so each cloud machine signs in once. It's gone with the Box when the agent leaves.
+
+OpenCode keeps its own V2 database and configuration under `/workspace/home/.cubefarm/opencode/`, shared by that worker's sign-in, metadata queries and task sessions. No local OpenCode account/database is exported or copied. The Claude/Codex keys configured below are not reused by OpenCode: enter an API key only through OpenCode's official login in the Box if that is the authentication method you choose. Do not clone authenticated Boxes into several workers.
 
 **When a sign-in expires** (or is revoked), the office notices before the agent's next task, or when their session fails on it mid-task. It forgets the dead login in their Box, marks them **needs sign-in** again and holds the task; signing in again the same way carries the task on in the same conversation.
 
@@ -50,9 +55,18 @@ The Box keeps the sign-in (Claude Code's in `~/.claude`, Codex's in `~/.codex`, 
 - Upstash bills a Box for the CPU it uses while it works, from $0.10 per active CPU hour for a small Box (2 vCPU, 4 GB). Paused Boxes only pay for their disk. Settings → Cloud agents sets the size for new Boxes. See [Upstash's pricing](https://upstash.com/pricing/box).
 - The free plan allows **10 Boxes** (paused ones count) and 5 CPU hours a month. Set *Your plan's Box limit* to match your plan: the office won't hire a cloud agent past it.
 - Coding agents in the cloud use your subscription or API key the same way they do on your computer, and share its usage limits.
-- **OpenCode** can't run in a Box yet; an OpenCode agent stays on your computer.
+- **OpenCode V2 workers** use the office's pinned CLI and a private `--standalone` server in their Box. The CEO and office still run locally. An explicitly requested Box that cannot be used fails rather than being counted as a successful local fallback. OpenCode does not gain access to a model server on your PC just because the same model name works locally.
 - **Linked repos** are copied into the Box read-only for each task instead of being read from your computer.
 
 ## Security
 
 Agents in a Box work like agents on your computer: they approve their own tool calls, hold their credentials for the length of a session and read issue text. The difference is where: a Box is a sandbox of its own, with nothing of yours on it except the floor's repo and, once you sign them in, their coding agent's login, which the agent can read like any file in its home. Read an issue before you let an agent take it, especially in a public repo. If you think a Box's sign-in was misused, sign out of other sessions from your Claude or ChatGPT account, or let the agent go (their Box goes with them). Rotate a token or key if it was ever shown or pasted somewhere it shouldn't have been; the `claude setup-token` token lasts a year.
+### OpenCode provider connections
+
+In an OpenCode agent’s **Setup → OpenCode connections**, load the provider integrations from that agent’s host, choose an authentication method, and add an account in the official CLI terminal. OAuth, API keys, external credentials and provider commands are offered only when advertised by that OpenCode installation; no OAuth method IDs are hard-coded. Environment-based connections are read-only in this panel. API keys use API billing; OAuth does not necessarily imply subscription billing.
+
+Saved accounts can be activated explicitly in the terminal. Selection in a menu is not activation. The public integration API does not identify the active account, so the panel does not claim to display it: verify using `opencode auth list`. Accounts and activation persist through OpenCode’s supported account management, not through an app preference or direct database edits.
+
+Local agents share the computer’s OpenCode account environment. Box connections are scoped to that Box, never copied from the computer or another Box; a shared subscription still shares its provider usage limits. Connection reads and changes never provision a Box or send an AI prompt. Stop all work and close existing coding-agent sessions before changing accounts. The target’s idle automatic sign-in can be replaced by the chosen official login; held work cannot. Authentication blocks new office work until it exits or **Stop connection operation** is used. No held task is released by the connection action itself.
+
+Credentials, authorization codes and API keys are entered only in the official terminal flow. The HTTP connection actions accept provider/method/account IDs only, not secrets. The account panel is metadata-only and does not expose commands, forms, tokens, provider headers or database contents. Changing accounts does not by itself choose a model: use the agent’s model picker separately.

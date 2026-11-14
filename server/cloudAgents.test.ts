@@ -35,13 +35,13 @@ describe('where agents work', () => {
     expect(JSON.stringify(swarm.snapshot())).not.toContain('demo-key');
   });
 
-  it("keeps OpenCode agents and agents past the plan's Box limit on this computer, saying why", async () => {
+  it("supports OpenCode but refuses explicit cloud hires past the plan's Box limit without a local fallback", async () => {
     const { swarm, repo } = await office();
     await swarm.setCloudKey('demo-key');
-    expect(() => swarm.hireAgent(repo.id, { host: 'box', cli: 'opencode', strict: true })).toThrow(/OpenCode/);
     swarm.updateSettings({ cloud: { machineKind: 'box', boxSize: 'small', boxLimit: 1 } });
-    swarm.hireAgent(repo.id, { name: 'Ada', strict: true });
+    expect(swarm.hireAgent(repo.id, { name: 'Ada', host: 'box', cli: 'opencode', strict: true }).host).toBe('box');
     expect(() => swarm.hireAgent(repo.id, { name: 'Bo', strict: true })).toThrow(/Box limit \(1\)/);
+    expect(() => swarm.hireAgent(repo.id, { name: 'Bo', host: 'box', cli: 'opencode' })).toThrow(/Box limit \(1\)/);
     // A floor's own first agent isn't refused: they work on this computer instead.
     expect(swarm.hireAgent(repo.id, { name: 'Cy' }).host).toBe('local');
   });
@@ -52,7 +52,8 @@ describe('where agents work', () => {
     const first = agents()[0];
     swarm.updateAgent(first.id, { host: 'box' });
     expect(agents()[0].host).toBe('box');
-    expect(() => swarm.updateAgent(first.id, { cli: 'opencode' })).toThrow(/OpenCode/);
+    swarm.updateAgent(first.id, { cli: 'opencode' });
+    expect(agents()[0]).toMatchObject({ host: 'box', cli: 'opencode' });
     swarm.updateAgent(first.id, { host: 'local' });
     expect(agents()[0].host).toBe('local');
   });

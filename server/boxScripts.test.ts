@@ -22,7 +22,7 @@ import {
   tmuxStart,
 } from './boxScripts.ts';
 
-const versions = { claude: '2.1.283', playwrightMcp: '0.0.83', codex: '0.163.0' };
+const versions = { claude: '2.1.283', playwrightMcp: '0.0.83', codex: '0.163.0', opencode: '2.2.6' };
 
 describe('sq', () => {
   it('makes one shell word of anything, quotes included', () => {
@@ -54,6 +54,9 @@ describe('setupScript', () => {
     expect(script).toContain(`npm install -g --prefix '/workspace/home/.cubefarm/cli'`);
     expect(script).toContain(`'@anthropic-ai/claude-code@2.1.283' '@playwright/mcp@0.0.83' '@openai/codex@0.163.0'`);
     expect(script).not.toContain('sudo npm');
+    expect(script).toContain("'@opencode/cli@2.2.6'");
+    expect(script).toContain('OpenCode version mismatch');
+    expect(setupMarker(versions, 1)).not.toBe(setupMarker({ ...versions, opencode: '2.2.7' }, 1));
     expect(script).toContain('for t in tmux lsof gh');
     expect(script).toContain(`if [ -f '${setupMarker(versions, 1)}' ]`);
     expect(setupMarker(versions, 1)).not.toBe(setupMarker({ ...versions, claude: '2.1.300' }, 1));
@@ -69,6 +72,32 @@ describe('setupScript', () => {
   it("signs commits with the manager's identity, quoted", () => {
     expect(script).toContain(`git config --global user.name 'Ada O'"'"'Neil'`);
     expect(script).toContain(`git config --global user.email 'ada@example.com'`);
+  });
+  it('installs only OpenCode for a non-browser OpenCode worker, with a genuine separate marker', () => {
+    const s = setupScript({ versions, rev:4, gitName:'Test', gitEmail:'test@example.com', cli:'opencode', browser:false });
+    expect(s).toContain("'@opencode/cli@2.2.6'");
+    expect(s).not.toMatch(/@anthropic-ai|@openai\/codex|@playwright\/mcp|for c in claude/);
+    expect(s).toContain('for c in opencode;');
+    expect(s).toContain(setupMarker(versions,4,'opencode',false));
+    expect(s.indexOf('touch ')).toBeGreaterThan(s.indexOf('OpenCode version mismatch'));
+    expect(s).not.toContain('rm -f');
+    expect(s).toContain('--fetch-retries=0');
+    expect(s).toContain('Acquire::Retries=0');
+    expect(s).not.toContain('apt-get install -y -qq');
+  });
+  it.each(['claude','codex'] as const)('does not install or query OpenCode for a %s-only worker', cli => {
+    const s=setupScript({versions,rev:4,gitName:'Test',gitEmail:'test@example.com',cli,browser:false});
+    expect(s).not.toMatch(/@opencode\/cli|OpenCode version mismatch|opencode.json/);
+    expect(s).not.toContain('@playwright/mcp');
+    expect(s).toContain(`for c in ${cli};`);
+  });
+  it('changes only the relevant profile marker when a selected CLI or browser support changes', () => {
+    expect(setupMarker(versions,4,'opencode')).not.toBe(setupMarker(versions,4,'claude'));
+    expect(setupMarker(versions,4,'opencode')).not.toBe(setupMarker(versions,4,'opencode',true));
+    expect(setupMarker(versions,4,'opencode')).toBe(setupMarker({...versions,claude:'different'},4,'opencode'));
+    expect(setupMarker(versions,4,'opencode',true)).not.toBe(setupMarker({...versions,playwrightMcp:'different'},4,'opencode',true));
+    const s=setupScript({versions,rev:4,gitName:'Test',gitEmail:'test@example.com',cli:'opencode',browser:true});
+    expect(s).toContain('@playwright/mcp');expect(s).not.toMatch(/@anthropic-ai|@openai\/codex/);
   });
 });
 
@@ -148,6 +177,8 @@ describe('signing a CLI in', () => {
   it("runs each CLI's own login, the one that works without a browser on the Box", () => {
     expect(signInCommand('claude')).toEqual({ file: '/workspace/home/.cubefarm/cli/bin/claude', args: ['auth', 'login'] });
     expect(signInCommand('codex')).toEqual({ file: '/workspace/home/.cubefarm/cli/bin/codex', args: ['login', '--device-auth'] });
+    expect(signInCommand('opencode')).toEqual({ file: '/workspace/home/.cubefarm/cli/bin/opencode', args: ['auth', 'login'] });
+    expect(signOutScript('opencode')).toBe('true'); // never delete unrelated provider accounts
     expect(signOutScript('claude')).toContain(`claude' auth logout`);
     expect(signOutScript('codex')).toContain(`codex' logout`);
   });

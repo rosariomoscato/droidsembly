@@ -32,6 +32,7 @@ export async function listMyRepos(owner?: string): Promise<GhRepoSummary[]> {
 }
 
 export interface RepoMeta {
+  isPrivate?: boolean;
   nameWithOwner: string;
   description: string;
   url: string;
@@ -39,14 +40,15 @@ export interface RepoMeta {
 }
 
 export async function repoMeta(fullName: string): Promise<RepoMeta> {
-  const raw = await ghJson<{ nameWithOwner: string; description: string | null; url: string; defaultBranchRef: { name: string } | null }>([
+  const raw = await ghJson<{ nameWithOwner: string; description: string | null; url: string; defaultBranchRef: { name: string } | null; isPrivate: boolean }>([
     'repo',
     'view',
     fullName,
     '--json',
-    'nameWithOwner,description,url,defaultBranchRef',
+    'nameWithOwner,description,url,defaultBranchRef,isPrivate',
   ]);
   return {
+    isPrivate: raw.isPrivate,
     nameWithOwner: raw.nameWithOwner,
     description: raw.description ?? '',
     url: raw.url,
@@ -54,8 +56,9 @@ export async function repoMeta(fullName: string): Promise<RepoMeta> {
   };
 }
 
-export async function listIssues(fullName: string): Promise<IssueInfo[]> {
-  const raw = await readTwice(() =>
+export const readOnce = <T>(read: () => Promise<T>): Promise<T> => read();
+export async function listIssues(fullName: string, read = readTwice): Promise<IssueInfo[]> {
+  const raw = await read(() =>
     ghJson<{ number: number; title: string; body: string; url: string; labels: { name: string }[]; createdAt: string }[]>(
       ['issue', 'list', '-R', fullName, '--state', 'open', '--limit', '100', '--json', 'number,title,body,url,labels,createdAt'],
       SYNC_READ,
@@ -141,10 +144,10 @@ function toPull(p: RawPull): PullInfo {
   };
 }
 
-export async function listPulls(fullName: string): Promise<PullInfo[]> {
+export async function listPulls(fullName: string, read = readTwice): Promise<PullInfo[]> {
   const [open, merged] = await Promise.all([
-    readTwice(() => ghJson<RawPull[]>(['pr', 'list', '-R', fullName, '--state', 'open', '--limit', '50', '--json', PR_FIELDS], SYNC_READ)),
-    readTwice(() => ghJson<RawPull[]>(['pr', 'list', '-R', fullName, '--state', 'merged', '--limit', '8', '--json', PR_FIELDS], SYNC_READ)),
+    read(() => ghJson<RawPull[]>(['pr', 'list', '-R', fullName, '--state', 'open', '--limit', '50', '--json', PR_FIELDS], SYNC_READ)),
+    read(() => ghJson<RawPull[]>(['pr', 'list', '-R', fullName, '--state', 'merged', '--limit', '8', '--json', PR_FIELDS], SYNC_READ)),
   ]);
   return [...open, ...merged].map(toPull);
 }

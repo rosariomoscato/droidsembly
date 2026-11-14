@@ -412,17 +412,17 @@ function AddAgent({ repo, size }: { repo: RepoView; size: number }) {
       {terminal && (
         <select value={draft.cli} onChange={(e) => edit({ cli: e.target.value as AgentCli | '' })} aria-label={t('New agent’s coding agent')} style={{ width: 'auto' }}>
           <option value="">{cliName(clis, settings.defaultCli)} {t('(default)')}</option>
-          <CliOptions clis={clis} />
+          <CliOptions clis={clis} cloud={settings.cloud.machineKind === 'box'} />
         </select>
       )}
       <input value={draft.model} onChange={(e) => edit({ model: e.target.value })} list={`new-agent-models-${repo.floor}`} placeholder={t('default model')} aria-label={t('New agent’s model')} style={{ maxWidth: 150 }} />
-      {cli === 'opencode' && <OpenCodeModelPicker value={draft.model} repo={repo.id} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} />}
+      {cli === 'opencode' && <OpenCodeModelPicker value={draft.model} repo={repo.id} disabled={settings.cloud.machineKind === 'box'} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} />}
       <datalist id={`new-agent-models-${repo.floor}`}>
         {modelSuggestions(cli).map((m) => (
           <option key={m} value={m} />
         ))}
       </datalist>
-      {cli === 'opencode' ? <OpenCodeVariantSelect value={draft.model} repo={repo.id} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} /> : <select value={draft.effort} onChange={(e) => edit({ effort: e.target.value as EffortLevel | '' })} aria-label={t('New agent’s effort')} style={{ width: 'auto' }}>
+      {cli === 'opencode' ? <OpenCodeVariantSelect value={draft.model} repo={repo.id} disabled={settings.cloud.machineKind === 'box'} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} /> : <select value={draft.effort} onChange={(e) => edit({ effort: e.target.value as EffortLevel | '' })} aria-label={t('New agent’s effort')} style={{ width: 'auto' }}>
         <option value="">{t('default effort ({effort})', { effort: settings.defaultEffort })}</option>
         {EFFORTS.map((x) => (
           <option key={x} value={x}>

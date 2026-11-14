@@ -1551,8 +1551,9 @@ function demoBoxes(logins: Map<string, Set<string>>): BoxApi {
     },
     run: async (id, script) => {
       box(id).status = 'running';
-      const cli = /claude'? auth /.test(script) ? 'claude' : 'codex';
-      if (script.includes('CUBEFARM_SIGNED_IN')) return { code: 0, output: logins.get(id)?.has(cli) ? 'CUBEFARM_SIGNED_IN' : 'CUBEFARM_SIGNED_OUT' };
+      const cli = script.includes('opencode-query.cjs') ? 'opencode' : /claude'? auth /.test(script) ? 'claude' : 'codex';
+      if (script.includes('CUBEFARM_SIGNED_IN') || (cli === 'opencode' && script.includes("'status'"))) return { code: 0, output: logins.get(id)?.has(cli) ? 'CUBEFARM_SIGNED_IN' : 'CUBEFARM_SIGNED_OUT' };
+      if (cli === 'opencode' && script.includes("'models'")) return { code: 0, output: JSON.stringify({ list: { data: [{ providerID: 'demo', id: 'cloud-model', name: 'Demo cloud model', capabilities: { tools: true } }] }, selected: { data: null } }) };
       if (/auth logout|' logout/.test(script)) {
         logins.get(id)?.delete(cli);
         return { code: 0, output: '' };
@@ -1608,18 +1609,18 @@ function demoCloud(): CloudBackend {
 }
 
 /** Where the demo's sign-ins send the manager: nowhere real. */
-const DEMO_SIGN_IN = { claude: 'https://example.com/cubefarm-demo/claude-sign-in', codex: 'https://example.com/cubefarm-demo/codex-device' };
+const DEMO_SIGN_IN = { claude: 'https://example.com/cubefarm-demo/claude-sign-in', codex: 'https://example.com/cubefarm-demo/codex-device', opencode: 'https://example.com/droidsembly-demo/opencode' };
 
 /**
  * The demo's sign-in in a cloud agent's terminal, drawn as each CLI's own one looks, with a made-up link: Enter (after
  * pasting anything, for Claude Code) finishes it, and the fake account remembers the Box as signed in.
  */
-function demoSignIn(o: { boxId: string; cli: 'claude' | 'codex'; term: AgentTerminal }, logins: Map<string, Set<string>>, exited: (code: number) => void): BoxSignIn {
+function demoSignIn(o: { boxId: string; cli: 'claude' | 'codex' | 'opencode'; term: AgentTerminal }, logins: Map<string, Set<string>>, exited: (code: number) => void): BoxSignIn {
   const { term } = o;
   const claude = o.cli === 'claude';
-  term.note(`── Signing ${claude ? 'Claude Code' : 'Codex'} in · ☁ cloud machine (demo) ──`);
+  term.note(`── Signing ${cliLabel(o.cli)} in · ☁ cloud machine (demo) ──`);
   term.write(
-    (claude
+    (o.cli === 'opencode' ? ['OpenCode provider login (demo)', DEMO_SIGN_IN.opencode, '(demo) Press Enter to finish.'] : claude
       ? ['Opening browser to sign in…', `If the browser didn't open, visit: ${DEMO_SIGN_IN.claude}`, '', '\x1b[2m(demo) Paste anything and press Enter.\x1b[0m', 'Paste code here if prompted > ']
       : [
           'Welcome to Codex (demo)',

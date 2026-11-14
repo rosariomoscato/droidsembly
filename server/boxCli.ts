@@ -51,7 +51,7 @@ export const BOX_CDP = 'http://127.0.0.1:9222';
 
 // ---------- the events file ----------
 
-export const TURN_ENDS = ['Stop', 'StopFailure', 'TurnComplete'];
+export const TURN_ENDS = ['Stop', 'StopFailure', 'TurnComplete', 'TurnError', 'Interrupt'];
 
 /** Splits an events file into whole JSON lines, counting the bytes handled (lines are ASCII, so bytes are characters). */
 export class EventLines {
@@ -171,7 +171,12 @@ export class BoxPty implements Pty {
   replay(events: Record<string, unknown>[], at: { offset: number; turnAt: number }) {
     void hooksOpen.then(() => {
       if (this.stopped) return;
-      for (const e of events) if (e.hook_event_name !== 'CubefarmExit') this.o.event(e);
+      for (const e of events) {
+        if (this.stopped || this.exited) return;
+        if (e.hook_event_name !== 'CubefarmExit') this.o.event(e);
+      }
+      // An event callback can synchronously kill/detach this CLI. Never resurrect its record afterwards.
+      if (this.stopped || this.exited) return;
       this.lines = new EventLines(at.offset, at.turnAt);
       this.o.save(at.offset, at.turnAt, this.meta);
       // Its session finishes on its own a few seconds after a finished turn; the exit follows that.
@@ -247,9 +252,11 @@ export class BoxPty implements Pty {
     if (this.stopped || this.exited) return;
     let exit: number | null = null;
     for (const e of this.lines.push(text)) {
+      if (this.stopped || this.exited) return;
       if (e.hook_event_name === 'CubefarmExit') exit = Number(e.code) || 0;
       else this.o.event(e);
     }
+    if (this.stopped || this.exited) return;
     this.o.save(this.lines.offset, this.lines.turnAt, this.meta);
     if (exit !== null) this.fireExit(exit);
   }

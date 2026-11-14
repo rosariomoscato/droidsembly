@@ -85,7 +85,7 @@ export function resolveCredentials(cli: AgentCli, i: CredentialInput): Credentia
   } else if (cli === 'codex') {
     if (i.secrets.openaiApiKey) Object.assign(env, { OPENAI_API_KEY: i.secrets.openaiApiKey, CODEX_API_KEY: i.secrets.openaiApiKey });
     else ownLogin = true;
-  }
+  } else if (cli === 'opencode') ownLogin = true; // Provider-specific login belongs to this Box, never borrowed from another CLI.
   return { env, apiKeyHelper, ownLogin, missing };
 }
 
@@ -126,6 +126,8 @@ export function redact(text: string, secrets: string[]): string {
 
 export interface CloudDeps {
   secretsFile: string;
+  /** Explicit, volatile credentials for an isolated runner. Never read or write a secrets file in this mode. */
+  credentials?: Readonly<CloudSecrets>;
   env: Record<string, string | undefined>;
   /** The Box API behind a key: Upstash's, or the demo's fake. */
   boxes: (key: string) => BoxApi;
@@ -150,10 +152,10 @@ export class Cloud {
   constructor(private deps: CloudDeps) {}
 
   async init() {
-    const s = await readSecrets(this.deps.secretsFile);
+    const s = this.deps.credentials ?? await readSecrets(this.deps.secretsFile);
     for (const k of ['upstashBoxKey', 'cloudGithubToken', 'anthropicApiKey', 'openaiApiKey'] as const) if (typeof s[k] === 'string' && s[k]) this.secrets[k] = s[k] as string;
     if (this.secrets.upstashBoxKey) this.api = this.deps.boxes(this.secrets.upstashBoxKey);
-    await this.refreshGh(true);
+    if (!this.secrets.cloudGithubToken) await this.refreshGh(true);
   }
 
   /** The Box API, or null while no key is saved. */
@@ -165,6 +167,7 @@ export class Cloud {
 
   /** The gh login token, re-read at most once a minute (the manager may sign in or out meanwhile). */
   private async refreshGh(force = false) {
+    if (this.deps.credentials) return ''; // never retrieve an ambient PC token in volatile mode
     if (!force && Date.now() - this.ghAt < 60_000) return this.gh;
     this.ghAt = Date.now();
     this.gh = await this.deps.ghToken().catch(() => '');
@@ -202,6 +205,7 @@ export class Cloud {
 
   /** PUT /api/cloud/key: '' disconnects; anything else must list the account's Boxes first. */
   async setKey(raw: string): Promise<CloudView> {
+    if (this.deps.credentials) throw new HttpError(409, 'This isolated run uses in-memory credentials; changing or saving them is disabled.');
     const key = raw.trim();
     if (key) {
       if (key.length > 400 || /\s/.test(key)) throw new HttpError(400, "That doesn't look like an Upstash Box API key.");
@@ -223,6 +227,7 @@ export class Cloud {
 
   /** PUT /api/cloud/token: a GitHub token, an Anthropic or an OpenAI API key for cloud agents ('' removes it). */
   async setToken(kind: CloudTokenKind, raw: string): Promise<CloudView> {
+    if (this.deps.credentials) throw new HttpError(409, 'This isolated run uses in-memory credentials; changing or saving them is disabled.');
     const value = raw.trim();
     if (value.length > 400 || /\s/.test(value)) throw new HttpError(400, "That doesn't look like a token or an API key.");
     if (kind === 'anthropic' && value.startsWith('sk-ant-oat')) {

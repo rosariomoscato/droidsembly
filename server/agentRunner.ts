@@ -15,6 +15,8 @@ import { VERSION } from './config.ts';
 // The CEO runs through here too, with the office tools instead of a shell.
 
 export interface SessionOptions {
+  /** Optional native OpenCode policy for an isolated, explicitly gated run. */
+  openCodePermissions?: import('../shared/opencodePermissions.ts').OpenCodePermissionRule[];
   cwd: string;
   prompt: string;
   systemAppend: string;

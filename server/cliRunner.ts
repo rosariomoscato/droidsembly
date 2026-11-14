@@ -9,7 +9,9 @@ import { browserProblem, playwrightMcp } from './browser.ts';
 import { HOME_DIR } from './config.ts';
 import { BOX_CDP, BoxPty, boxHooksReady, finishedTurn, lookAtBoxCli, readFrom, type BoxCliRecord } from './boxCli.ts';
 import { BOX_BIN, BOX_CLI_BIN, BOX_HOME, boxSessionDir, signInCommand, tmuxKill } from './boxScripts.ts';
+import { writeBoxSessionFiles } from './boxSessionFiles.ts';
 import { BOX_ENV } from './cloud.ts';
+import { OPENCODE_BOX_ENV } from './openCodeBox.ts';
 import { checkOpenCodeVersion, cliLabel, CLIS, CODEX_HOOK_SOURCE, codexThread, commandFor, hookReviewKey, interruptions, isCli, launchArgs, NOTIFY_SOURCE, OPENCODE_PLUGIN_SOURCE, signedOutScreen, STATUSLINE_SOURCE, trustKey } from './clis.ts';
 import { adoptPty, discardPty, hooksReady as keeperHooksReady, keeperHookUrl, keeperPid, leaveKeeper, spawnPty, startKeeper, terminalsAvailable, type Pty } from './ptyClient.ts';
 import type { BoxApi } from './box.ts';
@@ -361,7 +363,7 @@ export interface BoxSignIn {
  * the code or the login, which stays in the Box user's home. It runs with no credentials, and no record is kept (an
  * office restart sweeps it away and starts a new one). `exited` hears its exit code; stop() doesn't call it.
  */
-export function startBoxSignIn(o: { api: BoxApi; boxId: string; cli: 'claude' | 'codex'; term: AgentTerminal; agentId: string }, exited: (code: number) => void): BoxSignIn {
+export function startBoxSignIn(o: { api: BoxApi; boxId: string; cli: AgentCli; term: AgentTerminal; agentId: string; authArgs?: string[] }, exited: (code: number) => void): BoxSignIn {
   const prev = lives.get(o.term);
   if (prev) void endLive(prev);
   const token = crypto.randomUUID();
@@ -378,9 +380,9 @@ export function startBoxSignIn(o: { api: BoxApi; boxId: string; cli: 'claude' | 
   o.term.note(`── Signing ${cliLabel(o.cli)} in · ☁ cloud machine ──`);
   void (async () => {
     try {
-      await o.api.write(o.boxId, `${dir}/launch.json`, JSON.stringify({ ...signInCommand(o.cli), cwd: BOX_HOME, events: `${dir}/events.jsonl` }));
+      await o.api.write(o.boxId, `${dir}/launch.json`, JSON.stringify({ ...signInCommand(o.cli), ...(o.cli === 'opencode' && o.authArgs ? { args: o.authArgs } : {}), cwd: BOX_HOME, events: `${dir}/events.jsonl` }));
       if (over) return;
-      const pty = boxPty(l, { api: o.api, boxId: o.boxId, record: () => undefined }, o.term.cols, o.term.rows, 0, {});
+      const pty = boxPty(l, { api: o.api, boxId: o.boxId, record: () => undefined }, o.term.cols, o.term.rows, 0, o.cli === 'opencode' ? OPENCODE_BOX_ENV : {});
       l.proc = pty;
       wire(l);
       await pty.open('new');
@@ -395,6 +397,34 @@ export function startBoxSignIn(o: { api: BoxApi; boxId: string; cli: 'claude' | 
       void endLive(l);
     },
   };
+}
+
+/** Official auth only, no prompt, model invocation or credential transport through the app API. */
+export function startOpenCodeAuth(o: { args: string[]; term: AgentTerminal; agentId: string; cwd: string }, exited: (code: number) => void): BoxSignIn {
+  const cmd = commandFor('opencode');
+  if (!cmd) throw new Error('OpenCode is not installed on this computer.');
+  const token = crypto.randomUUID();
+  const dir = path.join(SESSIONS_DIR, token);
+  fs.mkdirSync(dir, { recursive: true });
+  const l: LiveCli = { agentId: o.agentId, cli: 'opencode', term: o.term, proc: null, token, dir, resumeId: null, statusLine: '', shots: new Set(), session: null };
+  let over = false;
+  const end = (code: number) => {
+    if (over) return;
+    over = true;
+    void endLive(l);
+    exited(code);
+  };
+  l.session = { hook: () => ({}), exited: end };
+  void checkOpenCodeVersion(cmd).then((problem) => {
+    if (over) return;
+    if (problem) { o.term.note(problem); end(-1); return; }
+    try {
+      const env = Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined));
+      l.proc = spawnPty(cmd.file, [...cmd.args, ...o.args], { cwd: o.cwd, cols: o.term.cols, rows: o.term.rows, env }, { kind: 'opencode-auth' });
+      wire(l);
+    } catch { o.term.note('Could not start official OpenCode authentication.'); end(-1); }
+  }).catch(() => end(-1));
+  return { stop() { over = true; void endLive(l); } };
 }
 
 /** The office follows its sessions again after starting: hooks and Box events that waited for it come in. */
@@ -715,6 +745,11 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
       }
       case 'UserPromptSubmit': {
         if (sub) return {};
+        if (cli === 'opencode' && inBox && live && typeof b.session_id === 'string' && live.resumeId !== b.session_id) {
+          live.resumeId = b.session_id;
+          cb.sessionId(b.session_id);
+          remember(live);
+        }
         busy();
         const prompt = String(b.prompt ?? '').trim();
         const i = officePrompts.findIndex((p) => p.slice(0, 60) === prompt.slice(0, 60));
@@ -776,6 +811,10 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
       case 'TurnError':
         turnError = `${label}: ${clip(String(b.error ?? 'error'), 200)}`;
         log([{ kind: 'error', text: `✗ ${turnError}` }]);
+        if (inBox && b.signed_out === true) {
+          finish({ ok: false, text: lastText, errors: [`${label}'s provider connection needs sign-in.`], signedOut: true });
+          return {};
+        }
         turnEnded(lastText); // OpenCode V2 reports failed idle turns without a later TurnComplete.
         return {};
     }
@@ -784,6 +823,11 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
 
   /** The CLI quit on its own: /exit typed in the terminal, a crash, or it couldn't start (not signed in, bad flag…). */
   const exited = (exitCode: number) => {
+    // A clean process exit is not a successful turn: preserve OpenCode's explicit error during the finish grace.
+    if (cli === 'opencode' && turnError) {
+      finish({ ok: false, text: lastText, errors: [turnError] });
+      return;
+    }
     if (cli === 'claude' && opts.resumeSessionId && !begun && lostConversation(term.screen())) {
       cb.sessionId(null);
       finish({ ok: false, text: '', errors: [`${label} couldn't find the conversation it was resuming, so the next session starts a new one.`] });
@@ -834,10 +878,6 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
 
   // In a Box the CLI is the office's own pinned copy there, by its full path; here, the one found on this computer.
   const cmd = box ? { file: `${BOX_CLI_BIN}/${CLIS.find((c) => c.id === cli)!.command}`, args: [] as string[] } : commandFor(cli);
-  if (box && cli === 'opencode') {
-    setTimeout(() => finish({ ok: false, text: '', errors: [`${label} can't run in a cloud machine yet: give this agent Claude Code or Codex.`] }), 0);
-    return handle;
-  }
   if (!box && (!terminalsAvailable || !cmd)) {
     const why = !terminalsAvailable ? 'the terminal module could not be loaded on this machine' : `${label} isn't installed (no "${cli}" on PATH)`;
     setTimeout(() => finish({ ok: false, text: '', errors: [`Could not start ${label}: ${why}.`] }), 0);
@@ -903,11 +943,12 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
     sessionId,
     name: opts.label ?? 'Droidsembly',
     role: opts.role,
+    openCodePermissions: opts.openCodePermissions,
     additionalDirectories: opts.additionalDirectories,
     files,
     notify: box ? { script: `${BOX_BIN}/notify.cjs`, url: events } : { script: path.join(BIN_DIR, 'notify.cjs'), url: hookUrl },
     codexHook: box ? `${BOX_BIN}/codex-hook.cjs` : path.join(BIN_DIR, 'codex-hook.cjs'),
-    plugin: box ? '' : pathToFileURL(path.join(BIN_DIR, 'opencode-plugin')).href,
+    plugin: box ? `file://${BOX_BIN}/opencode-plugin` : pathToFileURL(path.join(BIN_DIR, 'opencode-plugin')).href,
     ...(opts.office && !box ? { officeUrl: `${officeUrl}/api/mcp/${token}` } : {}),
     browser,
     ...(box ? { node: 'node', posix: true } : {}),
@@ -918,7 +959,7 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
   // In a Box nothing of the office's own environment goes along (a Windows PATH, the manager's other secrets): only
   // what a Box needs and the credentials this CLI signs in with.
   const env: Record<string, string> = {};
-  if (box) Object.assign(env, BOX_ENV, box.env, launch.env, { CUBEFARM_STATUS: statusLine });
+  if (box) Object.assign(env, BOX_ENV, box.env, cli === 'opencode' ? OPENCODE_BOX_ENV : {}, launch.env, { CUBEFARM_STATUS: statusLine });
   else {
     for (const [k, v] of Object.entries(process.env)) {
       if (v === undefined) continue;
@@ -991,7 +1032,8 @@ export function startCliSession(opts: SessionOptions, callbacks: SessionCallback
   const beginInBox = async (b: NonNullable<typeof box>) => {
     try {
       boxFiles.push([`${dir}/launch.json`, JSON.stringify({ file: cmd!.file, args: [...cmd!.args, ...launch.args], cwd: opts.cwd, events })]);
-      for (const [file, text] of boxFiles) await b.api.write(b.boxId, file, text);
+      if(cli==='opencode')await writeBoxSessionFiles(b.api,b.boxId,dir,boxFiles);
+      else for (const [file, text] of boxFiles) await b.api.write(b.boxId, file, text);
       if (done) return;
       const pty = boxPty(l, b, term.cols, term.rows, 0, env);
       l.proc = pty;

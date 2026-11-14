@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import { mergeUsage, quotaKey, type AiUsageObservation, type AiResource, type AiLimitSignal, type AiResourceView } from '../shared/aiUsage.ts';
 import { QuotaGate, type QuotaWindow } from './quotaGate.ts';
 import { openCodeModelRef } from '../shared/opencodeModels.ts';
+import { connectionArgs, type OpenCodeConnections } from '../shared/opencodeConnections.ts';
 import { analysisPrompt } from './analysisPrompt.ts';
 import { communicationInstructions, languageOf } from '../shared/i18n.ts';
 import type { WebSocket } from 'ws';
@@ -149,6 +150,7 @@ interface PersistedAgent {
   host?: MachineHost; // 'box': their machine is an Upstash Box (docs/cloud.md); absent: a folder on this computer
   boxCli?: BoxCliRecord | null; // a cloud agent's live CLI in their Box, to pick up again after a restart
   needsSignIn?: boolean; // a cloud agent whose CLI waits for the manager to sign it in, in their terminal (docs/cloud.md)
+  openCodeAuthRejected?: boolean; // metadata presence is not proof a rejected credential is usable, even after restart
   status: AgentStatus;
   issueNumber: number | null;
   issueTitle: string | null;
@@ -200,6 +202,7 @@ interface FloorOptions {
   autoAssign?: boolean; // free agents pick up backlog issues as soon as they're filed
   onboardCeo?: boolean;
   autoMerge?: boolean;
+  browserTesting?: boolean;
 }
 
 interface CeoState {
@@ -361,8 +364,8 @@ const SIGN_IN_IDLE_POLL_MS = 60_000;
 // What a session that lost its sign-in mid-task is told when it carries on.
 const SIGNED_IN_AGAIN = 'You were signed out in the middle of your task and are signed in again. Carry on where you left off.';
 
-/** A cloud agent's CLI that runs in a Box and can sign in there (OpenCode can't run in one). */
-type BoxCliId = 'claude' | 'codex';
+/** Coding agents whose provider connections belong to their Box. */
+type BoxCliId = AgentCli;
 
 /** A cloud agent's CLI isn't signed in in their Box: their task waits for the manager to sign it in (docs/cloud.md). */
 class SignInNeeded extends Error {
@@ -497,6 +500,13 @@ const clampMaxAgents = (n: unknown) => Math.max(1, Math.min(FLOOR_SEATS, Math.ro
 export { HttpError };
 
 export class Swarm {
+  private eventListeners = new Set<(event: ServerEvent) => void>();
+
+  /** In-process observers use the same public events as UI clients; no polling or private-state patching. */
+  onEvent(listener: (event: ServerEvent) => void) {
+    this.eventListeners.add(listener);
+    return () => { this.eventListeners.delete(listener); };
+  }
   private state: Persisted = {
     settings: {
       sessionLimit: 0,
@@ -659,6 +669,7 @@ export class Swarm {
     this.cloud = new Cloud({
       // The demo's fake cloud keeps a file of its own: its tests run beside the notifier's, which share demo-secrets.json.
       secretsFile: path.join(HOME_DIR, backend.demo ? 'demo-cloud-secrets.json' : 'secrets.json'),
+      credentials: backend.cloud.credentials,
       env: backend.cloud.env(),
       boxes: (key) => backend.cloud.boxes(key),
       ghToken: () => backend.cloud.ghToken(),
@@ -672,6 +683,14 @@ export class Swarm {
       office: () => this.state.officeId,
       size: () => this.state.settings.cloud.boxSize,
       versions: boxVersions(),
+      cli: (machine) => {
+        const a = this.state.agents.find(a => a.machine === machine);
+        return a?.cli || this.state.settings.defaultCli;
+      },
+      browser: (machine) => {
+        const a = this.state.agents.find(a => a.machine === machine);
+        return this.state.repos.find(r => r.id === a?.repoId)?.browserTesting ?? false;
+      },
       git: () => backend.cloud.gitIdentity(this.user),
       githubEnv: () => this.cloud.githubEnv(),
       state: (machine) => this.boxState(machine),
@@ -1218,6 +1237,7 @@ export class Swarm {
   private broadcast(ev: ServerEvent) {
     this.outbox.broadcast(ev);
     this.observe(ev);
+    for (const listener of this.eventListeners) listener(ev);
   }
 
   /** What follows from an event besides the tabs hearing it: ticker lines and mission control's numbers. */
@@ -1426,10 +1446,99 @@ export class Swarm {
     return this.backend.listMyRepos(owner);
   }
 
+  private configuringOpenCode = false;
+  private openCodeAuthRun: { agentId: string; run: BoxSignIn | null } | null = null;
+
+  async openCodeConnections(id: string): Promise<OpenCodeConnections> {
+    const a = this.agent(id);
+    if ((a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli)) !== 'opencode') throw new HttpError(409, 'Choose OpenCode first.');
+    if (a.host === 'box' && a.role !== 'ceo') {
+      const machine = this.machineOf(a);
+      return { scope: 'box', scopeKey: `box:${machine}`, integrations: await this.boxMachines.openCodeConnections(machine, this.boxMachines.deskDir(machine, this.repo(a.repoId).fullName)), configuringAgent: this.openCodeAuthRun?.agentId ?? null };
+    }
+    if (!this.backend.openCodeConnections) throw new HttpError(409, 'OpenCode connections are unavailable in this backend.');
+    if (a.role === 'ceo') await fs.mkdir(CEO_DIR, { recursive: true });
+    const directory = a.role === 'ceo' ? CEO_DIR : this.backend.mainDir(this.repo(a.repoId).fullName);
+    return { scope: 'local', scopeKey: 'local', integrations: await this.backend.openCodeConnections(directory), configuringAgent: this.openCodeAuthRun?.agentId ?? null };
+  }
+
+  async configureOpenCode(id: string, input: unknown, expectedScope: string) {
+    const a = this.agent(id);
+    // Account activation is host-wide. Do not race work, another login, or an existing terminal.
+    const replaceable = () => {
+      const s = this.signIns.get(id);
+      return !!s?.run && !s.held && !s.starting;
+    };
+    const busy = () => this.state.agents.some((a) => BUSY.includes(a.status))
+      || [...this.agentRt].some(([agentId, rt]) => rt.session || (rt.terminal?.live && !(agentId === id && replaceable())))
+      || [...this.signIns].some(([agentId, s]) => s.starting || (s.run && !(agentId === id && replaceable())));
+    const available = () => !this.configuringOpenCode && !busy();
+    if (!available()) throw new HttpError(409, 'Stop all work and close coding-agent terminals before changing OpenCode accounts.');
+    const host = a.host;
+    const machine = a.host === 'box' ? this.machineOf(a) : null;
+    const operation = { agentId: id, run: null as BoxSignIn | null };
+    this.configuringOpenCode = true;
+    this.openCodeAuthRun = operation;
+    try {
+      const catalog = await this.openCodeConnections(id);
+      if (catalog.scopeKey !== expectedScope) throw new HttpError(409, 'Connection host changed; reload connections before making changes.');
+      let args: string[];
+      try { args = connectionArgs(catalog.integrations, input); }
+      catch (err) { throw new HttpError(400, (err as Error).message); }
+      const unchanged = () => this.openCodeAuthRun === operation && this.state.agents.includes(a) && a.host === host && (a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli)) === 'opencode' && (host !== 'box' || this.machineOf(a) === machine);
+      if (!unchanged() || busy()) throw new HttpError(409, 'Agent setup or work changed; reload connections.');
+      if (replaceable()) this.dropSignIn(id);
+      const term = this.terminalFor(a);
+      const end = async (code: number) => {
+        if (this.openCodeAuthRun !== operation) return;
+        if (code === 0 && catalog.scope === 'box' && unchanged()) {
+          const ready = await this.boxMachines.openCodeConnectionReady(machine!, this.boxMachines.deskDir(machine!, this.repo(a.repoId).fullName), this.modelFor(a, 'opencode')).catch(() => false);
+          if (this.openCodeAuthRun !== operation) return;
+          if (ready && unchanged()) {
+            a.needsSignIn = false;
+            delete a.openCodeAuthRejected;
+            this.emitAgent(a);
+            this.save();
+          }
+        }
+        this.openCodeAuthRun = null;
+        this.configuringOpenCode = false;
+        term.note(code === 0 ? 'OpenCode authentication command completed. Refresh connections; use auth list in OpenCode to verify the active account.' : 'OpenCode authentication did not complete. Refresh connections before retrying.');
+        // Do not release a held task or schedule AI from a configuration action.
+      };
+      if (catalog.scope === 'box') {
+        const api = this.cloud.boxApi();
+        const boxId = await this.boxMachines.boxId(this.machineOf(a));
+        if (!unchanged()) throw new HttpError(409, 'Agent setup changed; reload connections.');
+        if (!api || !boxId) throw new HttpError(409, 'Cloud machine is not ready. No Box was created.');
+        operation.run = this.backend.cloud.signIn({ api, boxId, cli: 'opencode', term, agentId: id, authArgs: args }, end);
+      } else {
+        if (!this.backend.openCodeAuth) throw new HttpError(409, 'OpenCode authentication is unavailable in this backend.');
+        operation.run = this.backend.openCodeAuth({ args, term, agentId: id, cwd: a.role === 'ceo' ? CEO_DIR : this.backend.mainDir(this.repo(a.repoId).fullName) }, end);
+      }
+      return { started: true };
+    } catch (err) {
+      if (this.openCodeAuthRun === operation) { this.openCodeAuthRun = null; this.configuringOpenCode = false; }
+      throw err;
+    }
+  }
+
+  cancelOpenCodeConfiguration(id: string) {
+    if (this.openCodeAuthRun?.agentId !== id) throw new HttpError(409, 'No OpenCode authentication is running for this agent.');
+    this.openCodeAuthRun.run?.stop();
+    this.openCodeAuthRun = null;
+    this.configuringOpenCode = false;
+    return { stopped: true };
+  }
+
   openCodeModels(agentId?: string, repoId?: string, refresh = false) {
     let directory = process.cwd();
     if (agentId) {
       const a = this.agent(agentId);
+      if (a.host === 'box' && a.role !== 'ceo') {
+        const machine = this.machineOf(a);
+        return this.boxMachines.openCodeModels(machine, this.boxMachines.deskDir(machine, this.repo(a.repoId).fullName));
+      }
       if (a.role === 'ceo') {
         // OpenCode resolves the location before listing models, even before the CEO's first task.
         return fs.mkdir(CEO_DIR, { recursive: true }).then(() => this.backend.openCodeModels(CEO_DIR, refresh));
@@ -1459,7 +1568,7 @@ export class Swarm {
       color: FLOOR_COLORS[(floor - 1) % FLOOR_COLORS.length],
       autoAssign: !!opts.autoAssign,
       autoMerge: opts.autoMerge !== false,
-      browserTesting: true,
+      browserTesting: opts.browserTesting !== false,
       links: [],
       localPath: folder,
       mission: (opts.mission ?? '').trim().slice(0, 4000),
@@ -1852,6 +1961,7 @@ export class Swarm {
   }
 
   private async finishShutdown(restart: boolean): Promise<void> {
+    if (this.openCodeAuthRun) this.cancelOpenCodeConfiguration(this.openCodeAuthRun.agentId);
     this.backend.cloud.detach(); // cloud agents' CLIs carry on in their Boxes: their records are final from here
     await this.writeState().catch((err) => console.warn('could not save the state', err));
     try {
@@ -2256,17 +2366,15 @@ export class Swarm {
 
   /**
    * Where a new (or moving) agent works: what was asked, else the office default. A cloud agent needs the Upstash key,
-   * room under the plan's Box limit and a CLI a Box can run (Claude Code or Codex). `strict`: the manager asked for the
+   * room under the plan's Box limit and a supported CLI (Claude Code, Codex or OpenCode). `strict`: the manager asked for the
    * cloud, so say why not; otherwise (a floor's first agent, the demo) they work on this computer instead.
    */
-  private hostFor(asked: string | undefined, cli: AgentCli, strict: boolean, moving?: PersistedAgent): MachineHost {
+  private hostFor(asked: string | undefined, _cli: AgentCli, strict: boolean, moving?: PersistedAgent): MachineHost {
     const want: MachineHost = asked === 'box' || asked === 'local' ? asked : this.state.settings.cloud.machineKind;
     if (want === 'local') return 'local';
     const why = !this.cloud.boxApi()
       ? 'Cloud agents need your Upstash Box API key first: Settings → Cloud agents.'
-      : cli === 'opencode'
-        ? "OpenCode can't run in a cloud machine yet: give this agent Claude Code or Codex."
-        : !this.boxRoom(moving)
+      : !this.boxRoom(moving)
           ? `Your Upstash plan's Box limit (${this.state.settings.cloud.boxLimit}) is reached. Raise it in Settings → Cloud agents if your plan allows more, or delete Boxes you don't need.`
           : null;
     if (!why) return 'box';
@@ -2314,6 +2422,7 @@ export class Swarm {
     a.boxCli = null;
     this.dropSignIn(a.id);
     delete a.needsSignIn;
+    delete a.openCodeAuthRejected;
     a.sessionId = null;
     a.sessionCli = null;
     for (const q of this.state.qa) if (q.devAgentId === a.id) q.devSessionId = null;
@@ -2333,7 +2442,7 @@ export class Swarm {
     const boxId = await this.boxMachines.ensure(machine, (text) => this.appendLog(a, [{ kind: 'system', text: `☁ ${text}` }]));
     const creds = await this.cloud.credentials(cli);
     if (creds.missing.length) throw new Error(`Cloud agents can't sign in yet. Missing: ${creds.missing.join('; ')}.`);
-    if (check && creds.ownLogin && cli !== 'opencode' && (await this.boxMachines.signedIn(machine, cli).catch(() => null)) === false) throw new SignInNeeded(cli);
+    if (check && creds.ownLogin && !(await this.boxSignedIn(a, cli))) throw new SignInNeeded(cli);
     // The Box's own Chromium starts with a first tab; Playwright attaches to it.
     const browser = browserTesting ? await api.browser(boxId).catch(() => false) : false;
     return { api, boxId, env: creds.env, apiKeyHelper: creds.apiKeyHelper, browser, record: (rec) => this.boxCliRecord(a.id, rec), connection: (up) => this.boxMachines.connection(machine, up) };
@@ -2381,6 +2490,33 @@ export class Swarm {
 
   // ---------- signing cloud agents in (docs/cloud.md) ----------
 
+  private boxSignedIn(a: PersistedAgent, cli: AgentCli) {
+    const machine = this.machineOf(a);
+    return this.boxMachines.signedIn(machine, cli, this.boxMachines.deskDir(machine, this.repo(a.repoId).fullName), this.modelFor(a, cli));
+  }
+
+  /** Explicit post-auth check for a held-free OpenCode Box: metadata only, never provisions or releases a task. */
+  async refreshOpenCodeSignIn(id: string) {
+    const a=this.agent(id);
+    if(a.host!=='box'||(a.cli||this.state.settings.defaultCli)!=='opencode'||BUSY.includes(a.status)||this.signIns.get(id)?.held)throw new HttpError(409,'Stop held work before verifying this OpenCode connection.');
+    const machine=this.machineOf(a);
+    const ready=await this.boxMachines.openCodeConnectionReady(machine,this.boxMachines.deskDir(machine,this.repo(a.repoId).fullName),this.modelFor(a,'opencode'));
+    if(!this.state.agents.includes(a)||a.host!=='box'||this.machineOf(a)!==machine)throw new HttpError(409,'Agent host changed during connection check.');
+    if(ready){this.dropSignIn(id);a.needsSignIn=false;delete a.openCodeAuthRejected;this.emitAgent(a);this.save();}
+    return ready;
+  }
+
+  /** Detailed OAuth-only smoke-gate probe; never provisions a Box or releases held work. */
+  async inspectOpenCodeSignIn(id: string) {
+    const a=this.agent(id);
+    if(a.host!=='box'||(a.cli||this.state.settings.defaultCli)!=='opencode'||BUSY.includes(a.status)||this.signIns.get(id)?.held)throw new HttpError(409,'Stop held work before verifying this OpenCode connection.');
+    const machine=this.machineOf(a);
+    const result=await this.boxMachines.openCodeReadiness(machine,this.boxMachines.deskDir(machine,this.repo(a.repoId).fullName),this.modelFor(a,'opencode'));
+    if(!this.state.agents.includes(a)||a.host!=='box'||this.machineOf(a)!==machine)throw new HttpError(409,'Agent host changed during connection check.');
+    if(result.state==='ready'){this.dropSignIn(id);a.needsSignIn=false;delete a.openCodeAuthRejected;this.emitAgent(a);this.save();}
+    return result;
+  }
+
   /**
    * A cloud agent's CLI has no login in their Box (a new Box, or one that expired): they're marked as needing a sign-in
    * and take no work, the task they were starting (if any) waits, and the CLI's own sign-in starts in their terminal.
@@ -2388,6 +2524,7 @@ export class Swarm {
   private holdForSignIn(a: PersistedAgent, cli: BoxCliId, task: (() => void) | null, expired = false) {
     if (!this.state.agents.includes(a) || a.host !== 'box') return;
     const s = this.signInOf(a, cli);
+    if (cli === 'opencode' && expired) a.openCodeAuthRejected = true;
     const label = cliLabel(cli);
     if (task) {
       a.status = 'preparing';
@@ -2428,6 +2565,7 @@ export class Swarm {
 
   /** Their sign-in goes (they left, moved to this computer): its CLI closes and a held task is dropped with it. */
   private dropSignIn(agentId: string) {
+    if (this.openCodeAuthRun?.agentId === agentId && this.openCodeAuthRun.run) this.cancelOpenCodeConfiguration(agentId);
     const s = this.signIns.get(agentId);
     if (!s) return;
     this.signIns.delete(agentId);
@@ -2437,9 +2575,11 @@ export class Swarm {
 
   /** Start the CLI's own sign-in in their terminal, unless it's running already. */
   private async startSignIn(a: PersistedAgent) {
+    if (this.backend.cloud.automaticSignIn === false) return;
+    if (this.configuringOpenCode) return;
     const cli = a.cli || this.state.settings.defaultCli;
     const api = this.cloud.boxApi();
-    if (!a.needsSignIn || a.host !== 'box' || cli === 'opencode' || !api) return;
+    if (!a.needsSignIn || a.host !== 'box' || !api) return;
     const s = this.signInOf(a, cli);
     if (s.run || s.starting) return;
     s.starting = true;
@@ -2463,8 +2603,8 @@ export class Swarm {
     s.poll = setTimeout(() => {
       s.poll = null;
       if (this.signIns.get(a.id) !== s || !s.run) return;
-      void this.boxMachines
-        .signedIn(this.machineOf(a), s.cli)
+      if (s.cli === 'opencode' && a.openCodeAuthRejected) return; // await a successful official login exit, not the old DB entry
+      void this.boxSignedIn(a, s.cli)
         .catch(() => null)
         .then((ok) => {
           if (this.signIns.get(a.id) !== s) return;
@@ -2479,9 +2619,9 @@ export class Swarm {
     if (this.signIns.get(a.id) !== s) return;
     s.run = null;
     if (s.poll) clearTimeout(s.poll);
-    const ok = await this.boxMachines.signedIn(this.machineOf(a), s.cli).catch(() => null);
+    const ok = await this.boxSignedIn(a, s.cli).catch(() => null);
     if (this.signIns.get(a.id) !== s || s.run) return;
-    if (ok) return this.signedIn(a);
+    if (ok && !(s.cli === 'opencode' && a.openCodeAuthRejected && code !== 0)) return this.signedIn(a);
     this.agentRt.get(a.id)?.terminal?.note(`Not signed in yet. 🔑 Sign in starts it again.`);
     this.appendLog(a, [{ kind: 'error', text: `🔑 ${cliLabel(s.cli)} didn't finish signing in${code > 0 ? ` (it exited with code ${code})` : ''}. 🔑 Sign in in their terminal starts it again.` }]);
   }
@@ -2495,6 +2635,7 @@ export class Swarm {
     if (run) setTimeout(() => run.stop(), 3000);
     if (!a.needsSignIn) return;
     a.needsSignIn = false;
+    delete a.openCodeAuthRejected;
     this.appendLog(a, [{ kind: 'done', text: `✔ ${cliLabel(s?.cli ?? 'claude')} is signed in in their cloud machine.${s?.held ? ' Back to the task.' : ''}` }]);
     this.emitAgent(a);
     this.save();
@@ -2515,9 +2656,12 @@ export class Swarm {
       s?.run?.stop();
       if (s) s.run = null;
     }
-    if (cli === 'opencode') return this.signedIn(a);
+    if (cli === 'opencode' && a.openCodeAuthRejected) {
+      this.holdForSignIn(a, cli, null, true);
+      return;
+    }
     const creds = await this.cloud.credentials(cli).catch(() => null);
-    const ok = !creds ? null : creds.ownLogin ? await this.boxMachines.signedIn(this.machineOf(a), cli).catch(() => null) : true;
+    const ok = !creds ? null : creds.ownLogin ? await this.boxSignedIn(a, cli).catch(() => null) : true;
     if (!this.state.agents.includes(a) || a.host !== 'box') return;
     if (ok === true) this.signedIn(a);
     else if (ok === false) this.holdForSignIn(a, cli, null);
@@ -2525,6 +2669,7 @@ export class Swarm {
 
   /** POST /api/agents/:id/sign-in: start a cloud agent's sign-in (over) in their terminal: it ended, went stale or never started. */
   signIn(id: string) {
+    if (this.configuringOpenCode) throw new HttpError(409, 'Finish OpenCode authentication in the terminal first.');
     const a = this.agent(id);
     if (a.host !== 'box') throw new HttpError(409, `${a.name} works on this computer: their coding agent signs in there.`);
     if (!a.needsSignIn) throw new HttpError(409, `${a.name}'s coding agent is signed in already.`);
@@ -2577,12 +2722,12 @@ export class Swarm {
   }
 
   updateAgent(id: string, patch: { name?: string; model?: string; effort?: string; cli?: string; host?: string; look?: string; color?: string; hair?: string; style?: unknown }) {
+    if (this.openCodeAuthRun?.agentId === id && (patch.host !== undefined || patch.cli !== undefined)) throw new HttpError(409, 'Finish or stop OpenCode authentication before changing the host or coding agent.');
     const a = this.agent(id);
     if (patch.host !== undefined && a.role !== 'ceo' && (patch.host === 'box' || patch.host === 'local')) this.moveAgent(a, patch.host);
     if (patch.cli !== undefined) {
       const cli = isCli(patch.cli) ? patch.cli : '';
       if (a.role === 'ceo' && cli && cli !== 'claude' && cli !== 'opencode') throw new HttpError(400, 'The CEO can run Claude Code or OpenCode.');
-      if (a.host === 'box' && (cli || this.state.settings.defaultCli) === 'opencode') throw new HttpError(400, `${a.name} works in the cloud, where OpenCode can't run yet: move them to this computer first.`);
       const localCli = cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli);
       if (a.host !== 'box' && (cli || localCli === 'opencode') && !this.cliReady(localCli)) throw new HttpError(400, `${cliLabel(localCli)} isn't installed on this computer.`);
       const changed = cli !== a.cli;
@@ -2705,6 +2850,7 @@ export class Swarm {
   }
 
   private ensureSlot() {
+    if (this.configuringOpenCode) throw new HttpError(409, 'Finish OpenCode authentication in the terminal first.');
     if (this.slotsFull()) {
       throw new HttpError(429, `All ${this.state.settings.sessionLimit} session slots are busy. Raise or clear the session limit in the manager's console, or wait.`);
     }
@@ -3194,8 +3340,8 @@ export class Swarm {
   private async signedOutMidTask(a: PersistedAgent, repo: PersistedRepo, result: SessionResult, cli: AgentCli, again: () => void) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return;
-    const creds = cli === 'opencode' ? null : await this.cloud.credentials(cli).catch(() => null);
-    if (cli === 'opencode' || !creds?.ownLogin || a.status === 'stopped' || this.dropping.has(a.id) || a.host !== 'box') {
+    const creds = await this.cloud.credentials(cli).catch(() => null);
+    if (!creds?.ownLogin || a.status === 'stopped' || this.dropping.has(a.id) || a.host !== 'box') {
       // A key from Settings that was turned away has nothing to sign in here: the session failed like any other.
       const errors = creds && !creds.ownLogin ? [`${cliLabel(cli)} turned the key it was given away: check it in Settings → Cloud agents.`] : result.errors;
       return this.onFinished(a, repo, { ...result, errors });
@@ -3421,6 +3567,7 @@ export class Swarm {
   }
 
   private async runQa(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (this.backend.allowWork && !this.backend.allowWork('qa', a)) return;
     const branch = qaBranch(rec.prNumber, slugify(a.name));
     this.qaWaits.set(`${repo.id}#${rec.prNumber}`, Date.now() - rec.updatedAt); // queued since its last change
     this.setQa(rec, { status: 'testing', qaAgentId: a.id });
@@ -3664,6 +3811,7 @@ export class Swarm {
 
   /** Send a failed PR back to the agent who wrote it (or any free agent on the floor). */
   private async runFix(dev: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (this.backend.allowWork && !this.backend.allowWork('fix', dev)) return;
     const original = rec.devAgentId === dev.id;
     const pull = this.repoRt.get(repo.id)?.pulls.find((p) => p.number === rec.prNumber);
     const headRef = pull?.headRefName ?? dev.branch ?? `pr-${rec.prNumber}`;
@@ -4008,20 +4156,24 @@ export class Swarm {
         .sort((x, y) => x.updatedAt - y.updatedAt);
     const fixes = waiting('failed', 'fix');
     const owed = new Set(fixes.map((q) => q.devAgentId).filter((id): id is string => !!id));
+    const qaFree = free.filter((a) => this.mayStart('qa', a));
     for (const rec of waiting('queued', 'qa')) {
       const othersCan = this.state.agents.some((a) => a.repoId === repo.id && a.role !== 'ceo' && a.id !== rec.devAgentId && a.status !== 'stopped');
-      const tester = pickTester(free, rec.devAgentId, owed, othersCan, now - rec.updatedAt);
+      const tester = pickTester(qaFree, rec.devAgentId, owed, othersCan, now - rec.updatedAt);
       if (!tester) continue;
       void this.runQa(tester, repo, rec);
       return true;
     }
+    const fixFree = free.filter((a) => this.mayStart('fix', a));
     for (const rec of fixes) {
+      if (!fixFree.length) continue;
       const author = this.state.agents.find((a) => a.id === rec.devAgentId && a.repoId === repo.id && a.role !== 'ceo') ?? null;
       if (author && this.limited(author)) continue; // a quota pause is not permission to switch this fix to another provider
+      if (author && !this.mayStart('fix', author)) continue;
       const headRef = this.repoRt.get(repo.id)!.pulls.find((p) => p.number === rec.prNumber)?.headRefName ?? null;
-      const to = fixGoesTo(author, !!author && free.includes(author), rec.prNumber, headRef);
+      const to = fixGoesTo(author, !!author && fixFree.includes(author), rec.prNumber, headRef);
       if (to === 'wait') continue; // the author gets it when their session ends
-      void this.runFix(to === 'author' ? author! : (free.find((a) => !owed.has(a.id)) ?? free[0]), repo, rec);
+      void this.runFix(to === 'author' ? author! : (fixFree.find((a) => !owed.has(a.id)) ?? fixFree[0]), repo, rec);
       return true;
     }
     return false;
@@ -4152,6 +4304,8 @@ export class Swarm {
 
   /** May work of this kind start now, as far as Claude's usage goes? */
   private mayStart(kind: WorkKind, a: PersistedAgent) {
+    if (this.backend.allowWork && !this.backend.allowWork(kind, a)) return false;
+    if (this.configuringOpenCode) return false;
     const key = this.gateKey(a);
     const running = this.state.agents.filter((other) => BUSY.includes(other.status) && this.gateKey(other) === key).length;
     return this.quotaGate().allows(key, kind, Date.now(), running, this.state.settings.pacingSessions);
@@ -4628,6 +4782,7 @@ export class Swarm {
         browserTesting: false,
         additionalDirectories: this.state.repos.filter((r) => this.repoRt.get(r.id)?.cloneStatus === 'ready').map((r) => this.backend.mainDir(r.fullName)),
         role: 'ceo',
+        agentId: a.id,
         office: this.officeTools(),
         ...how,
       },

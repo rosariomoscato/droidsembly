@@ -200,6 +200,13 @@ describe('launchArgs', () => {
     expect(config.plugins[0].options.sessionID).toBe('ses_existing');
     expect(JSON.parse(launchArgs('opencode', ctx()).env.OPENCODE_CONFIG_CONTENT).mcp).toBeUndefined();
   });
+  it('serializes the native V2 gate permissions on both fresh and legacy agent profiles, not deprecated V1 fields',()=>{
+    const permissions=[{action:'*',resource:'*',effect:'deny' as const},{action:'read',resource:'*',effect:'allow' as const},{action:'subagent',resource:'*',effect:'deny' as const}];
+    const config=JSON.parse(launchArgs('opencode',ctx({openCodePermissions:permissions,resumeId:'ses_legacy'})).env.OPENCODE_CONFIG_CONTENT);
+    expect(config.agents.droidsembly.permissions).toEqual(permissions);
+    expect(config.agents.cubefarm.permissions).toEqual(permissions);
+    expect(config).not.toHaveProperty('permission');
+  });
 
   it('connects the existing browser through native OpenCode V2 MCP configuration', () => {
     const config = JSON.parse(launchArgs('opencode', ctx({ browser: { command: 'node', args: ['browser.js'] } })).env.OPENCODE_CONFIG_CONTENT);
@@ -325,5 +332,6 @@ describe('boxVersions', () => {
     expect(v.claude).toMatch(/^\d+\.\d+\.\d+/);
     expect(v.playwrightMcp).toMatch(/^\d+\.\d+\.\d+/);
     expect(v.codex).toMatch(/^\d+\.\d+\.\d+/);
+    expect(v.opencode).toBe('2.2.6');
   });
 });
