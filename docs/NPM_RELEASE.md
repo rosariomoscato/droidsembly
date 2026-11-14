@@ -10,6 +10,17 @@
 
 Public channels checked November 14, 2026 / Canali pubblici verificati il 14 novembre 2026: `next=0.4.0-beta.4`, `latest=0.4.0-beta.1`. The candidate is not registry availability / La candidata non equivale a disponibilità sul registry.
 
+### Beta.4 pubblicata e verificata / Beta.4 published and verified
+
+**IT:** Dal 14 novembre 2026 `droidsembly@0.4.0-beta.4` è pubblicata su **`next`**; `latest` resta `0.4.0-beta.1`. La [Release 43610301565](https://github.com/rosariomoscato/droidsembly/actions/runs/43610301565) ha superato verifica Ubuntu/Windows/macOS Intel, pubblicazione OIDC, confronto del tarball canonico e dei canali e smoke del pacchetto pubblico. [Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.4). Questa disponibilità non aggiorna le installazioni esistenti né autorizza lavori AI.
+
+**EN:** Since November 14, 2026, `droidsembly@0.4.0-beta.4` is published on **`next`**; `latest` remains `0.4.0-beta.1`. [Release 43610301565](https://github.com/rosariomoscato/droidsembly/actions/runs/43610301565) passed Ubuntu/Windows/Intel macOS verification, OIDC publication, canonical tarball/channel checks and public-package smoke. [GitHub prerelease](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.4). Availability does not update existing installations or authorize AI work.
+
+- Tag immutabile / Immutable tag: `droidsembly-v0.4.0-beta.4` → `09d2089c4e47db0f25f5784f0d336ae7e354b689`; il workflow corretto è eseguito da main `0dddfa3` / the corrected workflow runs from main `0dddfa3`.
+- Artefatto pubblico / Public artifact: 99 files, 3,286,430 bytes; SHA256 `03bcfc018cfd562a6c38a34949cfb0e2a11338ad53e46459ab59669c19660e52`. Download indipendente e artefatti CI pre/post pubblicazione coincidenti / Independent download and CI pre/post-publication artifacts match.
+- Il primo dispatch fu rifiutato HTTP 422 prima dei job per un contesto `runner.temp` non valido; PR #63/#64 hanno corretto il solo workflow, senza spostare il tag o ripubblicare. / The first dispatch was rejected HTTP 422 before jobs due to an invalid `runner.temp` context; PR #63/#64 corrected only the workflow, without moving the tag or republishing.
+- [Avvio e aggiornamento controllato / Controlled startup and update](QUICKSTART_PC.md). Lo storico candidato seguente conserva fallimenti e limiti, non descrive la disponibilità attuale / The candidate history below preserves failures and limits, not current availability.
+
 ### Beta.4 candidata — non pubblicata / Beta.4 candidate — not published
 
 **IT:** Preparazione autorizzata di `0.4.0-beta.4` su `next`, con `latest` invariato e aggiornamento PC rinviato. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.4.md) documentano OpenCode V2 nelle Box, il PASS QA ordinario del 14 novembre e i limiti rimasti. Le verifiche del nuovo pacchetto e la pubblicazione vanno confermate separatamente: questo stato non dichiara beta.4 già disponibile.
