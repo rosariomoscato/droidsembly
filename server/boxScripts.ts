@@ -121,7 +121,10 @@ export function prepareDeskScript(fullName: string, base: DeskBase, branch: stri
   const repo = boxRepoDir(fullName);
   const desk = boxDeskDir(fullName);
   const ref = base.pr ? `origin/pr/${base.pr}` : `origin/${base.defaultBranch}`;
+  // Keep errexit and early exits inside this operation, not the SDK's command shell.
+  // The subshell's actual exit status remains the result; stdout is never proof of success.
   return [
+    '(',
     'set -e',
     `R=${sq(repo)}`,
     `W=${sq(desk)}`,
@@ -152,6 +155,7 @@ export function prepareDeskScript(fullName: string, base: DeskBase, branch: stri
     'rm -rf "$W"; mkdir -p "$(dirname "$W")"',
     'git worktree add -q -B "$B" "$W" "$REF"',
     'echo "$W"',
+    ')',
   ].join('\n');
 }
 

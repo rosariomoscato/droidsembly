@@ -32,6 +32,14 @@ describe('Box command completion, SDK mocked without cloud access', () => {
     expect(session).toHaveBeenCalledOnce();
   });
 
+  it('preserves verified exit 1 after a success-looking desk path without inferring success or retrying', async () => {
+    fixture(1);
+    await expect(upstashBoxes('synthetic-key').run('synthetic-box', 'synthetic command')).resolves.toEqual({
+      code: 1, output: '/workspace/home/work/test__repo\n',
+    });
+    expect(session).toHaveBeenCalledOnce();
+  });
+
   it('keeps verified signal-style exit codes as actual shell failures', async () => {
     fixture(137);
     await expect(upstashBoxes('synthetic-key').run('synthetic-box', 'synthetic command')).resolves.toMatchObject({ code: 137 });
