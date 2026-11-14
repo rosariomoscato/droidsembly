@@ -6,6 +6,8 @@ Candidate based on reviewed `dev` `f2ee1d3`, November 14, 2026. Guided setup, ve
 
 ## Evidence / Evidenze
 
+**Final follow-up:** test-only fixture correction `e708d5d` passed one ordinary full local suite **3132/3132 tests, 290 files, exit0, 487.73s** without the unhandled error, with unchanged Power saver/Node22.23.1. Ordinary [CI43619831690](https://github.com/rosariomoscato/droidsembly/actions/runs/43619831690) passed all five platform jobs. PR #66 was then integrated into `dev` at `1efd38b`. The initial draft/failure account below remains historical evidence; see the fixture correction section for its demonstrated mechanism and limits. This does not close historical #39/#42 or certify a newly versioned tarball.
+
 - Six fake-API deletion regression cases failed on the original implementation. The candidate requires exact `get(id) === null` and a successful inventory without that ID, keeps uncertain machine state, and rechecks ownership before orphan deletion.
 - Final targeted run: **73/73 PASS**, six files, including Italian literal coverage, direct admission, preparation/launch races and scheduler pause/resume with quota retention. Earlier implementation failures (misplaced guard and untranslated Resume) were preserved and corrected before validation.
 - Typecheck and production build **PASS**. Fake-demo UI in Italian verified onboarding and billing warnings, pause persistence via the normal API, and a resume confirmation that keeps the setting paused until accepted. Demo stopped and port released before full-suite timing tests. No real provider/billing/deletion or visual pixel assertion is claimed.

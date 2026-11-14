@@ -2,6 +2,14 @@
 
 ## Stato / Status
 
+### Beta.5 candidata — non pubblicata / Beta.5 candidate — not published
+
+**IT:** Preparazione di `0.4.0-beta.5` su **`next`**, mantenendo `latest` invariato. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.5.md) descrivono onboarding cloud, cancellazione verificata, sospensione dei nuovi lavori e correzione del ciclo di vita del fixture dei test. Le prove precedenti al cambio versione non certificano il nuovo tarball. Nessun tag, pubblicazione o aggiornamento PC è implicito nella preparazione.
+
+**EN:** Preparing `0.4.0-beta.5` for **`next`**, leaving `latest` unchanged. [IT/EN notes](RELEASE_NOTES_0.4.0-beta.5.md) cover cloud onboarding, verified removal, new-work pause and the test-fixture lifecycle correction. Pre-version-change evidence does not certify the new tarball. Preparation implies no tag, publication or PC update.
+
+Public channels checked November 14, 2026 / Canali pubblici verificati il 14 novembre 2026: `next=0.4.0-beta.4`, `latest=0.4.0-beta.1`. The candidate is not registry availability / La candidata non equivale a disponibilità sul registry.
+
 ### Beta.4 pubblicata e verificata / Beta.4 published and verified
 
 **IT:** Dal 14 novembre 2026 `droidsembly@0.4.0-beta.4` è pubblicata su **`next`**; `latest` resta `0.4.0-beta.1`. La [Release 43610301565](https://github.com/rosariomoscato/droidsembly/actions/runs/43610301565) ha superato verifica Ubuntu/Windows/macOS Intel, pubblicazione OIDC, confronto del tarball canonico e dei canali e smoke del pacchetto pubblico. [Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.4). Questa disponibilità non aggiorna le installazioni esistenti né autorizza lavori AI.
