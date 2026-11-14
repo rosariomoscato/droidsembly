@@ -208,7 +208,7 @@ export class BoxMachines implements MachineProvider {
     const id = await this.ensure(machine, note);
     const r = await api.run(id, prepareDeskScript(fullName, base, branch), { env: await this.deps.githubEnv(), timeoutMs: 15 * 60_000 });
     const lines = r.output.trim().split('\n');
-    if (r.code !== 0) throw failure(`Couldn't set up the desk in ${fullName}'s cloud machine`, r.output, this.deps.secrets());
+    if (r.code !== 0) throw failure(`Couldn't set up the desk in ${fullName}'s cloud machine (exit ${r.code})`, r.output, this.deps.secrets());
     for (const l of lines.slice(0, -1)) if (/stale git lock|rebuilt/.test(l)) note?.(l.trim());
     await api.run(id, `node ${sq(`${BOX_BIN}/seed-claude.cjs`)} ${sq(boxDeskDir(fullName))}`);
     return boxDeskDir(fullName);
