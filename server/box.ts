@@ -171,9 +171,15 @@ export function upstashBoxes(apiKey: string, options: { browser?: boolean } = {}
       guard('run a command in a Box', async () => {
         let output = '';
         const s = await openSession(id, { cmd: script, env: o.env, onData: (t) => (output += t) });
-        const timer = setTimeout(() => s.close(), o.timeoutMs ?? 600_000);
+        let timedOut = false;
+        const timer = setTimeout(() => { timedOut = true; s.close(); }, o.timeoutMs ?? 600_000);
         try {
-          return { code: await s.done, output };
+          const code = await s.done;
+          // SDK -1 means no verified process exit (disconnect/error), not a shell/Git failure.
+          // Success-looking stdout cannot supply the missing exit status. Never retry the command here.
+          if (timedOut) throw new CloudError('The Box command timed out before a verified exit status was received.', 'other');
+          if (!Number.isInteger(code) || code < 0 || code > 255) throw new CloudError('The Box command ended without a verified exit status. Its outcome is unknown.', 'other');
+          return { code, output };
         } finally {
           clearTimeout(timer);
         }
