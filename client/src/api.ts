@@ -162,7 +162,7 @@ export const api = {
   setCloudKey: (key: string) => call<CloudView>('PUT', '/api/cloud/key', { key }, false),
   setCloudToken: (kind: 'github' | 'anthropic' | 'openai', value: string) => call<CloudView>('PUT', '/api/cloud/token', { kind, value }, false),
   testCloud: () => call<CloudView>('POST', '/api/cloud/test', undefined, false),
-  deleteCloudOrphans: () => call<{ deleted: number }>('POST', '/api/cloud/orphans'),
+  deleteCloudOrphans: () => call<{ deleted: number; unconfirmed: number }>('POST', '/api/cloud/orphans'),
   /** The demo only: every cloud agent's sign-in expires. */
   expireSignIns: () => call('POST', '/api/cloud/demo-expire'),
   pushKey: () => call<{ publicKey: string }>('GET', '/api/notify/push/key'),

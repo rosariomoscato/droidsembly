@@ -22,6 +22,42 @@ function office() {
 afterEach(() => vi.useRealTimers());
 
 describe('AI quota scheduling integration', () => {
+  it.each(['issue','qa','fix'])('pauses new cloud %s without blocking local agents or the CEO', kind => {
+    const s=office();s.state.settings.cloud={pauseNewWork:true};s.agent('a').host='box';
+    expect(s.mayStart(kind,s.agent('a'))).toBe(false);
+    expect(s.mayStart(kind,s.agent('b'))).toBe(true);
+    expect(s.mayStart('ceo',s.agent('ceo'))).toBe(true);
+    expect(()=>s.ensureUsage(s.agent('a'),kind)).toThrow(/New cloud work is paused/);
+    expect(s.agent('a')).toMatchObject({status:'idle',task:null});
+  });
+  it.each(['qa','fix'])('does not begin direct cloud %s or mutate a PR while paused',async kind=>{
+    const s=office();s.state.settings.cloud={pauseNewWork:true};s.agent('a').host='box';s.beginTask=vi.fn();s.setQa=vi.fn();
+    await (Swarm.prototype as any)[kind==='qa'?'runQa':'runFix'].call(s,s.agent('a'),{id:'repo'},{prNumber:1,status:'queued'});
+    expect(s.beginTask).not.toHaveBeenCalled();expect(s.setQa).not.toHaveBeenCalled();
+  });
+  it('holds a prepared cloud session before provider startup when work is paused meanwhile',()=>{
+    const s=office(),a=s.agent('a');s.state.settings.cloud={pauseNewWork:true};a.host='box';a.task='qa';
+    s.agentRt=new Map([[a.id,{}]]);s.backend.startSession=vi.fn();s.sessionRuntime=vi.fn();
+    s.launchSession(a,{id:'repo'},'/synthetic','synthetic prompt','',undefined,undefined,null);
+    expect(a.status).toBe('stopped');expect(s.quotaWaiting.has(a.id)).toBe(true);
+    expect(s.backend.startSession).not.toHaveBeenCalled();expect(s.sessionRuntime).not.toHaveBeenCalled();
+  });
+  it('holds a prepared task before provisioning or waking its Box when paused meanwhile',()=>{
+    const s=office(),a=s.agent('a');s.state.settings.cloud={pauseNewWork:true};a.host='box';
+    s.agentRt=new Map([[a.id,{}]]);s.boxTarget=vi.fn();s.sessionRuntime=vi.fn();
+    s.startAgentSession(a,{id:'repo'},'/synthetic','synthetic prompt','');
+    expect(s.boxTarget).not.toHaveBeenCalled();expect(s.sessionRuntime).not.toHaveBeenCalled();
+    expect(s.quotaWaiting.has(a.id)).toBe(true);
+  });
+  it('keeps held cloud launches pending through scheduler ticks and still respects quota after resuming',()=>{
+    const s=office(),a=s.agent('a'),launch=vi.fn();a.host='box';s.state.settings.cloud={pauseNewWork:true};
+    s.tickUsage=vi.fn();s.progressTick=vi.fn();s.officeUpdateTick=()=>false;s.applyTeamChanges=vi.fn();s.maybeHeartbeat=vi.fn();
+    s.slotsFull=()=>false;s.limited=()=>false;s.quotaWaiting.set(a.id,launch);
+    s.schedule();expect(launch).not.toHaveBeenCalled();expect(s.quotaWaiting.has(a.id)).toBe(true);
+    s.state.settings.cloud.pauseNewWork=false;s.limited=()=>true;
+    s.schedule();expect(launch).not.toHaveBeenCalled();
+    s.limited=()=>false;s.schedule();expect(launch).toHaveBeenCalledOnce();expect(s.quotaWaiting.has(a.id)).toBe(false);
+  });
   it.each(['queued','failed'])('respects backend admission before preparing automatic pipeline work (%s)',status=>{
     const s=office();s.backend.allowWork=vi.fn((kind:string)=>kind==='issue'||kind==='ceo');
     const rec={repoId:'repo',prNumber:1,status,devAgentId:'a',updatedAt:0};s.state.qa=[rec];

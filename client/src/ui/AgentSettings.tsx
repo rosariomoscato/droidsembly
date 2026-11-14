@@ -370,6 +370,7 @@ export function AgentSetup({ agent }: { agent: Agent }) {
         </label>
       </div>
       {(agent.cli || (ceo ? 'claude' : defaultCli)) === 'opencode' && <OpenCodeConnections agent={agent} />}
+      {agent.host === 'box' && <p className="muted small"><T>A ready Box describes its machine, not provider authentication or quota. Finish Sign in in this agent’s terminal and check its model before assigning work.</T></p>}
       <LookEditor agent={agent} />
       <PromptPreview agent={agent} />
       <p className="muted small"><T>Name and model save when you leave them; the rest, and looks, as you pick them. Running sessions aren’t restarted.</T></p>

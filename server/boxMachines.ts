@@ -32,6 +32,7 @@ import {
   type BoxVersions,
 } from './boxScripts.ts';
 import type { BoxApi, BoxInfo } from './box.ts';
+import { removeBoxVerified } from './boxRemoval.ts';
 import type { MachineProvider } from './machines.ts';
 import type { DeskBase } from './workspace.ts';
 import type { DepsCallbacks, DepsOutcome } from './deps.ts';
@@ -245,7 +246,7 @@ export class BoxMachines implements MachineProvider {
 
   async remove(machine: string): Promise<{ removed: boolean; patches: string[] }> {
     const api = this.deps.api();
-    const id = api ? await this.boxId(machine).catch(() => null) : null;
+    const id = api ? await this.boxId(machine) : null;
     if (!api || !id) return { removed: !!api, patches: [] }; // without the key it can't be deleted yet: the next sweep tries
     const patches: string[] = [];
     try {
@@ -265,7 +266,10 @@ export class BoxMachines implements MachineProvider {
       this.deps.log(`could not save the leftovers of cloud machine ${machine}: ${(err as Error).message}`);
       return { removed: false, patches };
     }
-    await api.remove(id);
+    if (!await removeBoxVerified(api, id)) {
+      this.deps.log(`Removal of cloud machine ${machine} is not confirmed; its Box may still exist.`);
+      return { removed: false, patches };
+    }
     this.ids.delete(machine);
     this.ready.delete(machine);
     this.states.delete(machine);
