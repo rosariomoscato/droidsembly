@@ -2,6 +2,14 @@
 
 ## Stato / Status
 
+### Beta.5 candidata — non pubblicata / Beta.5 candidate — not published
+
+**IT:** Preparazione di `0.4.0-beta.5` su **`next`**, mantenendo `latest` invariato. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.5.md) descrivono onboarding cloud, cancellazione verificata, sospensione dei nuovi lavori e correzione del ciclo di vita del fixture dei test. Le prove precedenti al cambio versione non certificano il nuovo tarball. Nessun tag, pubblicazione o aggiornamento PC è implicito nella preparazione.
+
+**EN:** Preparing `0.4.0-beta.5` for **`next`**, leaving `latest` unchanged. [IT/EN notes](RELEASE_NOTES_0.4.0-beta.5.md) cover cloud onboarding, verified removal, new-work pause and the test-fixture lifecycle correction. Pre-version-change evidence does not certify the new tarball. Preparation implies no tag, publication or PC update.
+
+Public channels checked November 14, 2026 / Canali pubblici verificati il 14 novembre 2026: `next=0.4.0-beta.4`, `latest=0.4.0-beta.1`. The candidate is not registry availability / La candidata non equivale a disponibilità sul registry.
+
 ### Beta.4 candidata — non pubblicata / Beta.4 candidate — not published
 
 **IT:** Preparazione autorizzata di `0.4.0-beta.4` su `next`, con `latest` invariato e aggiornamento PC rinviato. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.4.md) documentano OpenCode V2 nelle Box, il PASS QA ordinario del 14 novembre e i limiti rimasti. Le verifiche del nuovo pacchetto e la pubblicazione vanno confermate separatamente: questo stato non dichiara beta.4 già disponibile.
