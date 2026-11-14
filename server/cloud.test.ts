@@ -96,6 +96,7 @@ function fakeApi(boxes: BoxInfo[], ok = true): BoxApi {
   };
   return {
     list: ok ? async () => boxes : fail,
+    get: async (id: string) => boxes.find((b) => b.id === id) ?? null,
     remove: async (id: string) => {
       boxes.splice(
         boxes.findIndex((b) => b.id === id),
@@ -157,7 +158,7 @@ describe('Cloud', () => {
     const { cloud } = await setup(boxes);
     await cloud.setKey('good-key');
     expect(cloud.view().boxes).toEqual({ total: 4, running: 1, paused: 1, orphans: 1 });
-    expect(await cloud.deleteOrphans()).toEqual({ deleted: 1 });
+    expect(await cloud.deleteOrphans()).toEqual({ deleted: 1, unconfirmed: 0 });
     expect(boxes.map((b) => b.id)).toEqual(['1', '3', '4']);
   });
 

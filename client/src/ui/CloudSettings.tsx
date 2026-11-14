@@ -9,7 +9,7 @@ import { BOX_SIZE_INFO, BOX_SIZES, MAX_BOX_LIMIT } from '../../../shared/cloud';
 import type { CloudCredentialView, CloudSettings as Cloud, CloudView } from '../../../shared/types';
 import { confirmDialog } from './Confirm';
 
-const DOCS = 'https://github.com/leonvanzyl/cubefarm/blob/main/docs/cloud.md';
+const DOCS = 'https://github.com/rosariomoscato/droidsembly/blob/main/docs/cloud.md';
 
 /** A command to copy, with a Copy button. */
 function Command({ text }: { text: string }) {
@@ -150,6 +150,20 @@ function Boxes({ cloud }: { cloud: CloudView }) {
       setBusy(false);
     }
   };
+  const removeOrphans = async () => {
+    if (busy || !cloud.boxes?.orphans) return;
+    const ok = await confirmDialog({ tone: 'danger', title: t('Delete {count} orphaned Boxes?', { count: cloud.boxes.orphans }),
+      body: t('Boxes of this office whose agent is gone. They’re deleted for good in your Upstash account.'), confirm: t('Delete') });
+    if (!ok) return;
+    setBusy(true); setNote('');
+    try {
+      const result = await api.deleteCloudOrphans();
+      setNote(result.unconfirmed
+        ? t('{deleted} removals confirmed; {unconfirmed} not confirmed. Check the Upstash console; resources may still be billed.', result)
+        : t('✓ {count} Box removals confirmed', { count: result.deleted }));
+    } catch (err) { setNote(err instanceof Error ? err.message : String(err)); }
+    finally { setBusy(false); }
+  };
   return (
     <div className="row wrap">
       <span className="grow small">
@@ -162,14 +176,8 @@ function Boxes({ cloud }: { cloud: CloudView }) {
       {!!b?.orphans && (
         <button
           className="btn btn-small btn-ghost"
-          onClick={() =>
-            void confirmDialog({
-              tone: 'danger',
-              title: t('Delete {count} orphaned Boxes?', { count: b.orphans }),
-              body: t('Boxes of this office whose agent is gone. They’re deleted for good in your Upstash account.'),
-              confirm: t('Delete'),
-            }).then((ok) => ok && void api.deleteCloudOrphans())
-          }
+          disabled={busy}
+          onClick={() => void removeOrphans()}
         >
           {t('Delete {count} orphans', { count: b.orphans })}
         </button>
@@ -189,9 +197,17 @@ export function CloudSettings() {
   const cloud = useStore((s) => s.cloud);
   const demo = useStore((s) => s.demo);
   const [error, setError] = useState('');
+  const [pauseBusy, setPauseBusy] = useState(false);
   const save = (patch: Partial<Cloud>) => {
     setError('');
     void api.updateSettings({ cloud: { ...settings, ...patch } }).catch((err) => setError(err instanceof Error ? err.message : String(err)));
+  };
+  const setWorkPaused = async (paused: boolean) => {
+    if (!paused && !await confirmDialog({ title: t('Resume new cloud work?'), body: t('Queued cloud issues, QA and fixes may start and consume provider quota and Box resources.'), confirm: t('Resume') })) return;
+    setPauseBusy(true); setError('');
+    try { await api.updateSettings({ cloud: { ...settings, pauseNewWork: paused } }); }
+    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    finally { setPauseBusy(false); }
   };
   return (
     <div className="card notify-settings">
@@ -199,6 +215,14 @@ export function CloudSettings() {
       <p className="muted small">
         <T>Run agents in</T> <a href="https://upstash.com/docs/box/overall/quickstart">Upstash Boxes</a> <T>instead of on this computer. A cloud agent keeps working on its task when you close the office or shut your laptop, and the office catches up when it’s back. Agents on this computer stay the default.</T>
       </p>
+
+      <h4 className="notify-h"><T>First cloud task: four checks</T></h4>
+      <ol className="cloud-steps small">
+        <li><T>Save and test the Upstash key, then confirm GitHub access to the intended repositories.</T></li>
+        <li><T>Choose a cloud agent, coding agent and model in Setup before signing in.</T></li>
+        <li><T>Use Sign in on the agent card and finish the official provider login in that Box terminal. Never copy a PC login file.</T></li>
+        <li><T>Check model access and provider quota, then assign one task. A ready Box or saved account is not proof of available AI quota.</T></li>
+      </ol>
 
       <h4 className="notify-h"><T>Upstash account</T></h4>
       <div className="notify-hook">
@@ -254,6 +278,17 @@ export function CloudSettings() {
             {error}
           </div>
         )}
+      </div>
+
+      <h4 className="notify-h"><T>Cloud work and spending awareness</T></h4>
+      <div className="notify-hook">
+        <label className="toggle block">
+          <input type="checkbox" checked={settings.pauseNewWork === true} disabled={pauseBusy} onChange={(e) => void setWorkPaused(e.target.checked)} />
+          <span><T>Pause new cloud work</T></span>
+        </label>
+        {settings.pauseNewWork && <p className="small" role="status"><T>New cloud work is paused. Local work and the CEO are unaffected.</T></p>}
+        <p className="muted small"><T>This blocks new cloud assignments and new AI launches, not sessions already running, manual sign-in or Box storage charges. Stop or remove resources explicitly when you are finished.</T></p>
+        <p className="muted small"><T>Reference CPU rates are not an invoice or a spending cap. Actual Box CPU time, storage and AI charges are not reported here; check provider dashboards. Unknown usage is not zero.</T></p>
       </div>
 
       <h4 className="notify-h"><T>How cloud agents sign in</T></h4>
@@ -323,7 +358,7 @@ export function CloudSettings() {
         </div>
       )}
       <p className="muted small">
-        <T>Boxes cost what their CPU does while they work (paused Boxes cost nothing but their disk), and the free plan allows 10 Boxes. Setup, costs and what keeps going while the office is closed:</T>{' '}
+        <T>Paused Boxes can still incur storage charges. Check current plan limits and prices in Upstash; the office’s Box limit is not a billing cap. Setup and what keeps going while the office is closed:</T>{' '}
         <a href={DOCS}>docs/cloud.md</a>.
       </p>
     </div>

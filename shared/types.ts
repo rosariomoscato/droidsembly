@@ -188,6 +188,7 @@ export interface CloudSettings {
   machineKind: MachineHost; // where new agents work ('local' unless the manager turns the cloud on)
   boxSize: BoxSize;
   boxLimit: number; // the Upstash plan's most Boxes (the free plan's 10), counted before a cloud agent is hired
+  pauseNewWork?: boolean; // manual admission pause, not a billing cap or a stop of running sessions/Boxes
 }
 
 /** How a cloud agent's machine is doing, on their card. */

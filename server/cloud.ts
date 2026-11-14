@@ -8,6 +8,7 @@
 import { HttpError } from './httpError.ts';
 import { mergeSecrets, readSecrets } from './secrets.ts';
 import { CloudError, type BoxApi, type BoxInfo } from './box.ts';
+import { removeBoxVerified } from './boxRemoval.ts';
 import type { AgentCli, CloudCredentialView, CloudView } from '../shared/types.ts';
 
 /** The environment variable the manager keeps their `claude setup-token` token in. */
@@ -39,7 +40,7 @@ export const boxLabels = (office: string, machine: string) => ['cubefarm', `cf:$
 
 /** The machine a Box is for when it's this office's, else null. */
 export function machineOfBox(box: Pick<BoxInfo, 'labels'>, office: string): string | null {
-  if (!box.labels.includes(`cf:${office}`)) return null;
+  if (!box.labels.includes('cubefarm') || !box.labels.includes(`cf:${office}`)) return null;
   return box.labels.find((l) => l.startsWith('m:'))?.slice(2) || null;
 }
 
@@ -260,7 +261,7 @@ export class Cloud {
       const all = await this.api.list();
       const office = this.deps.office();
       const machines = this.deps.machines();
-      const ours = all.filter((b) => b.labels.includes(`cf:${office}`));
+      const ours = all.filter((b) => b.status !== 'deleted' && b.labels.includes('cubefarm') && b.labels.includes(`cf:${office}`));
       this.boxes = {
         total: all.filter((b) => b.status !== 'deleted').length,
         running: ours.filter((b) => b.status === 'running' || b.status === 'idle' || b.status === 'creating').length,
@@ -279,20 +280,22 @@ export class Cloud {
   }
 
   /** POST /api/cloud/orphans: delete this office's Boxes whose agent is gone. */
-  async deleteOrphans(): Promise<{ deleted: number }> {
+  async deleteOrphans(): Promise<{ deleted: number; unconfirmed: number }> {
     if (!this.api) throw new HttpError(400, 'Save your Upstash Box API key first.');
     const office = this.deps.office();
     const machines = this.deps.machines();
-    const doomed = (await this.count()).filter((b) => b.labels.includes(`cf:${office}`) && !machines.has(machineOfBox(b, office) ?? ''));
-    let deleted = 0;
+    const doomed = (await this.count()).filter((b) => b.status !== 'deleted' && b.labels.includes('cubefarm') && b.labels.includes(`cf:${office}`) && !machines.has(machineOfBox(b, office) ?? ''));
+    let deleted = 0, unconfirmed = 0;
     for (const b of doomed) {
-      await this.api
-        .remove(b.id)
-        .then(() => deleted++)
-        .catch((err) => this.deps.log(`could not delete the orphan Box ${b.name}: ${(err as Error).message}`));
+      if (this.deps.machines().has(machineOfBox(b, office) ?? '')) continue;
+      try {
+        if (await removeBoxVerified(this.api, b.id)) deleted++;
+        else unconfirmed++;
+      } catch { unconfirmed++; }
     }
+    if (unconfirmed) this.deps.log(`${unconfirmed} orphan Box removal(s) could not be confirmed; check the Upstash console. No automatic retry.`);
     await this.count().catch(() => undefined);
-    return { deleted };
+    return { deleted, unconfirmed };
   }
 
   private emit(): CloudView {
