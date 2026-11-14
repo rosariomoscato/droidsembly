@@ -79,6 +79,19 @@ function machines(api: BoxApi, states: [string, CloudMachineState][] = [], profi
 }
 
 describe('BoxMachines', () => {
+  it('retains the machine and Box ID when a delete is accepted but absence is not verified', async () => {
+    const { api, boxes } = fakeAccount();
+    const m = machines(api);const id = await m.ensure('a1b2c3d4');
+    api.remove = async () => {};
+    expect(await m.remove('a1b2c3d4')).toEqual({ removed: false, patches: [] });
+    expect(await m.boxId('a1b2c3d4')).toBe(id);
+    expect(boxes).toHaveLength(1);
+    expect(m.stateOf('a1b2c3d4')).toBe('ready');
+  });
+  it('does not report removal when discovery fails and the resource outcome is unknown', async () => {
+    const { api } = fakeAccount();api.list = async () => { throw new Error('synthetic discovery failure'); };
+    await expect(machines(api).remove('a1b2c3d4')).rejects.toThrow('synthetic discovery failure');
+  });
   it('does not collapse a failed post-login metadata query into signed-out',async()=>{
     const {api}=fakeAccount([],()=>({code:2,output:'CUBEFARM_OPENCODE_QUERY_FAILED'}));
     const m=machines(api);await m.ensure('a1b2c3d4');

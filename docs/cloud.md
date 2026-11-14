@@ -1,6 +1,6 @@
 # Cloud agents
 
-**OpenCode validation note:** OpenCode V2 Box workers use the existing terminal runtime. An explicitly authorized instrumented end-to-end run passed; this does not certify ordinary uninstrumented operation or pause/restart survival. See [OpenCode Box validation and limits](OPENCODE_BOX_VALIDATION.md).
+**OpenCode validation note:** Both an instrumented run and a subsequent bounded ordinary worker → fresh-session QA run passed. This does not certify every workload/provider or pause/restart survival. See [OpenCode Box validation and limits](OPENCODE_BOX_VALIDATION.md).
 
 Out of the box every agent works on your computer: close the office or shut your laptop and they stop. **Cloud agents** work in an [Upstash Box](https://upstash.com/docs/box/overall/quickstart) each instead, a small Linux machine in the cloud, so they carry on with their task while the office is closed. It's optional: agents on your computer stay the default, and you can have both on one floor.
 
@@ -19,7 +19,13 @@ You need an Upstash account. The free plan is enough to try it.
 3. **Choose where new agents work.** Under *Where new agents work*, pick **An Upstash Box each**. New hires work in the cloud from then on, and the lobby lets you choose for each candidate. To move an agent you already have, open their ⚙️ Setup and change *Works on* while they have no task.
 4. **Sign each cloud agent in, once.** Their coding agent signs in with your own subscription, in their terminal: see below.
 
-The demo office (`npx cubefarm --demo`) has a fake Upstash account: any key works, and its Boxes appear and disappear without costing anything. Its sign-ins are fake too (any code works), and Settings → Cloud agents → *Expire sign-ins (demo)* signs every Box out, to see what an expired sign-in looks like.
+The demo office (`npx droidsembly@next --demo`) has a fake Upstash account: any key works, and its Boxes appear and disappear without costing anything. Its sign-ins are fake too (any code works), and Settings → Cloud agents → *Expire sign-ins (demo)* signs every Box out, to see what an expired sign-in looks like.
+
+### First OpenCode cloud task / Primo incarico cloud OpenCode
+
+**EN:** Follow Settings → Cloud agents → **First cloud task: four checks**. Verify Upstash and the intended GitHub repositories, select the worker's coding agent/model, finish official sign-in in that Box terminal, then check model access/quota before assigning one task. **Box ready** describes infrastructure, not authenticated provider access, the active account, remaining quota or a guaranteed cost. Do not copy a PC login file. Model and connection metadata browsing does not itself send an AI prompt; manual sign-in can wake or create the Box.
+
+**IT:** Segui Impostazioni → Agenti cloud → **Primo incarico cloud: quattro controlli**. Verifica Upstash e repository GitHub, scegli strumento/modello, completa l’accesso ufficiale nel terminale della Box e verifica modello/quota prima di assegnare un incarico. **Box pronta** descrive l’infrastruttura, non autenticazione, account attivo, quota o costo garantito. Non copiare file di login dal PC. Consultare metadati non invia prompt AI; il login manuale può riattivare o creare la Box.
 
 ## Signing a cloud agent in
 
@@ -30,7 +36,7 @@ A cloud agent's coding agent signs in through its own login, run in that agent's
    - **Claude Code** (`claude auth login`) shows a link. Open it, approve with your Claude account, paste the code the page gives you into the terminal and press Enter.
    - **Codex** (`codex login --device-auth`) shows a link and a one-time code. Open the link, sign in to ChatGPT and enter the code there. (Codex's usual sign-in waits for a browser on the Box itself, which nobody can open; this one works from anywhere.) The code lasts 15 minutes: **↻ Start over** above the terminal shows a new one.
    - **OpenCode V2** (`opencode auth login`) lets you choose the provider and its official login method in the Box terminal. Choose a method that works without a browser in the Box, such as the provider's device-code flow where offered. After connecting, choose a model in that cloud agent's Setup. Model browsing reads the Box's inventory, not your PC's. Before hiring, enter a model manually or leave the Box's default; browsing is available after its machine is ready. A provider connection is not proof of current quota or a working token.
-3. The office sees the sign-in is done, clears the flag and starts the task that waited.
+3. The office sees the sign-in is done, clears the flag and resumes eligible held work. A manual **Pause new cloud work** or provider quota block still prevents a new session launch.
 
 The Box keeps the sign-in (Claude Code's in `~/.claude`, Codex's in `~/.codex`, in the Box user's home) through pauses and office restarts, so each cloud machine signs in once. It's gone with the Box when the agent leaves.
 
@@ -48,15 +54,25 @@ OpenCode keeps its own V2 database and configuration under `/workspace/home/.cub
 - **The terminal is live.** An agent's CLI runs under tmux in their Box, and their desk shows its terminal as for any agent: watch it, type to it, press `Esc` to interrupt. If the connection drops, the office reconnects; the agent never notices.
 - **The office reads what they did.** A Box can't reach your computer, so a cloud agent's CLI writes what it does (each tool call, each finished turn, its cost) to a file in its Box. The office reads that file while it's connected, and catches up on it when it comes back.
 - **Idle Boxes pause.** A cloud agent's CLI closes 5 minutes after it finished, and an agent with nothing to do has their Box paused. A paused Box costs nothing but its disk and wakes in seconds for the next task. Upstash also pauses a Box nobody has used for a while: after an hour on the free plan, six hours on pay-as-you-go.
-- **Leaving.** When a cloud agent leaves, their work that isn't on GitHub is saved to `~/.cubefarm/leftovers` as a patch, then their Box is deleted. **Delete orphans** in Settings removes Boxes this office no longer has an agent for.
+- **Leaving.** When a cloud agent leaves, their work that isn't on GitHub is saved to `~/.cubefarm/leftovers` as a patch, then deletion is requested. Removal is confirmed only after the exact resource is absent and a successful inventory no longer lists it. Unknown discovery/deletion outcomes do not clear the machine record as if deletion succeeded. **Delete orphans** in Settings checks both application/office ownership labels and current machine ownership; its result separates confirmed and unconfirmed removals. Check the Upstash console when confirmation fails: resources may still exist and incur charges. No retry is performed inside the confirmation operation.
 
 ## Costs and limits
 
-- Upstash bills a Box for the CPU it uses while it works, from $0.10 per active CPU hour for a small Box (2 vCPU, 4 GB). Paused Boxes only pay for their disk. Settings → Cloud agents sets the size for new Boxes. See [Upstash's pricing](https://upstash.com/pricing/box).
-- The free plan allows **10 Boxes** (paused ones count) and 5 CPU hours a month. Set *Your plan's Box limit* to match your plan: the office won't hire a cloud agent past it.
+- Settings show reference rates per active CPU hour, not a measured invoice or guaranteed wall-clock-hour cost. Actual Box CPU time, storage and AI charges are not provided by this panel. Paused resources may retain storage charges. Confirm current rates and entitlements in [Upstash's pricing](https://upstash.com/pricing/box) and the provider console; unknown usage/cost is not zero.
+- The office initially limits Box admission to 10; configure *Your plan's Box limit* for your actual account. Paused Boxes and other offices count in the account inventory. This is an admission check, not a provider-enforced spending cap or a replacement for provider limits.
 - Coding agents in the cloud use your subscription or API key the same way they do on your computer, and share its usage limits.
 - **OpenCode V2 workers** use the office's pinned CLI and a private `--standalone` server in their Box. The CEO and office still run locally. An explicitly requested Box that cannot be used fails rather than being counted as a successful local fallback. OpenCode does not gain access to a model server on your PC just because the same model name works locally.
 - **Linked repos** are copied into the Box read-only for each task instead of being read from your computer.
+
+### Manual cloud-work pause / Sospensione manuale del lavoro cloud
+
+**EN:** **Pause new cloud work** persists a resource admission setting: block new issue/QA/fix assignments and new cloud AI launches, including tasks whose preparation or quota wait began earlier. Local workers and the local CEO are unaffected. Work prepared before the pause can finish preparation, but its new session waits. Resuming asks for confirmation because queued work may start; existing provider quotas/session limits still apply. Clearing/stopping a task cancels its held launch as usual. After an office restart a stopped task may require explicit manager action; this switch is not a durable callback queue.
+
+This does **not** interrupt already-running sessions, disable typed input in an existing terminal, prevent manual authentication/wake-up, delete/pause existing Boxes, or guarantee billing stops. Stop/remove resources explicitly and verify the result. It is not a monetary hard cap, budget predictor, usage counter or OS sandbox.
+
+**IT:** **Sospendi nuovi lavori cloud** impedisce nuove assegnazioni issue/QA/fix e nuovi avvii AI cloud, anche per incarichi già in preparazione o in attesa di quota. Agenti locali e CEO non cambiano. Preparazioni già avviate possono completarsi ma la nuova sessione attende. La ripresa richiede conferma perché può far partire lavoro in coda, sempre rispettando quote e limiti delle sessioni. Arrestare o liberare il task annulla l’avvio trattenuto. Dopo un riavvio un task fermo può richiedere un’azione esplicita: non è una coda persistente di callback.
+
+Non interrompe sessioni attive/input nel terminale, login manuali, riattivazioni o archiviazione già fatturata; non elimina né mette automaticamente in pausa le Box. Arresta/elimina e verifica le risorse al termine. Non è un tetto monetario garantito né un sandbox.
 
 ## Security
 

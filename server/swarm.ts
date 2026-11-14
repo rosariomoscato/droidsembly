@@ -2857,6 +2857,7 @@ export class Swarm {
   }
 
   private ensureUsage(a: PersistedAgent, kind: WorkKind) {
+    if (this.cloudWorkPaused(a)) throw new HttpError(409, 'New cloud work is paused in Settings → Cloud agents. Running sessions and Box costs are not stopped.');
     if (this.quotaWaiting.has(a.id)) throw new HttpError(409, 'This agent has work waiting for a quota reset. Clear the desk to replace it.');
     if (!this.mayStart(kind, a)) throw new HttpError(429, 'This AI quota is paused or pacing. See AI usage for the affected resource and reset time.');
   }
@@ -3156,6 +3157,7 @@ export class Swarm {
   }
 
   private async runTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string) {
+    if (this.cloudWorkPaused(a)) return;
     const branch = devBranch(issue.number, slugify(a.name));
     this.beginTask(
       a,
@@ -3204,6 +3206,10 @@ export class Swarm {
   ) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // let go meanwhile
+    if (!mode && this.cloudWorkPaused(a)) {
+      this.waitForCloudResume(a, () => this.startAgentSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode));
+      return;
+    }
     // A cloud agent's session runs in their Box: it's awake and set up, their linked repos fetched there, and their
     // credentials resolved first. (Following a CLI that kept working there needs none of that.)
     if (a.host === 'box' && mode !== 'reattach') {
@@ -3239,6 +3245,10 @@ export class Swarm {
   ) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // let go meanwhile
+    if (!mode && this.cloudWorkPaused(a)) {
+      this.waitForCloudResume(a, () => this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked));
+      return;
+    }
     // A session started in a folder that's gone dies at once (Windows exit 267): set the desk up again first. (A Box's
     // desk is taken to be there: looking would wake it.)
     if (a.host !== 'box' && sessionStart(this.backend.deskExists(cwd), mode) === 'prepare') {
@@ -3567,6 +3577,7 @@ export class Swarm {
   }
 
   private async runQa(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (this.cloudWorkPaused(a)) return;
     if (this.backend.allowWork && !this.backend.allowWork('qa', a)) return;
     const branch = qaBranch(rec.prNumber, slugify(a.name));
     this.qaWaits.set(`${repo.id}#${rec.prNumber}`, Date.now() - rec.updatedAt); // queued since its last change
@@ -3811,6 +3822,7 @@ export class Swarm {
 
   /** Send a failed PR back to the agent who wrote it (or any free agent on the floor). */
   private async runFix(dev: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (this.cloudWorkPaused(dev)) return;
     if (this.backend.allowWork && !this.backend.allowWork('fix', dev)) return;
     const original = rec.devAgentId === dev.id;
     const pull = this.repoRt.get(repo.id)?.pulls.find((p) => p.number === rec.prNumber);
@@ -4302,8 +4314,21 @@ export class Swarm {
     return this.usageNow();
   }
 
-  /** May work of this kind start now, as far as Claude's usage goes? */
+  private cloudWorkPaused(a: PersistedAgent) {
+    return a.role !== 'ceo' && a.host === 'box' && this.state.settings.cloud?.pauseNewWork === true;
+  }
+
+  private waitForCloudResume(a: PersistedAgent, start: () => void) {
+    this.quotaWaiting.set(a.id, start);
+    a.status = 'stopped';
+    a.lastError = 'New cloud work is paused in Settings → Cloud agents';
+    this.emitAgent(a);
+    this.save();
+  }
+
+  /** May work of this kind start now, as far as resource controls and AI usage go? */
   private mayStart(kind: WorkKind, a: PersistedAgent) {
+    if (this.cloudWorkPaused(a)) return false;
     if (this.backend.allowWork && !this.backend.allowWork(kind, a)) return false;
     if (this.configuringOpenCode) return false;
     const key = this.gateKey(a);
@@ -4444,7 +4469,7 @@ export class Swarm {
     for (const [id, start] of [...this.quotaWaiting]) {
       const a = this.state.agents.find((agent) => agent.id === id);
       if (!a) { this.quotaWaiting.delete(id); continue; }
-      if (!this.slotsFull() && !this.limited(a)) { this.quotaWaiting.delete(id); start(); }
+      if (!this.cloudWorkPaused(a) && !this.slotsFull() && !this.limited(a)) { this.quotaWaiting.delete(id); start(); }
     }
     // Management first: the CEO's jobs are short and shape everyone else's work.
     this.maybeHeartbeat();
