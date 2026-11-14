@@ -1,5 +1,13 @@
 # OpenCode V2 in Upstash Box: validation and limits
 
+## Ordinary validation update — November 14, 2026 / Aggiornamento prova ordinaria
+
+**IT:** Dopo i fix delle PR #59/#60, il codice integrato in `dev` come `86de37f` ha completato il normale flusso CEO locale → worker OpenCode Box → PR aperta → QA in sessione fresca su un piccolo modulo sintetico. Lo stato QA persistito riporta PASS, `testedSha`/`passedSha` uguali al commit corrente della PR e zero fallimenti di sessione. Cinque categorie QA PASS; build/browser/dipendenze non applicabili perché assenti manifest/UI. Verifica indipendente dei due file esatti: 10/10 test PASS. Nessun gate sintetico, osservatore SDK/Git, retry manuale o merge. Box eliminata, assenza API e watchdog verificati. Il monitor esterno non riconobbe immediatamente il successo per gli SHA assenti nello stream UI: attese la scadenza originale; la corrispondenza è stata verificata separatamente sullo stato persistito. Correzione del monitor solo locale dopo il run. Prove/fallimenti precedenti rimangono conservati, non riclassificati.
+
+**EN:** After PR #59/#60, merged `dev` source `86de37f` completed the ordinary local CEO → OpenCode Box worker → OPEN PR → fresh-session QA on a small synthetic module. Persisted QA passed/tested commits match the independently checked PR head, with zero session failures. Five QA categories passed; dependency/build/browser checks were not applicable without a manifest/UI. The exact delivered files independently passed 10/10 tests. No synthetic gate, SDK/Git observer, manual retry or PR merge. Box deletion, API absence and watchdog completion were confirmed. The external monitor missed immediate success because public UI events omit QA commit fields; it waited for the original deadline. Identity was separately verified from persisted QA; the monitor was corrected only locally afterward. Original failures remain preserved, not reclassified.
+
+This establishes this bounded ordinary flow, not every workload/provider, vendor internals, pause/resume, billing or the release artifact. Publication and PC installation remain separate steps. / Il PASS riguarda questo flusso limitato, non ogni workload/provider, cause interne, pausa/ripartenza, costi o artefatto di release. Pubblicazione e aggiornamento PC restano passaggi distinti. The earlier instrumented-run record below remains historical evidence / La prova strumentata seguente resta evidenza storica.
+
 ## Italiano
 
 ### Perimetro

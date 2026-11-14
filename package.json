@@ -1,6 +1,6 @@
 {
   "name": "droidsembly",
-  "version": "0.4.0-beta.3",
+  "version": "0.4.0-beta.4",
   "description": "Droidsembly: a visual 3D office and mobile dashboard for coordinating AI coding agents on your GitHub projects.",
   "keywords": [
     "claude-code",

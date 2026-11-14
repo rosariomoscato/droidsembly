@@ -2,6 +2,16 @@
 
 ## Stato / Status
 
+### Beta.4 candidata — non pubblicata / Beta.4 candidate — not published
+
+**IT:** Preparazione autorizzata di `0.4.0-beta.4` su `next`, con `latest` invariato e aggiornamento PC rinviato. Le [note IT/EN](RELEASE_NOTES_0.4.0-beta.4.md) documentano OpenCode V2 nelle Box, il PASS QA ordinario del 14 novembre e i limiti rimasti. Le verifiche del nuovo pacchetto e la pubblicazione vanno confermate separatamente: questo stato non dichiara beta.4 già disponibile.
+
+**EN:** Authorized preparation of `0.4.0-beta.4` for `next`, preserving `latest` and deferring the PC update. The [IT/EN notes](RELEASE_NOTES_0.4.0-beta.4.md) record OpenCode V2 Box workers, the November 14 ordinary QA PASS and remaining limits. New package validation/publication results must be confirmed separately; beta.4 is not yet claimed available.
+
+Read-only public channel check on November 14, 2026 / Controllo pubblico in sola lettura del 14 novembre 2026: `next=0.4.0-beta.3`, `latest=0.4.0-beta.1`; GitHub beta.3 exists. Do not republish beta.3 or move its tag / Non ripubblicare beta.3 né spostarne il tag. Earlier beta.3 candidate text below is retained as historical preparation context / Il testo candidato beta.3 seguente è conservato come storico della preparazione.
+
+**Validazione locale beta.4 / Beta.4 local validation:** dopo il primo fallimento conservato (3054 PASS/48 FAIL/10 non eseguiti), una nuova prova autorizzata in Bilanciato temporaneo ha superato installazione pulita, typecheck, 3112/3112 test, build e smoke del tarball esatto; piano originale ripristinato e verificato. / After the preserved first failure (3054 passed/48 failed/10 not run), a separately authorized temporary-Balanced run passed clean install, typecheck, 3112/3112 tests, build and exact-tarball installed smoke; the original power plan was restored and verified. Nessuna soglia modificata o causa unica degli errori precedenti dimostrata / No budget change or proven single cause for the earlier failures. CI/pubblicazione ancora da confermare, PC rinviato / CI/publication still to be confirmed; PC update deferred. See / Vedi le note beta.4.
+
 ### Beta.3 candidata — non pubblicata / Beta.3 candidate — not published
 
 **IT:** `0.4.0-beta.3` è in preparazione su un branch isolato da `dev`, per distribuire separatamente le correzioni successive alla beta.2: salvataggi terminali, completamento pulizia anteprime, orchestrazione dei test, branding OpenCode e popup merge italiano. Vedi le [note della candidata IT/EN](RELEASE_NOTES_0.4.0-beta.3.md). Il solo cambio versione non attesta test, CI, pubblicazione o aggiornamento dell'installazione reale: gli esiti del nuovo candidato devono essere registrati separatamente. Dipendenze, carichi, soglie e timeout originali restano invariati.
