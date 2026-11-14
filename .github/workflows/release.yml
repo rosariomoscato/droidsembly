@@ -64,13 +64,15 @@ jobs:
     env:
       SWARM_HOME: ${{ github.workspace }}/.ci-swarm-home
       SWARM_PORT: '0'
-      RELEASE_EVIDENCE: ${{ runner.temp }}/droidsembly-release
     steps:
       - uses: actions/checkout@v5
         with:
           ref: refs/tags/${{ inputs.tag }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Set publication evidence directory
+        shell: bash
+        run: echo "RELEASE_EVIDENCE=$RUNNER_TEMP/droidsembly-release" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v5
         with:
           node-version: 24

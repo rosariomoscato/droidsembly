@@ -153,6 +153,16 @@ describe('read-only npm publication availability', () => {
 });
 
 describe('Release public availability ordering', () => {
+  it('sets the evidence path at step runtime, not through an unavailable job-env runner context', () => {
+    const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
+    const publishJob = workflow.slice(workflow.indexOf('\n  publish:'));
+    const jobEnv = publishJob.slice(publishJob.indexOf('    env:'), publishJob.indexOf('    steps:'));
+    expect(jobEnv).not.toContain('runner.');
+    const setup = publishJob.indexOf('echo "RELEASE_EVIDENCE=$RUNNER_TEMP/droidsembly-release" >> "$GITHUB_ENV"');
+    const capture = publishJob.indexOf('node scripts/verify-npm-publication.mjs capture');
+    expect(setup).toBeGreaterThan(0);
+    expect(capture).toBeGreaterThan(setup);
+  });
   it('captures before a single publish and gates GitHub release on downloaded public smoke', () => {
     const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
     const capture = workflow.indexOf('node scripts/verify-npm-publication.mjs capture');
