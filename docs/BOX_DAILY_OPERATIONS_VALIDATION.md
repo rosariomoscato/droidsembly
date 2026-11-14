@@ -22,3 +22,13 @@ Candidate based on reviewed `dev` `f2ee1d3`, November 14, 2026. Guided setup, ve
 **IT:** Indagine delimitata completata, non risoluzione universale: i casi storici non si sono riprodotti; nessuna correzione arbitraria o chiusura delle issue. Il nuovo errore RPC resta un limite reale della validazione locale, anche se tutti i test e la diagnosi isolata passano. Una CI successiva verde non cancella questa evidenza.
 
 Full original logs and issue snapshots are retained in the session evidence folder; they are not publicly downloadable attachments. No authentication files or transcripts are included.
+
+## Follow-up: fixture lifetime correction (not a production shutdown rewrite)
+
+The cloud-agent fixture returned from `connectRepo` while its real background startup was still running: `connectRepo` launches `cloneRepo`/`syncRepo` without awaiting them; demo `ensureClone` waits 400ms, and `cloneRepo` launches a separate `sweepFloor`, which logs after its awaited work. The previous five test bodies completed in about 20–55ms each and never shut their offices down. This is a concrete late-console path, not proof that every RPC teardown error has this cause.
+
+Vitest 5.0.3's console implementation sends `onUserConsoleLog` without awaiting it; worker cleanup rejects pending RPC calls with the exact observed `EnvironmentTeardownError`. Dependency files were inspected read-only, not patched or upgraded. No console interception, warning/error reporting or test-runner guard was disabled.
+
+The test-only fix tracks the original promises of startup entry points, drains children added while parents settle, then awaits office shutdown. A unique home is selected before importing Swarm; it is removed only after successful cleanup, otherwise retained. Production code, original five test bodies, timer delays, test budgets and scale workloads are unchanged.
+
+A controlled regression fails with a one-snapshot barrier: observed order `close → sweep log`, instead of required `sweep log → close`. The child-aware barrier passes; a second regression preserves background failure rather than reporting successful cleanup. Pass-through console traces on the real five cloud-agent tests now show each `Swarm.sweepFloor` log within its owning test before completion. Final targeted validation: **80/80 PASS**, eight files; typecheck **PASS**. A single ordinary full-suite validation of this changed fixture is recorded separately when complete. Original failed-suite evidence above remains intact; #39/#42 are not closed by this correction.

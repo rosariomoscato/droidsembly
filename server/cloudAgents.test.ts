@@ -1,12 +1,49 @@
-import { describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { createDemoBackend } from './demo.ts';
-import { Swarm } from './swarm.ts';
+import { fixtureWork } from '../scripts/fixtureWork.ts';
+
+// Each file owns its persisted state; import only after selecting its home.
+const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-cloud-agents-'));
+process.env.SWARM_HOME = home;
+const { Swarm } = await import('./swarm.ts');
+const fixtures: { swarm: InstanceType<typeof Swarm>; work: ReturnType<typeof fixtureWork> }[] = [];
+let cleanupFailed = false;
+afterEach(async () => {
+  // A returned connectRepo is not a completed clone/sweep. Drain children too,
+  // while Vitest's console RPC still belongs to this test, then flush/close.
+  try {
+    for (const { swarm, work } of fixtures.splice(0)) {
+      await work.drain();
+      await swarm.shutdown();
+    }
+  } catch (err) {
+    cleanupFailed = true;
+    throw err;
+  } finally {
+    vi.restoreAllMocks();
+  }
+});
+afterAll(() => {
+  if (!cleanupFailed) fs.rmSync(home, { recursive: true });
+});
 
 // Cloud agents (docs/cloud.md) in a demo office: its fake Upstash account takes any key. Agents work on this computer
 // unless the manager connects Upstash and asks for the cloud; then they each get a Box.
 
 async function office() {
   const swarm = new Swarm(createDemoBackend());
+  const work = fixtureWork();
+  fixtures.push({ swarm, work });
+  // Observe real startup entry points without changing their result, clock,
+  // workload or logging. These private methods deliberately launch children.
+  const runtime = swarm as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  for (const method of ['cloneRepo', 'syncRepo', 'sweepFloor', 'syncFolder', 'advanceMerges', 'lookUpIssueAges']) {
+    const original = runtime[method].bind(swarm);
+    vi.spyOn(runtime, method).mockImplementation((...args) => work.track(original(...args)));
+  }
   const repo = await swarm.connectRepo('demo-co/pixel-todo'); // with its first agent
   const agents = () => swarm.snapshot().agents.filter((a) => a.repoId === repo.id);
   return { swarm, repo, agents };
