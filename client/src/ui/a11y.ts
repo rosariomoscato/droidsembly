@@ -4,15 +4,16 @@
 // window.__swarmA11y shows the settings and what they come to, and set() changes them, for QA and e2e.
 
 import { create } from 'zustand';
+import { isPreferenceEvent, preferences } from '../preferences';
 import { DEFAULT_A11Y, normalizeA11yPrefs, parseA11yPrefs, reducesMotion, showsShapes, type A11yPrefs } from './a11yPrefs';
 import { paletteVars, PALETTE_VAR_NAMES, type StatusLook } from './statusLook';
 
-const KEY = 'cubefarm:a11y';
+const KEY = 'droidsembly:a11y';
 const REDUCED_QUERY = '(prefers-reduced-motion: reduce)';
 
 function load(): A11yPrefs {
   try {
-    return parseA11yPrefs(localStorage.getItem(KEY));
+    return parseA11yPrefs(preferences.getItem(KEY));
   } catch {
     return { ...DEFAULT_A11Y };
   }
@@ -43,7 +44,7 @@ export const statusLook = (p: A11yPrefs = getA11y()): StatusLook => ({ palette: 
 export function setA11y(patch: Partial<A11yPrefs>) {
   const prefs = normalizeA11yPrefs({ ...getA11y(), ...patch });
   try {
-    localStorage.setItem(KEY, JSON.stringify(prefs));
+    preferences.setItem(KEY, JSON.stringify(prefs));
   } catch {
     // storage may be unavailable (private mode); the setting lasts for this visit
   }
@@ -84,7 +85,10 @@ if (typeof window !== 'undefined') {
   }
   // Another tab changed the settings.
   window.addEventListener('storage', (e) => {
-    if (e.key === KEY) useA11y.setState({ prefs: parseA11yPrefs(e.newValue) });
+    if (isPreferenceEvent(e.key, KEY)) {
+      const prefs = load();
+      if (JSON.stringify(prefs) !== JSON.stringify(getA11y())) useA11y.setState({ prefs });
+    }
   });
   Object.defineProperty(window, '__swarmA11y', {
     configurable: true,

@@ -1,11 +1,12 @@
 import { useStore, type Agent } from '../../store';
 import { cheer, parsePet, type PetState } from './pet';
 import { readJson, writeJson } from './storage';
+import { isPreferenceEvent } from '../../preferences';
 
 // Where the desk pet lives between visits to the phone: kept in this browser and shared with Pet.tsx. It watches
 // the office too, even while the phone is put away: whenever someone finishes a job, the pet cheers up.
 
-const KEY = 'cubefarm:games:pet';
+const KEY = 'droidsembly:games:pet';
 
 let pet: PetState | null = parsePet(readJson(KEY));
 const listeners = new Set<() => void>();
@@ -43,8 +44,10 @@ const stopWatching = useStore.subscribe((s, prev) => {
 
 // Another tab of the office looked after it.
 const onStorage = (e: StorageEvent) => {
-  if (e.key !== KEY) return;
-  pet = parsePet(readJson(KEY));
+  if (!isPreferenceEvent(e.key, KEY)) return;
+  const next = parsePet(readJson(KEY));
+  if (JSON.stringify(next) === JSON.stringify(pet)) return;
+  pet = next;
   notify();
 };
 window.addEventListener('storage', onStorage);

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { preferences } from '../preferences';
 
 // Mouse look: filtering of pointer-lock deltas and the viewer's look preferences.
 //
@@ -105,14 +106,14 @@ export interface LookPrefs {
   /** Grab the mouse again when a panel or question closes (see lookLock.ts). */
   grabOnClose: boolean;
 }
-const PREFS_KEY = 'cubefarm:look';
+const PREFS_KEY = 'droidsembly:look';
 const DEFAULT_PREFS: LookPrefs = { sensitivity: 1, invertY: false, grabOnClose: true };
 
 const clampSensitivity = (v: number) => Math.min(SENSITIVITY_MAX, Math.max(SENSITIVITY_MIN, v));
 
 function loadPrefs(): LookPrefs {
   try {
-    const v = JSON.parse(localStorage.getItem(PREFS_KEY) ?? 'null') as Partial<LookPrefs> | null;
+    const v = JSON.parse(preferences.getItem(PREFS_KEY) ?? 'null') as Partial<LookPrefs> | null;
     return {
       sensitivity: typeof v?.sensitivity === 'number' && Number.isFinite(v.sensitivity) ? clampSensitivity(v.sensitivity) : DEFAULT_PREFS.sensitivity,
       invertY: v?.invertY === true,
@@ -130,7 +131,7 @@ export const useLookPrefs = create<LookPrefs & { set: (p: Partial<LookPrefs>) =>
     set(next);
     const { sensitivity, invertY, grabOnClose } = get();
     try {
-      localStorage.setItem(PREFS_KEY, JSON.stringify({ sensitivity, invertY, grabOnClose }));
+      preferences.setItem(PREFS_KEY, JSON.stringify({ sensitivity, invertY, grabOnClose }));
     } catch {
       // storage may be unavailable (private mode); the setting just won't survive a reload
     }

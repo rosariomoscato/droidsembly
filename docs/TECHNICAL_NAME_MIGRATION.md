@@ -83,4 +83,7 @@ was subsequently authorized; merge and release remain separate decisions.
 Phase 1 was merged into dev separately. The user then approved environment aliases
 and safe home selection on another branch, without physical data migration. See
 [ENV_HOME_MIGRATION.md](ENV_HOME_MIGRATION.md) for that implementation and its
-validation status. Phase 3 browser/session/internal-path contracts remain deferred.
+validation status. The user subsequently authorized phase 3 continuation for
+browser preferences, compatible messaging and new-session branding; see
+[BROWSER_PROTOCOL_MIGRATION.md](BROWSER_PROTOCOL_MIGRATION.md). Persistent paths,
+existing session IDs and low-level protocol identities remain intentionally stable.

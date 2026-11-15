@@ -4,6 +4,7 @@
 // None of it is ever logged or sent to a browser, except the VAPID public key a browser subscribes with.
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { notificationTag } from '../shared/browserProtocol.ts';
 import { NOTIFY_WEBHOOKS, noteTab } from '../shared/notify.ts';
 import type { NoteView, NotifyChannel, NotifyChannelsView, NotifyEvent, NotifySettings, NotifyWebhook } from '../shared/types.ts';
 import { HttpError } from './httpError.ts';
@@ -232,7 +233,7 @@ export class Notifier {
     const sends: Promise<string | null>[] = [];
     for (const c of NOTIFY_WEBHOOKS) if (on(c) && this.webhooks[c]) sends.push(this.send(this.webhookRequest(c, n, s.officeUrl)));
     if (on('push') && this.push.vapid) {
-      const payload = JSON.stringify({ title: view.title, body: view.body, tag: `cubefarm-${view.id}`, url: view.url });
+      const payload = JSON.stringify({ title: view.title, body: view.body, tag: notificationTag(view.id), url: view.url });
       for (const d of [...this.push.devices]) sends.push(this.sendPush(d, payload, noteText(n)));
     }
     return Promise.all(sends);

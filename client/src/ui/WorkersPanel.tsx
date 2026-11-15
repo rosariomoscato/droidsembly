@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { preferences } from '../preferences';
 import { agentsOnRepo, useStore, type Agent } from '../store';
 import { CEO_ID, INSTALL_STEP, type LogLine, type RepoView } from '../../../shared/types';
 import { VisitorsList } from './VisitorsList';
@@ -12,7 +13,7 @@ import { T, useT } from '../i18n';
 // their screen; L (Help → Controls) shows and hides the list.
 
 const isWorking = (a: Agent) => a.status === 'working' || a.status === 'preparing';
-const STORAGE_KEY = 'cubefarm:workers';
+const STORAGE_KEY = 'droidsembly:workers';
 
 /** Their latest line worth listing (the store keeps it, shared/watch.ts), cleaned of the terminal's bullets. */
 function latest(l: LogLine | undefined): { text: string; kind: LogLine['kind']; t: number } | null {
@@ -73,7 +74,7 @@ interface Group {
 
 function loadCollapsed(): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(`${STORAGE_KEY}:collapsed`) ?? '[]') as string[]);
+    return new Set(JSON.parse(preferences.getItem(`${STORAGE_KEY}:collapsed`) ?? '[]') as string[]);
   } catch {
     return new Set();
   }
@@ -87,7 +88,7 @@ export function WorkersPanel() {
   const started = useStore((s) => s.started);
   const [open, setOpen] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) !== 'closed';
+      return preferences.getItem(STORAGE_KEY) !== 'closed';
     } catch {
       return true;
     }
@@ -103,7 +104,7 @@ export function WorkersPanel() {
       const next = new Set(was);
       if (!next.delete(key)) next.add(key);
       try {
-        localStorage.setItem(`${STORAGE_KEY}:collapsed`, JSON.stringify([...next]));
+        preferences.setItem(`${STORAGE_KEY}:collapsed`, JSON.stringify([...next]));
       } catch {
         // private window: the list just doesn't remember
       }
@@ -112,7 +113,7 @@ export function WorkersPanel() {
   const toggle = () =>
     setOpen((was) => {
       try {
-        localStorage.setItem(STORAGE_KEY, was ? 'closed' : 'open');
+        preferences.setItem(STORAGE_KEY, was ? 'closed' : 'open');
       } catch {
         // private window: the list just doesn't remember
       }

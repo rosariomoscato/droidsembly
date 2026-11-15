@@ -9,17 +9,18 @@
 // While the 🎙 listens (mic.ts) everything dips, the voice too, and event cues wait until it closes.
 
 import { ROOM_SENDS, type Occlusion } from './acoustics';
+import { preferences } from '../preferences';
 import { normalizeAudioPrefs, parseAudioPrefs, SOUND_GROUPS, sliderGain, type AudioPrefs, type SoundGroup } from './audioPrefs';
 import { audible, distance, distanceGain, DROP_NEW, MAX_DISTANCE, panOf, PLAY, REF_DISTANCE, ROLLOFF, type Vec3, voiceToDrop } from './sfxMix';
 
 export type { SoundGroup } from './audioPrefs';
 export type { Vec3 } from './sfxMix';
 
-const PREFS_KEY = 'cubefarm:audio';
+const PREFS_KEY = 'droidsembly:audio';
 
 function loadPrefs(): AudioPrefs {
   try {
-    return parseAudioPrefs(localStorage.getItem(PREFS_KEY));
+    return parseAudioPrefs(preferences.getItem(PREFS_KEY));
   } catch {
     return parseAudioPrefs(null);
   }
@@ -151,7 +152,7 @@ export function setAudioPrefs(patch: Partial<AudioPrefs>) {
   for (const k of ['volume', ...SOUND_GROUPS] as const) clamped[k] = Math.max(0, Math.min(100, Number(clamped[k])));
   prefs = normalizeAudioPrefs(clamped);
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    preferences.setItem(PREFS_KEY, JSON.stringify(prefs));
   } catch {
     // storage may be unavailable (private mode); the setting just won't be remembered
   }

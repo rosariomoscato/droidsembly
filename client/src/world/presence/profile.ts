@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { preferences } from '../../preferences';
 import { DEFAULT_NAME, VISITOR_COLORS, cleanColor, cleanName } from '../../../../shared/presence';
 
 // How this browser appears to the others in the office (Settings → Profile): a name, a colour and whether to appear
@@ -11,12 +12,12 @@ export interface Profile {
   appear: boolean;
 }
 
-const KEY = 'cubefarm:profile';
+const KEY = 'droidsembly:profile';
 
 function load(): Profile {
   let saved: Partial<Profile> = {};
   try {
-    saved = (JSON.parse(localStorage.getItem(KEY) ?? 'null') as Partial<Profile> | null) ?? {};
+    saved = (JSON.parse(preferences.getItem(KEY) ?? 'null') as Partial<Profile> | null) ?? {};
   } catch {
     // unreadable or no storage: start afresh
   }
@@ -28,7 +29,7 @@ function load(): Profile {
 
 function save(p: Profile) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(p));
+    preferences.setItem(KEY, JSON.stringify(p));
   } catch {
     // private window: the profile lasts until the tab closes
   }

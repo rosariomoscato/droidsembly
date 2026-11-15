@@ -5,6 +5,7 @@ import { BallCollider, CuboidCollider, RigidBody, useAfterPhysicsStep } from '@r
 import type { World } from '@dimforge/rapier3d-compat';
 import * as THREE from 'three';
 import { repoOnFloor, useStore } from '../../store';
+import { preferences } from '../../preferences';
 import { swish } from '../../ui/sfx';
 import { roundRect, SANS } from '../draw';
 import { useCanvasTexture } from '../interact';
@@ -25,14 +26,14 @@ const SQUARE_COLOR = '#e63946';
 
 // ---------- scores ----------
 
-const BEST_KEY = 'cubefarm:hoop-best';
+const BEST_KEY = 'droidsembly:hoop-best';
 
 /** Baskets this session, per floor, so a trip in the elevator doesn't wipe the scoreboard. */
 const sessionScores = new Map<string, number>();
 
 function readBests(): Record<string, unknown> {
   try {
-    const all: unknown = JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}');
+    const all: unknown = JSON.parse(preferences.getItem(BEST_KEY) ?? '{}');
     return all && typeof all === 'object' ? (all as Record<string, unknown>) : {};
   } catch {
     return {};
@@ -46,7 +47,7 @@ function loadBest(floorKey: string) {
 
 function saveBest(floorKey: string, best: number) {
   try {
-    localStorage.setItem(BEST_KEY, JSON.stringify({ ...readBests(), [floorKey]: best }));
+    preferences.setItem(BEST_KEY, JSON.stringify({ ...readBests(), [floorKey]: best }));
   } catch {
     // storage may be unavailable (private mode); the best just won't be remembered
   }

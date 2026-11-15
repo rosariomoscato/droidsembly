@@ -1,6 +1,7 @@
 // Desktop notifications (docs/pocket.md): the server's 'notify' events, shown by an office tab the manager can't see
 // right now. Web Push (pwa.ts) covers devices without the office open; both tag a note by its id, so it shows once.
 import type { NoteView } from '../../shared/types';
+import { notificationTag, OFFICE_OPEN_EVENT } from '../../shared/browserProtocol';
 
 export interface DesktopCheck {
   enabled: boolean; // Settings → Notifications → Desktop
@@ -29,13 +30,13 @@ export function showTestNote() {
 
 function show(note: NoteView) {
   shown.push(note);
-  const options: NotificationOptions = { body: note.body, tag: `cubefarm-${note.id}`, icon: '/icons/icon-192.png', data: { url: note.url } };
+  const options: NotificationOptions = { body: note.body, tag: notificationTag(note.id), icon: '/icons/icon-192.png', data: { url: note.url } };
   const direct = () => {
     try {
       const n = new Notification(note.title, options);
       n.onclick = () => {
         window.focus();
-        window.dispatchEvent(new CustomEvent('cubefarm:open', { detail: note.url }));
+        window.dispatchEvent(new CustomEvent(OFFICE_OPEN_EVENT, { detail: note.url }));
         n.close();
       };
     } catch {
