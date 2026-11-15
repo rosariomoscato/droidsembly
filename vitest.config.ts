@@ -3,6 +3,10 @@ import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { testSchedulingProjects } from './scripts/testScheduling.ts';
 
+// A developer's canonical aliases must never override this suite's isolated
+// SWARM_HOME/ports. Individual alias tests supply their own explicit env maps.
+for (const key of Object.keys(process.env)) if (key.startsWith('DROIDSEMBLY_')) delete process.env[key];
+
 // Kept apart from vite.config.ts, whose root is client/, so tests in server/, shared/ and scripts/ are found too.
 export default defineConfig({
   test: {

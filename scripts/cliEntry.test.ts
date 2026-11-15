@@ -35,6 +35,8 @@ describe('canonical CLI and legacy checkout entry', () => {
     if (arg === '--help') {
       expect(current.stdout).toContain('npx droidsembly@next');
       expect(current.stdout).toContain('~/.cubefarm');
+      expect(current.stdout).toContain('~/.droidsembly');
+      expect(current.stdout).toContain('DROIDSEMBLY_HOME');
     }
     expect(fs.readdirSync(home)).toEqual([]); // no office or credential initialization
   });

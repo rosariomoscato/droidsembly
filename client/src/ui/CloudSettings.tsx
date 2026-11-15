@@ -311,7 +311,7 @@ export function CloudSettings() {
       <div className="notify-hook">
         <div className="row wrap">
           <b className="grow">Claude Code</b>
-          <Status view={cloud.claude} what={{ login: 'Your subscription, per agent', subscription: 'Your Claude subscription (CUBEFARM_CLAUDE_TOKEN)', apiKey: 'An Anthropic API key' }} />
+          <Status view={cloud.claude} what={{ login: 'Your subscription, per agent', subscription: 'Your Claude subscription (DROIDSEMBLY_CLAUDE_TOKEN)', apiKey: 'An Anthropic API key' }} />
         </div>
         {cloud.claude.source === 'login' && (
           <p className="muted small">
@@ -329,11 +329,12 @@ export function CloudSettings() {
                   <T>In a terminal:</T> <Command text="claude setup-token" /> <T>and approve it in your browser. It prints a token that lasts a year.</T>
                 </li>
                 <li>
-                  <T>Keep it in your environment as</T> <code>CUBEFARM_CLAUDE_TOKEN</code>. Windows: <Command text={'setx CUBEFARM_CLAUDE_TOKEN "<token>"'} /> <T>macOS or Linux: add</T>{' '}
-                  <Command text={'export CUBEFARM_CLAUDE_TOKEN="<token>"'} /> <T>to your shell profile.</T>
+                  <T>Keep it in your environment as</T> <code>DROIDSEMBLY_CLAUDE_TOKEN</code>. Windows: <Command text={'setx DROIDSEMBLY_CLAUDE_TOKEN "<token>"'} /> <T>macOS or Linux: add</T>{' '}
+                  <Command text={'export DROIDSEMBLY_CLAUDE_TOKEN="<token>"'} /> <T>to your shell profile.</T>
                 </li>
                 <li><T>Restart the office.</T></li>
               </ol>
+              <p className="muted"><T>CUBEFARM_CLAUDE_TOKEN is still supported. DROIDSEMBLY_CLAUDE_TOKEN takes precedence when both are set.</T></p>
               <p className="muted"><T>The office never writes it down: Anthropic’s terms keep apps like this one from storing Claude tokens.</T></p>
             </details>
           </>

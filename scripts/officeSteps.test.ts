@@ -20,9 +20,9 @@ describe('parseOfficeArgs', () => {
 });
 
 describe('swarmHome and clientPort', () => {
-  it('uses SWARM_HOME, else ~/.cubefarm', () => {
-    expect(swarmHome({ SWARM_HOME: path.join('x', 'home') }, 'h')).toBe(path.join('x', 'home'));
-    expect(swarmHome({}, path.join('users', 'me'))).toBe(path.join('users', 'me', '.cubefarm'));
+  it('uses an explicit home, else the new-office directory when neither exists', () => {
+    expect(swarmHome({ SWARM_HOME: path.join('x', 'home') }, 'h', () => false)).toBe(path.resolve('x', 'home'));
+    expect(swarmHome({}, path.join('users', 'me'), () => false)).toBe(path.resolve('users', 'me', '.droidsembly'));
   });
 
   it('uses SWARM_CLIENT_PORT, else 5317', () => {

@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { officeEnv } from './bin/environment.js';
 
-const serverPort = Number(process.env.SWARM_PORT ?? 4317);
+const serverPort = Number(officeEnv(process.env, 'SWARM_PORT') ?? 4317);
 // strictPort: a second office must fail loudly, not quietly take the next port while proxying to this SWARM_PORT.
-const clientPort = Number(process.env.SWARM_CLIENT_PORT || 5317);
+const clientPort = Number(officeEnv(process.env, 'SWARM_CLIENT_PORT') || 5317);
 
 export default defineConfig({
   root: 'client',

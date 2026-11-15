@@ -23,6 +23,12 @@ La data della prima modifica è ricavata dalla cronologia Git; non viene usata c
 
 ## 2026-11-15
 
+### Nome tecnico — fase 2 ambiente/cartella dati, branch in verifica
+
+- **Feature, compatibilità:** alias canonici `DROIDSEMBLY_*` per configurazione ufficio, token Claude e URL modelli locali; nomi `SWARM_*`/`CUBEFARM_*` ancora accettati. Precedenza canonica anche per valori vuoti, senza riattivare token legacy. Redazione copre anche i valori oscurati dalla precedenza; nessun token scritto su disco.
+- **Sicurezza, dati:** resolver condiviso CLI/launcher/server. Nuovi uffici `.droidsembly`, uffici esistenti `.cubefarm` riutilizzati; entrambe le cartelle presenti richiedono scelta esplicita. Nessuna lettura contenuti, fusione, copia o spostamento automatico. Errori I/O e percorsi non validi non vengono trattati come assenza. Percorso assoluto scelto propagato sotto entrambi i nomi ai processi figli; flag espliciti prevalgono su entrambi gli alias.
+- **Verifica:** primo gruppo 163 passati/2 timeout nei subprocessi; typecheck iniziale fallito per dichiarazione resolver non aggiornata, corretta. Fixture subprocessi ora attende promesse pendenti prima della pulizia e conserva evidenza su errore. Traccia isolata 6/6 passata senza riprodurre i timeout; non prova causa host. Build completa/typecheck e smoke tarball installato passati, anche con alias HOME/DEMO volutamente in conflitto (cartella legacy non selezionata non creata). Regressioni runtime 49/49 passate, sei file, 23,13 s. Nessuna suite completa per questa fase; fallimenti precedenti preservati. Nessun timeout/assertion/carico ridotto, nessun aggiornamento live o migrazione fisica. [Dettagli e rollback](ENV_HOME_MIGRATION.md).
+
 ### Nome tecnico — fase 1 compatibile, branch in verifica
 
 - **Feature, cloud:** nuove Box con nome `droidsembly-<office>-<machine>` e tag canonici `droidsembly`/`ds:<office>`. Mantenuti anche `cubefarm`/`cf:<office>` entro il limite di cinque tag per riconoscimento dopo rollback. Box esistenti riutilizzate senza rinomina/retag o ricreazione; percorsi, sessioni e login invariati.

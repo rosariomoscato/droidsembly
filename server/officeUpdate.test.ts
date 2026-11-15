@@ -103,6 +103,8 @@ describe('underLauncher', () => {
   const send = () => true;
   it('needs both the IPC channel and SWARM_LAUNCHER=1', () => {
     expect(underLauncher({ send, env: { SWARM_LAUNCHER: '1' } })).toBe(true);
+    expect(underLauncher({ send, env: { DROIDSEMBLY_LAUNCHER: '1' } })).toBe(true);
+    expect(underLauncher({ send, env: { DROIDSEMBLY_LAUNCHER: '0', SWARM_LAUNCHER: '1' } })).toBe(false);
     expect(underLauncher({ send, env: {} })).toBe(false);
     expect(underLauncher({ send: undefined, env: { SWARM_LAUNCHER: '1' } })).toBe(false);
     expect(underLauncher({ send, env: { SWARM_LAUNCHER: 'true' } })).toBe(false);

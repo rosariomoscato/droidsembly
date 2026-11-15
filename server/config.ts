@@ -2,19 +2,20 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { FLOOR_SEATS } from '../shared/types.ts';
+import { officeEnv, officeHome } from '../bin/environment.js';
 
-export const PORT = Number(process.env.SWARM_PORT ?? 4317);
+export const PORT = Number(officeEnv(process.env, 'SWARM_PORT') ?? 4317);
 // The office can start agents that run commands on this machine, so it listens on loopback unless the manager asks for
 // another address (`npx cubefarm --host 0.0.0.0`, or SWARM_HOST): reachable from the network, with no sign-in.
-export const HOST = process.env.SWARM_HOST?.trim().replace(/^\[|\]$/g, '') || '127.0.0.1';
+export const HOST = officeEnv(process.env, 'SWARM_HOST')?.trim().replace(/^\[|\]$/g, '') || '127.0.0.1';
 // package.json sits one folder up both from server/ and from the published dist-server/.
 export const VERSION: string = JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, '..', 'package.json'), 'utf8')).version;
 
 // Everything the swarm writes lives outside this project so that agents working in
 // cloned repos never pick up this project's CLAUDE.md or settings by walking up the tree.
-export const HOME_DIR = process.env.SWARM_HOME ?? path.join(os.homedir(), '.cubefarm');
+export const HOME_DIR = officeHome();
 export const WORKSPACE_ROOT = path.join(HOME_DIR, 'workspaces');
-export const DEMO = process.argv.includes('--demo') || process.env.SWARM_DEMO === '1' || process.env.SWARM_DEMO === 'true';
+export const DEMO = process.argv.includes('--demo') || ['1', 'true'].includes(officeEnv(process.env, 'SWARM_DEMO') ?? '');
 
 /** A demo company bigger than the usual two floors, for scale tests: floors, and people on each (#228). */
 export interface DemoScale {
@@ -32,7 +33,7 @@ export const DEMO_MAX = { floors: 20, agents: FLOOR_SEATS };
 export function demoScale(argv: string[], env: NodeJS.ProcessEnv): DemoScale | null {
   const read = (flag: string, name: string) => {
     const i = argv.findIndex((a) => a === flag || a.startsWith(`${flag}=`));
-    const raw = i < 0 ? env[name] : argv[i].includes('=') ? argv[i].slice(flag.length + 1) : argv[i + 1];
+    const raw = i < 0 ? officeEnv(env, name) : argv[i].includes('=') ? argv[i].slice(flag.length + 1) : argv[i + 1];
     const n = Number(raw);
     return raw === undefined || raw === '' || !Number.isFinite(n) ? null : Math.round(n);
   };
@@ -86,9 +87,9 @@ export function envMinutes(value: string | undefined, fallback: number): number 
 
 // Floor previews run on this port + the floor number, PR previews 100 above it (docs/how-it-works.md). Moving it only
 // keeps a test office's previews clear of another office's.
-export const PREVIEW_PORT = envPort(process.env.SWARM_PREVIEW_PORT, 6300);
+export const PREVIEW_PORT = envPort(officeEnv(process.env, 'SWARM_PREVIEW_PORT'), 6300);
 // A PR preview nobody has had on screen for this long stops.
-export const PR_PREVIEW_IDLE_MS = envMinutes(process.env.SWARM_PR_PREVIEW_IDLE_MIN, 20) * 60_000;
+export const PR_PREVIEW_IDLE_MS = envMinutes(officeEnv(process.env, 'SWARM_PR_PREVIEW_IDLE_MIN'), 20) * 60_000;
 
 // How often each connected repo's issues and PRs are refreshed from GitHub.
 export const SYNC_INTERVAL_MS = 45_000;

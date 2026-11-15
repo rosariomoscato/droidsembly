@@ -251,6 +251,8 @@ describe('localUrl', () => {
     const ollama = LOCAL_PROVIDERS[0];
     expect(localUrl(ollama, {})).toBe('http://127.0.0.1:11434/v1');
     expect(localUrl(ollama, { CUBEFARM_OLLAMA_URL: ' http://gpu-box:11434/v1 ' })).toBe('http://gpu-box:11434/v1');
+    expect(localUrl(ollama, { DROIDSEMBLY_OLLAMA_URL: 'http://new:11434/v1', CUBEFARM_OLLAMA_URL: 'http://old:11434/v1' })).toBe('http://new:11434/v1');
+    expect(localUrl(ollama, { DROIDSEMBLY_OLLAMA_URL: '', CUBEFARM_OLLAMA_URL: 'http://old:11434/v1' })).toBe(ollama.url);
   });
 });
 

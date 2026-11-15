@@ -131,7 +131,7 @@ node dist-server/index.js
 SWARM_HOME="$HOME/.droidsembly" SWARM_PORT=4419 SWARM_HOST=127.0.0.1 SWARM_PREVIEW_PORT=9600 SWARM_DEMO=0 node dist-server/index.js
 ```
 
-Apri **http://127.0.0.1:4419/**. Le cartelle degli esempi sono una scelta esplicita per una nuova installazione, non una migrazione: percorsi dati e launcher esistenti restano validi. Senza `SWARM_HOME`, il percorso predefinito dell'app rimane `~/.cubefarm`.
+Apri **http://127.0.0.1:4419/**. Le cartelle degli esempi sono una scelta esplicita per una nuova installazione, non una migrazione: percorsi dati e launcher esistenti restano validi. `DROIDSEMBLY_HOME` è l'alias canonico di `SWARM_HOME`. Senza una scelta esplicita, i dati esistenti in `~/.cubefarm` restano al loro posto; i nuovi uffici usano `~/.droidsembly`. Se entrambe le cartelle predefinite esistono, l'avvio richiede una scelta esplicita, senza unire o spostare dati. Le variabili canoniche `DROIDSEMBLY_*` hanno la precedenza sulle equivalenti legacy. Vedi [compatibilità ambiente/cartella dati e rollback](docs/ENV_HOME_MIGRATION.md).
 
 Prima di collegare un progetto, seleziona il coding agent del CEO se non vuoi usare il predefinito Claude Code. Per saltare l'analisi AI iniziale, disattiva l'opzione che permette al CEO di studiare il repository e pianificare dal brief. Assegnazione automatica, merge automatico e revisioni periodiche CEO sono impostazioni distinte. Vedi [Agenti](https://github.com/rosariomoscato/droidsembly/blob/main/docs/agents.md) per configurazione dei provider e limiti dei runtime.
 

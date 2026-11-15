@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { officeEnv } from '../bin/environment.js';
 import { CODEX_USAGE_READER_SOURCE } from './codexUsage.ts';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -225,9 +226,9 @@ export interface Launch {
   env: Record<string, string>;
 }
 
-/** A local model server's address: `CUBEFARM_<ID>_URL` (e.g. CUBEFARM_OLLAMA_URL) when set, else its usual one. */
+/** A local model server's address: DROIDSEMBLY_<ID>_URL, legacy CUBEFARM_<ID>_URL, else its usual one. */
 export function localUrl(p: LocalProvider, env: NodeJS.ProcessEnv = process.env): string {
-  return env[`CUBEFARM_${p.id.toUpperCase()}_URL`]?.trim() || p.url;
+  return officeEnv(env, `CUBEFARM_${p.id.toUpperCase()}_URL`)?.trim() || p.url;
 }
 
 /** Codex on a local model: its own --oss for Ollama and LM Studio at their usual address, else a provider of the office's. */
