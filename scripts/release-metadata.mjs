@@ -7,7 +7,7 @@ const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.ur
 const lock = JSON.parse(fs.readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
 assert.equal(pkg.name, 'droidsembly');
 assert.equal(pkg.repository.url, 'git+https://github.com/rosariomoscato/droidsembly.git');
-assert.deepEqual(pkg.bin, { droidsembly: 'bin/cubefarm.js' });
+assert.deepEqual(pkg.bin, { droidsembly: 'bin/droidsembly.js' });
 assert.equal(pkg.license, 'MIT');
 for (const key of ['name', 'version']) {
   assert.equal(pkg[key], lock[key]);

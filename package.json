@@ -23,7 +23,7 @@
   "author": "Leon van Zyl",
   "type": "module",
   "bin": {
-    "droidsembly": "bin/cubefarm.js"
+    "droidsembly": "bin/droidsembly.js"
   },
   "publishConfig": {
     "access": "public",

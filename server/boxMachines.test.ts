@@ -270,12 +270,18 @@ describe('BoxMachines', () => {
     expect(m.stateOf('a1b2c3d4')).toBe('ready');
   });
 
-  it("finds a machine's Box on the account after a restart, and wakes it when paused", async () => {
-    const { api, calls } = fakeAccount([{ id: 'old', name: 'cubefarm-k3f9qa-a1b2c3d4', labels: boxLabels('k3f9qa', 'a1b2c3d4'), status: 'paused' }]);
+  it.each([
+    ['cubefarm', 'cf:k3f9qa', 'm:a1b2c3d4'],
+    ['droidsembly', 'ds:k3f9qa', 'm:a1b2c3d4'],
+    boxLabels('k3f9qa', 'a1b2c3d4'),
+  ])("finds a machine's Box after restart without recreation or retagging (%j)", async (...labels) => {
+    const { api, calls, boxes } = fakeAccount([{ id: 'old', name: 'cubefarm-k3f9qa-a1b2c3d4', labels, status: 'paused' }]);
     const m = machines(api);
     expect(await m.ensure('a1b2c3d4')).toBe('old');
     expect(calls.map((c) => c.op)).toContain('resume');
     expect(calls.some((c) => c.op === 'create')).toBe(false);
+    expect(boxes[0].name).toBe('cubefarm-k3f9qa-a1b2c3d4');
+    expect(boxes[0].labels).toEqual(labels);
   });
 
   it("prepares the desk with GitHub's token in that command's environment only", async () => {

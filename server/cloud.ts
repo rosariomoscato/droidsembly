@@ -32,16 +32,28 @@ const TOKEN_FIELD: Record<CloudTokenKind, keyof CloudSecrets> = { github: 'cloud
 export const officeId = () => Math.random().toString(36).slice(2, 8).padEnd(6, '0');
 
 /**
- * A cloud agent's Box: `cubefarm-<office>-<machine>`, so it stands out among Boxes the account has for other apps,
+ * A cloud agent's Box: `droidsembly-<office>-<machine>`, so it stands out among Boxes the account has for other apps,
  * and labels Upstash accepts (≤ 20 characters each, ≤ 5).
  */
-export const boxName = (office: string, machine: string) => `cubefarm-${office}-${machine}`;
-export const boxLabels = (office: string, machine: string) => ['cubefarm', `cf:${office}`, `m:${machine}`];
+export const boxName = (office: string, machine: string) => `droidsembly-${office}-${machine}`;
+// Dual-write within Upstash's five-label limit: older offices can still find
+// newly created Boxes after rollback. Existing Boxes need no rename or retag.
+export const boxLabels = (office: string, machine: string) => ['droidsembly', `ds:${office}`, 'cubefarm', `cf:${office}`, `m:${machine}`];
 
 /** The machine a Box is for when it's this office's, else null. */
 export function machineOfBox(box: Pick<BoxInfo, 'labels'>, office: string): string | null {
-  if (!box.labels.includes('cubefarm') || !box.labels.includes(`cf:${office}`)) return null;
-  return box.labels.find((l) => l.startsWith('m:'))?.slice(2) || null;
+  const labels = box.labels;
+  const legacy = labels.includes('cubefarm');
+  const current = labels.includes('droidsembly');
+  const cf = labels.filter((l) => l.startsWith('cf:'));
+  const ds = labels.filter((l) => l.startsWith('ds:'));
+  const machines = labels.filter((l) => l.startsWith('m:'));
+  // Accept complete legacy/current/dual schemas only. Conflicting office or
+  // machine claims are never ownership evidence, especially for orphan removal.
+  if ((!legacy && !current) || legacy !== (cf.length === 1) || current !== (ds.length === 1)) return null;
+  if (cf.length > 1 || ds.length > 1 || (legacy && cf[0] !== `cf:${office}`) || (current && ds[0] !== `ds:${office}`)) return null;
+  if (machines.length !== 1 || !/^m:[A-Za-z0-9._-]{1,18}$/.test(machines[0])) return null;
+  return machines[0].slice(2);
 }
 
 // ---------- credentials ----------
@@ -261,7 +273,7 @@ export class Cloud {
       const all = await this.api.list();
       const office = this.deps.office();
       const machines = this.deps.machines();
-      const ours = all.filter((b) => b.status !== 'deleted' && b.labels.includes('cubefarm') && b.labels.includes(`cf:${office}`));
+      const ours = all.filter((b) => b.status !== 'deleted' && machineOfBox(b, office) !== null);
       this.boxes = {
         total: all.filter((b) => b.status !== 'deleted').length,
         running: ours.filter((b) => b.status === 'running' || b.status === 'idle' || b.status === 'creating').length,
@@ -284,10 +296,14 @@ export class Cloud {
     if (!this.api) throw new HttpError(400, 'Save your Upstash Box API key first.');
     const office = this.deps.office();
     const machines = this.deps.machines();
-    const doomed = (await this.count()).filter((b) => b.status !== 'deleted' && b.labels.includes('cubefarm') && b.labels.includes(`cf:${office}`) && !machines.has(machineOfBox(b, office) ?? ''));
+    const doomed = (await this.count()).filter((b) => {
+      const machine = machineOfBox(b, office);
+      return b.status !== 'deleted' && machine !== null && !machines.has(machine);
+    });
     let deleted = 0, unconfirmed = 0;
     for (const b of doomed) {
-      if (this.deps.machines().has(machineOfBox(b, office) ?? '')) continue;
+      const machine = machineOfBox(b, this.deps.office());
+      if (machine === null || this.deps.office() !== office || this.deps.machines().has(machine)) continue;
       try {
         if (await removeBoxVerified(this.api, b.id)) deleted++;
         else unconfirmed++;

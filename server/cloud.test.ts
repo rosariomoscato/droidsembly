@@ -79,13 +79,38 @@ describe('redact', () => {
 
 describe('Box names', () => {
   it('fit within Upstash label rules and tell offices and machines apart', () => {
-    expect(boxName('k3f9qa', 'a1b2c3d4')).toBe('cubefarm-k3f9qa-a1b2c3d4');
+    expect(boxName('k3f9qa', 'a1b2c3d4')).toBe('droidsembly-k3f9qa-a1b2c3d4');
     const labels = boxLabels('k3f9qa', 'a1b2c3d4');
+    expect(labels).toEqual(['droidsembly', 'ds:k3f9qa', 'cubefarm', 'cf:k3f9qa', 'm:a1b2c3d4']);
     expect(labels.length).toBeLessThanOrEqual(5);
     for (const l of labels) expect(l).toMatch(/^[A-Za-z0-9._:-]{1,20}$/);
     expect(machineOfBox({ labels }, 'k3f9qa')).toBe('a1b2c3d4');
     expect(machineOfBox({ labels }, 'other1')).toBeNull();
     expect(machineOfBox({ labels: ['cubefarm'] }, 'k3f9qa')).toBeNull();
+  });
+
+  it.each([
+    ['legacy', ['cubefarm', 'cf:k3f9qa', 'm:a1b2c3d4']],
+    ['current', ['droidsembly', 'ds:k3f9qa', 'm:a1b2c3d4']],
+    ['dual', boxLabels('k3f9qa', 'a1b2c3d4')],
+  ])('recognizes the complete %s schema without depending on the Box name', (_schema, labels) => {
+    expect(machineOfBox({ labels: labels as string[] }, 'k3f9qa')).toBe('a1b2c3d4');
+    expect(machineOfBox({ labels: labels as string[] }, 'other1')).toBeNull();
+  });
+
+  it.each([
+    ['cubefarm', 'ds:k3f9qa', 'm:a1b2c3d4'],
+    ['droidsembly', 'cf:k3f9qa', 'm:a1b2c3d4'],
+    ['droidsembly', 'ds:k3f9qa'],
+    ['droidsembly', 'ds:k3f9qa', 'm:'],
+    ['droidsembly', 'ds:k3f9qa', 'm:a1b2c3d4', 'm:deadbeef'],
+    ['cubefarm', 'cf:k3f9qa', 'cf:other1', 'm:a1b2c3d4'],
+    ['droidsembly', 'ds:k3f9qa', 'cubefarm', 'cf:other1', 'm:a1b2c3d4'],
+    ['droidsembly', 'ds:k3f9qa', 'cf:k3f9qa', 'm:a1b2c3d4'],
+    ['cubefarm', 'cf:k3f9qa', 'm:../not-a-machine'],
+    ['droidsembly', 'ds:k3f9qa', 'ds:k3f9qa', 'm:a1b2c3d4'],
+  ])('refuses ambiguous or incomplete ownership (%j)', (...labels) => {
+    expect(machineOfBox({ labels }, 'k3f9qa')).toBeNull();
   });
 });
 
@@ -160,6 +185,43 @@ describe('Cloud', () => {
     expect(cloud.view().boxes).toEqual({ total: 4, running: 1, paused: 1, orphans: 1 });
     expect(await cloud.deleteOrphans()).toEqual({ deleted: 1, unconfirmed: 0 });
     expect(boxes.map((b) => b.id)).toEqual(['1', '3', '4']);
+  });
+
+  it('counts mixed schemas but only deletes unambiguous orphans from this office', async () => {
+    const make = (id: string, labels: string[], status: BoxInfo['status'] = 'paused'): BoxInfo => ({ id, name: 'name-is-not-ownership', labels, status });
+    const boxes = [
+      make('old-active', ['cubefarm', 'cf:k3f9qa', 'm:a1b2c3d4']),
+      make('new-active', ['droidsembly', 'ds:k3f9qa', 'm:a1b2c3d4']),
+      make('old-orphan', ['cubefarm', 'cf:k3f9qa', 'm:deadbeef']),
+      make('new-orphan', ['droidsembly', 'ds:k3f9qa', 'm:01234567']),
+      make('dual-orphan', boxLabels('k3f9qa', '76543210')),
+      make('foreign', boxLabels('other1', 'deadbeef')),
+      make('conflict', ['droidsembly', 'ds:k3f9qa', 'cubefarm', 'cf:other1', 'm:deadbeef']),
+      make('missing-machine', ['cubefarm', 'cf:k3f9qa']),
+      make('unrelated', []),
+      make('deleted', boxLabels('k3f9qa', '12345678'), 'deleted'),
+    ];
+    const { cloud } = await setup(boxes);
+    await cloud.setKey('good-key');
+    expect(cloud.view().boxes).toEqual({ total: 9, running: 0, paused: 5, orphans: 3 });
+    expect(await cloud.deleteOrphans()).toEqual({ deleted: 3, unconfirmed: 0 });
+    expect(boxes.map((b) => b.id)).toEqual(['old-active', 'new-active', 'foreign', 'conflict', 'missing-machine', 'unrelated', 'deleted']);
+  });
+
+  it('rechecks machine ownership before each orphan removal', async () => {
+    const boxes: BoxInfo[] = ['deadbeef', '01234567'].map((machine) => ({ id: machine, name: machine, labels: boxLabels('k3f9qa', machine), status: 'paused' }));
+    const live = new Set<string>();
+    const api = fakeApi(boxes);
+    const remove = api.remove.bind(api);
+    api.remove = async (id) => { await remove(id); live.add('01234567'); };
+    const cloud = new Cloud({
+      secretsFile: 'must-not-be-used', credentials: { upstashBoxKey: 'memory-only' },
+      env: {}, boxes: () => api, ghToken: async () => '', office: () => 'k3f9qa',
+      machines: () => new Set(live), changed: () => undefined, log: () => undefined,
+    });
+    await cloud.init();
+    expect(await cloud.deleteOrphans()).toEqual({ deleted: 1, unconfirmed: 0 });
+    expect(boxes.map((b) => b.id)).toEqual(['01234567']);
   });
 
   it('reads the subscription token from the environment and lists every secret to scrub', async () => {
