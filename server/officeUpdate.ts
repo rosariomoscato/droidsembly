@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { officeEnv } from '../bin/environment.js';
 import path from 'node:path';
 import { HOME_DIR } from './config.ts';
 import { git } from './exec.ts';
@@ -19,7 +20,7 @@ export const POSTPONE_MS = 2 * 60 * 60_000;
 
 /** Started by the launcher: an IPC channel and SWARM_LAUNCHER=1. Anything else (tsx, the demo, QA) only reports. */
 export function underLauncher(proc: { send?: unknown; env: Record<string, string | undefined> } = process): boolean {
-  return typeof proc.send === 'function' && proc.env.SWARM_LAUNCHER === '1';
+  return typeof proc.send === 'function' && officeEnv(proc.env, 'SWARM_LAUNCHER') === '1';
 }
 
 export interface DrainInput {

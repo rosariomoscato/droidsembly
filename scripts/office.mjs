@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { clientPort, isUpdateCommand, parseOfficeArgs, parseSymref, refusal, rollbackPlan, stepsFor, swarmHome } from './officeSteps.mjs';
+import { officeOverrides } from '../bin/environment.js';
 
 const HELP = `
   node scripts/office.mjs [--dev] [--demo] [--no-open]
@@ -45,6 +46,10 @@ if (opts.help) {
   process.exit(0);
 }
 const startMode = !opts.dev;
+// Resolve once before spawning anything. Pin both names so launcher/server and
+// restart/update children cannot choose different offices if folders appear later.
+try { Object.assign(process.env, officeOverrides(process.env, { SWARM_HOME: swarmHome() })); }
+catch (error) { console.error(error.message); process.exit(1); }
 
 const color = process.stdout.isTTY && !process.env.NO_COLOR;
 const paint = (code) => (s) => (color ? `\x1b[${code}m${s}\x1b[39m` : s);
@@ -102,7 +107,7 @@ function startServer() {
   const args = opts.dev
     ? ['--import', 'tsx', path.join('server', 'index.ts'), ...demo]
     : [path.join('bin', 'droidsembly.js'), ...demo, ...(opts.open && firstStart ? [] : ['--no-open'])];
-  const child = spawnChild('server', args, { ipc: true, env: { ...process.env, SWARM_LAUNCHER: '1' } });
+  const child = spawnChild('server', args, { ipc: true, env: officeOverrides(process.env, { SWARM_LAUNCHER: '1' }) });
   child.proc.on('message', (msg) => {
     if (msg?.type === 'office:update') void update(`the office asked, from ${short(String(msg.from ?? ''))}`);
   });

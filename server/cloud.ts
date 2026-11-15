@@ -1,6 +1,6 @@
 // The cloud account (docs/cloud.md): the Upstash Box API key, and what cloud agents sign in with. Keys and tokens the
 // manager pastes live in secrets.json (never in the state, the snapshot, events, logs or a Box's files). The Claude
-// subscription token is read from the office's environment (CUBEFARM_CLAUDE_TOKEN) and never written down: Anthropic's
+// subscription token is read from DROIDSEMBLY_CLAUDE_TOKEN (legacy CUBEFARM_CLAUDE_TOKEN) and never written down: Anthropic's
 // terms bar apps like this one from storing Claude.ai tokens. A Box gets each credential only as the environment of
 // the one command that needs it. Without one for its CLI, a cloud agent's CLI uses its own login in their Box, which
 // the manager signs in once in the agent's terminal (Swarm's sign-in): the office never sees that login.
@@ -10,9 +10,10 @@ import { mergeSecrets, readSecrets } from './secrets.ts';
 import { CloudError, type BoxApi, type BoxInfo } from './box.ts';
 import { removeBoxVerified } from './boxRemoval.ts';
 import type { AgentCli, CloudCredentialView, CloudView } from '../shared/types.ts';
+import { officeEnv } from '../bin/environment.js';
 
 /** The environment variable the manager keeps their `claude setup-token` token in. */
-export const CLAUDE_TOKEN_ENV = 'CUBEFARM_CLAUDE_TOKEN';
+export const CLAUDE_TOKEN_ENV = 'DROIDSEMBLY_CLAUDE_TOKEN';
 /** Where a Box session keeps the Anthropic API key for Claude Code's apiKeyHelper (not ANTHROPIC_API_KEY, which asks first). */
 export const ANTHROPIC_KEY_ENV = 'CUBEFARM_ANTHROPIC_KEY';
 
@@ -176,7 +177,7 @@ export class Cloud {
     return this.api;
   }
 
-  private claudeToken = () => (this.deps.env[CLAUDE_TOKEN_ENV] ?? '').trim();
+  private claudeToken = () => (officeEnv(this.deps.env, 'CUBEFARM_CLAUDE_TOKEN') ?? '').trim();
 
   /** The gh login token, re-read at most once a minute (the manager may sign in or out meanwhile). */
   private async refreshGh(force = false) {
@@ -203,7 +204,7 @@ export class Cloud {
 
   /** Every saved key and token, so they're scrubbed from anything the office writes or shows. */
   secretValues(): string[] {
-    return [...Object.values(this.secrets), this.claudeToken(), this.gh].filter((s): s is string => !!s);
+    return [...Object.values(this.secrets), this.claudeToken(), this.deps.env.CUBEFARM_CLAUDE_TOKEN, this.deps.env.DROIDSEMBLY_CLAUDE_TOKEN, this.gh].filter((s): s is string => !!s);
   }
 
   /** What a CLI runs with in a Box. */

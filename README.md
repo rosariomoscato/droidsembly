@@ -131,7 +131,7 @@ node dist-server/index.js
 SWARM_HOME="$HOME/.droidsembly" SWARM_PORT=4419 SWARM_HOST=127.0.0.1 SWARM_PREVIEW_PORT=9600 SWARM_DEMO=0 node dist-server/index.js
 ```
 
-Open **http://127.0.0.1:4419/**. These example folders are an explicit choice for a new installation, not a migration: existing data paths and launchers remain valid. Without `SWARM_HOME`, the application's default remains `~/.cubefarm`.
+Open **http://127.0.0.1:4419/**. These example folders are an explicit choice for a new installation, not a migration: existing data paths and launchers remain valid. `DROIDSEMBLY_HOME` is the canonical alias for `SWARM_HOME`. With neither set, existing `~/.cubefarm` data stays in place; new offices use `~/.droidsembly`. If both default folders exist, startup requires an explicit choice, without merging/moving data. Canonical `DROIDSEMBLY_*` settings take precedence over the legacy equivalents. See [environment/home compatibility and rollback](docs/ENV_HOME_MIGRATION.md).
 
 Before connecting a project, select the CEO's coding agent if you do not want the default Claude Code. To skip the initial AI analysis, turn off **Let the CEO study this repository and plan from the brief**. Auto-assignment, auto-merge and periodic CEO reviews are separate settings. See [Agents](https://github.com/rosariomoscato/droidsembly/blob/main/docs/agents.md) for provider setup and runtime limitations.
 

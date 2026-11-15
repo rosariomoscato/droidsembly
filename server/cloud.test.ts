@@ -231,6 +231,23 @@ describe('Cloud', () => {
     expect(cloud.secretValues()).toEqual(expect.arrayContaining(['sk-ant-oat01-from-env', 'gho_login_token', 'sk-openai-key-1']));
   });
 
+  it.each(['canonical-subscription', ''])('prefers a canonical subscription value (%j) and redacts shadowed credentials', async (token) => {
+    const cloud = new Cloud({
+      secretsFile: 'never-written', credentials: {},
+      env: { DROIDSEMBLY_CLAUDE_TOKEN: token, CUBEFARM_CLAUDE_TOKEN: 'legacy-subscription' },
+      boxes: () => fakeApi([]), ghToken: async () => '', office: () => 'k3f9qa',
+      machines: () => new Set(), changed: () => undefined, log: () => undefined,
+    });
+    await cloud.init();
+    const c = await cloud.credentials('claude');
+    expect(c.env.CLAUDE_CODE_OAUTH_TOKEN).toBe(token);
+    expect(c.ownLogin).toBe(!token);
+    expect(cloud.secretValues()).toContain('legacy-subscription');
+    if (token) expect(cloud.secretValues()).toContain(token);
+    expect(JSON.stringify(cloud.view())).not.toContain('canonical-subscription');
+    expect(JSON.stringify(cloud.view())).not.toContain('legacy-subscription');
+  });
+
   it("refuses a setup-token where an Anthropic API key goes, since it belongs in the environment", async () => {
     const { cloud } = await setup();
     await expect(cloud.setToken('anthropic', 'sk-ant-oat01-subscription')).rejects.toThrow(/environment/);

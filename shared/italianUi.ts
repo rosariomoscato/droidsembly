@@ -454,6 +454,8 @@ export const italianUi: Readonly<Record<string, string>> = {
   'Brief: what should this floor build next? The CEO turns it into issues and a team size.': 'Obiettivo: che cosa deve sviluppare questo piano? Il CEO lo traduce in issue e dimensioni del team.',
   ' (none yet)': ' (non ancora disponibile)',
   'QA brief — not filled in yet': 'Indicazioni QA — non ancora compilate',
+  'Your Claude subscription (DROIDSEMBLY_CLAUDE_TOKEN)': 'Il tuo abbonamento Claude (DROIDSEMBLY_CLAUDE_TOKEN)',
+  'CUBEFARM_CLAUDE_TOKEN is still supported. DROIDSEMBLY_CLAUDE_TOKEN takes precedence when both are set.': 'CUBEFARM_CLAUDE_TOKEN è ancora supportata. DROIDSEMBLY_CLAUDE_TOKEN ha la precedenza quando sono impostate entrambe.',
   'OpenCode is the coding agent validated in manual testing for this version. Claude Code and Codex are available but have not yet been tested to the same extent.': 'OpenCode è lo strumento collaudato nei test manuali di questa versione. Claude Code e Codex sono disponibili, ma non ancora verificati allo stesso livello.',
   'Follow the instructions in their terminal for the selected provider and sign-in method. If a link is shown, open it and use the account for that provider; enter or paste a code only where instructed.': 'Segui le istruzioni nel terminale per il provider e il metodo di accesso selezionati. Se compare un link, aprilo e usa l’account di quel provider; inserisci o incolla un codice solo dove indicato.',
   'What every QA pass must check on this project.': 'Che cosa deve verificare ogni controllo QA di questo progetto.',

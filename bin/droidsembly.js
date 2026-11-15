@@ -9,6 +9,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 import { isNewer, updateInfo } from './distribution.js';
+import { officeEnv, officeHome, officeOverrides } from './environment.js';
 
 const MIN_NODE = 22;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,7 +36,9 @@ const HELP = `
     -v, --version
     -h, --help
 
-  The office keeps its state and workspaces in ~/.cubefarm (set SWARM_HOME to use another folder).
+  New offices use ~/.droidsembly; existing ~/.cubefarm offices keep their data in place.
+  Set DROIDSEMBLY_HOME (legacy: SWARM_HOME) to choose a folder explicitly.
+  If both default folders exist, an explicit choice is required; no data is moved or merged.
 `;
 
 const color = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -217,7 +220,7 @@ function openBrowser(url) {
 
 async function checkForUpdate() {
   // A checkout's `npm start` runs this under scripts/office.mjs, which updates the office from its origin instead.
-  if (process.env.CI || process.env.SWARM_LAUNCHER === '1') return;
+  if (process.env.CI || officeEnv(process.env, 'SWARM_LAUNCHER') === '1') return;
   try {
     const res = await fetch(update.url, { signal: AbortSignal.timeout(4000) });
     if (!res.ok) return;
@@ -251,14 +254,17 @@ if (command === 'login') {
 
 if (command !== 'start') fail(`Unknown command "${command}". Run ${update.command} --help for the options.`);
 
-const port = Number(values.port ?? process.env.SWARM_PORT ?? 4317);
-if (!Number.isInteger(port) || port < 0 || port > 65535) fail(`"${values.port ?? process.env.SWARM_PORT}" isn't a port number.`);
-const host = (values.host ?? values.bind ?? process.env.SWARM_HOST ?? '').trim().replace(/^\[|\]$/g, '') || '127.0.0.1';
+const port = Number(values.port ?? officeEnv(process.env, 'SWARM_PORT') ?? 4317);
+if (!Number.isInteger(port) || port < 0 || port > 65535) fail(`"${values.port ?? officeEnv(process.env, 'SWARM_PORT')}" isn't a port number.`);
+const host = (values.host ?? values.bind ?? officeEnv(process.env, 'SWARM_HOST') ?? '').trim().replace(/^\[|\]$/g, '') || '127.0.0.1';
 if (/[\s/]/.test(host)) fail(`"${host}" isn't an address to listen on. Try 0.0.0.0 (every network) or one of this machine's IPs.`);
 const local = localHost(host);
 const hostUrl = local.includes(':') ? `[${local}]` : local;
 const url = `http://${local === '127.0.0.1' ? 'localhost' : hostUrl}:${port}`;
-const demo = values.demo || process.env.SWARM_DEMO === '1' || process.env.SWARM_DEMO === 'true';
+const demo = values.demo || ['1', 'true'].includes(officeEnv(process.env, 'SWARM_DEMO') ?? '');
+let home;
+try { home = officeHome(); }
+catch (error) { fail(error.message); }
 
 // A second office on the same state would resume every agent's session a second time.
 if (port !== 0 && (await portOpen(port, local))) {
@@ -281,11 +287,12 @@ if (!demo) {
 const entry = path.join(root, 'dist-server', 'index.js');
 if (!fs.existsSync(entry)) fail(`${path.relative(process.cwd(), entry) || entry} is missing. In a checkout of the repo, run npm run build first.`);
 
-process.env.SWARM_PORT = String(port);
-process.env.SWARM_HOST = host;
-if (demo) process.env.SWARM_DEMO = '1';
-if (values.floors) process.env.SWARM_DEMO_FLOORS = values.floors;
-if (values.agents) process.env.SWARM_DEMO_AGENTS = values.agents;
+Object.assign(process.env, officeOverrides(process.env, {
+  SWARM_HOME: home, SWARM_PORT: String(port), SWARM_HOST: host,
+  ...(demo ? { SWARM_DEMO: '1' } : {}),
+  ...(values.floors ? { SWARM_DEMO_FLOORS: values.floors } : {}),
+  ...(values.agents ? { SWARM_DEMO_AGENTS: values.agents } : {}),
+}));
 process.setSourceMapsEnabled(true);
 // The server loads its state, then listens.
 await import(pathToFileURL(entry).href);

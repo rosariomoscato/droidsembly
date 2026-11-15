@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { officeEnv } from '../bin/environment.js';
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -933,7 +934,7 @@ const OFFICE_REPO = 'demo-co/pixel-todo';
 const DEMO_HEAD = `0ff1ce5${'0'.repeat(33)}`;
 const lastFakeUpdate = { to: '', commits: 0 };
 const demoOffice: OfficeHost = {
-  launcher: underLauncher() || process.env.SWARM_DEMO_LAUNCHER === '1',
+  launcher: underLauncher() || officeEnv(process.env, 'SWARM_DEMO_LAUNCHER') === '1',
   head: async () => DEMO_HEAD,
   isOwnFolder: (dir) => dir === `/demo/${OFFICE_REPO}/main`,
   // Only its own fake updates have a count; one the real launcher did (u) gets no count rather than a wrong one.

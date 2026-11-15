@@ -78,4 +78,9 @@ are included here. No timeout/assertion/workload relaxation, installed-office
 update, live Box operation or credential read/copy. Commit/push/draft PR preparation
 was subsequently authorized; merge and release remain separate decisions.
 
-Phase 2/3 remain deferred, not silently implemented by this compatibility step.
+## Subsequent phase 2 work
+
+Phase 1 was merged into dev separately. The user then approved environment aliases
+and safe home selection on another branch, without physical data migration. See
+[ENV_HOME_MIGRATION.md](ENV_HOME_MIGRATION.md) for that implementation and its
+validation status. Phase 3 browser/session/internal-path contracts remain deferred.
