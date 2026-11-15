@@ -6,6 +6,7 @@ import type { SessionCallbacks, SessionOptions } from './agentRunner.ts';
 import { createDemoBackend } from './demo.ts';
 import { Swarm } from './swarm.ts';
 import { openCodeVersionProblem } from './clis.ts';
+import { fixtureWork } from '../scripts/fixtureWork.ts';
 
 const { home } = vi.hoisted(() => ({ home: `${process.env.SWARM_HOME}/ceo-runtime-${process.pid}` }));
 vi.mock('./config.ts', async (original) => ({
@@ -13,11 +14,21 @@ vi.mock('./config.ts', async (original) => ({
   HOME_DIR: home, STATE_FILE: `${home}/state.json`, WORKSPACE_ROOT: `${home}/workspaces`,
 }));
 
-let swarm: Swarm | undefined;
+const fixtures: { swarm: Swarm; work: ReturnType<typeof fixtureWork> }[] = [];
 afterEach(async () => {
-  await swarm?.shutdown();
-  swarm = undefined;
-  await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
+  try {
+    // connectRepo returns before its clone/sweep and onboarding children settle.
+    // Own every office, including the ones explicitly restarted within a test.
+    for (const { swarm, work } of fixtures.splice(0)) {
+      await work.drain();
+      await swarm.shutdown();
+      await work.drain();
+    }
+    // A failed drain/shutdown leaves the fixture intact as diagnostic evidence.
+    await fs.rm(home, { recursive: true, force: true, maxRetries: 5 });
+  } finally {
+    vi.restoreAllMocks();
+  }
 });
 
 async function office(openCodeInstalled = true, problem?: string) {
@@ -31,7 +42,14 @@ async function office(openCodeInstalled = true, problem?: string) {
     sessions.push({ opts, cb });
     return { send, stop: () => undefined };
   };
-  swarm = new Swarm(backend);
+  const swarm = new Swarm(backend);
+  const work = fixtureWork();
+  fixtures.push({ swarm, work });
+  const runtime = swarm as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+  for (const method of ['cloneRepo', 'syncRepo', 'sweepFloor', 'syncFolder', 'advanceMerges', 'lookUpIssueAges', 'runCeoJob']) {
+    const original = runtime[method].bind(swarm);
+    vi.spyOn(runtime, method).mockImplementation((...args) => work.track(original(...args)));
+  }
   vi.spyOn(swarm.journal, 'hasPastDays').mockResolvedValue(true);
   await swarm.init();
   return { swarm, sessions, send, backend };

@@ -51,3 +51,11 @@ scenarios have **not** been exhaustively validated against the provider. Earlier
 local validation failures are retained in the change record; a passing focused
 run or CI does not erase them. No timeout, assertion or production workload is
 relaxed to obtain a passing result.
+
+An additional instrumented CEO-fixture run observed clone work crossing test
+teardowns after the fixture home was removed. The CEO runtime tests now track
+their startup/clone/onboarding work, drain it before shutdown and home removal,
+and retain the fixture on drain/shutdown failure. Original assertions and
+timeouts are unchanged. This fixes the observed missing test barrier; the
+unexpected-directory failure from the earlier full run was not itself reproduced
+by the trace, so its exact cause is not claimed as proven.
