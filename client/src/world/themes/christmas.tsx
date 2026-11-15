@@ -145,8 +145,8 @@ const MUG_GIFTS: [string, string][] = [
 ];
 const STICKERS = ['⛄ “Ship it, snowflake”', '🦌 “Rudolph approved this PR”', '🎄 “Merry merges”', '⭐ “Top of the tree”', '🍪 “Cookie for QA”'];
 
-const PRESENT_KEY = 'cubefarm:presents';
-const STICKER_KEY = 'cubefarm:stickers';
+const PRESENT_KEY = 'droidsembly:presents';
+const STICKER_KEY = 'droidsembly:stickers';
 
 /** Opens present `i` (once a day): a gift depending on the day and the present, and what you got. */
 function openPresent(i: number, day: string, at: THREE.Vector3, tintMug: ThemeProps['office']['tintMug']): string | null {

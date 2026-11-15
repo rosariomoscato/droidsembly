@@ -4,6 +4,7 @@
 // store's openOverlay); stopping asks the server for a fresh snapshot. Also keeps "since I was last here" for this
 // browser. The pure rules are in replayClock.ts and shared/journal.ts. QA: window.__swarmReplay.
 import { create } from 'zustand';
+import { preferences } from './preferences';
 import { api } from './api';
 import { requestSnapshot } from './net';
 import { EMPTY_OPS } from './ops';
@@ -262,12 +263,12 @@ export function toggleReplay() {
 
 // ---------- since I was last here ----------
 
-const PRESENCE_KEY = 'cubefarm:presence';
+const PRESENCE_KEY = 'droidsembly:presence';
 const PRESENCE_EVERY_MS = 15_000;
 
 let presence: Presence = (() => {
   try {
-    return parsePresence(localStorage.getItem(PRESENCE_KEY));
+    return parsePresence(preferences.getItem(PRESENCE_KEY));
   } catch {
     return parsePresence(null);
   }
@@ -281,7 +282,7 @@ function touch() {
   if (presence.last !== null && now - presence.last < PRESENCE_EVERY_MS) return;
   presence = touchPresence(presence, now);
   try {
-    localStorage.setItem(PRESENCE_KEY, JSON.stringify(presence));
+    preferences.setItem(PRESENCE_KEY, JSON.stringify(presence));
   } catch {
     // storage may be unavailable (private mode); "since I was last here" just won't be offered
   }

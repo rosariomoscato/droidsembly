@@ -11,9 +11,9 @@ export function swVersion(indexHtml: string, packageVersion: string, commit: str
 
 /** The worker itself. Only `version` changes between offices. */
 export function serviceWorkerSource(version: string): string {
-  return `// cubefarm's service worker (server/pwa.ts). Version ${version}.
+  return `// Droidsembly's service worker (server/pwa.ts). Version ${version}.
 const VERSION = ${JSON.stringify(version)};
-const CACHE = 'cubefarm-shell-' + VERSION;
+const CACHE = 'droidsembly-shell-' + VERSION;
 const PRECACHE = ['/', '/manifest.webmanifest', ...['icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'icon.svg', 'favicon.svg', 'favicon-32.png', 'badge-96.png', 'sora-400.ttf', 'sora-700.ttf', 'droid-wire.svg', 'droid-shell.svg', 'droid-eyes.svg', 'droid-antenna.svg', 'droid-spark.svg'].map(name => '/icons/' + name)];
 
 self.addEventListener('install', (event) => {
@@ -23,7 +23,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('cubefarm-shell-') && k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => (k.startsWith('droidsembly-shell-') || k.startsWith('cubefarm-shell-')) && k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -51,7 +51,7 @@ self.addEventListener('fetch', (event) => {
   if (!isShell(url)) return;
   // Bundles are content-hashed, so a cached one never goes stale.
   event.respondWith(
-    caches.match(req).then(
+    caches.has(CACHE).then((exists) => exists ? caches.open(CACHE).then((cache) => cache.match(req)) : undefined).then(
       (hit) =>
         hit ||
         fetch(req).then((res) => {
@@ -77,7 +77,9 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       const open = list.find((c) => new URL(c.url).origin === self.location.origin);
       if (!open) return self.clients.openWindow(url);
-      open.postMessage({ type: 'cubefarm:open', url });
+      // Keep the legacy type for already-open old pages, with canonical metadata.
+      // One message only: new pages normalize it to droidsembly:open.
+      open.postMessage({ type: 'cubefarm:open', canonicalType: 'droidsembly:open', url });
       return open.focus();
     }),
   );

@@ -1,6 +1,7 @@
 // The installable app (docs/pocket.md): the service worker the office serves at /sw.js (server/pwa.ts), and Web Push
 // for this device. Push needs a secure context: HTTPS, or localhost on the office's own PC.
 import { api } from './api';
+import { officeOpenUrl, OFFICE_OPEN_EVENT } from '../../shared/browserProtocol';
 
 /** Registers the worker in a built office (the dev server has none). A new office version replaces it on its own. */
 export function registerServiceWorker() {
@@ -8,7 +9,8 @@ export function registerServiceWorker() {
   navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => console.warn('no service worker:', err));
   // A tapped notification asks the open office to show what it's about.
   navigator.serviceWorker.addEventListener('message', (e: MessageEvent<{ type?: string; url?: string }>) => {
-    if (e.data?.type === 'cubefarm:open') window.dispatchEvent(new CustomEvent('cubefarm:open', { detail: e.data.url }));
+    const url = officeOpenUrl(e.data);
+    if (url !== null) window.dispatchEvent(new CustomEvent(OFFICE_OPEN_EVENT, { detail: url }));
   });
 }
 

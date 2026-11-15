@@ -321,7 +321,7 @@ export function launchArgs(id: AgentCli, ctx: LaunchContext): Launch {
     }
     case 'opencode': {
       const local = localModel(ctx.model);
-      const sessionID = ctx.resumeId || `ses_cubefarm${ctx.sessionId.replaceAll('-', '')}`;
+      const sessionID = ctx.resumeId || `ses_droidsembly${ctx.sessionId.replaceAll('-', '')}`;
       const model = local ? `${local.provider.id}/${local.model}` : ctx.model;
       const servers = {
         ...(ctx.browser ? { playwright: { type: 'local', command: [ctx.browser.command, ...ctx.browser.args] } } : {}),

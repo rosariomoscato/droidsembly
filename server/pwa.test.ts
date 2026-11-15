@@ -1,5 +1,5 @@
 import vm from 'node:vm';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { serviceWorkerSource, swVersion } from './pwa.ts';
 
 describe('the service worker version', () => {
@@ -31,8 +31,67 @@ describe('the service worker', () => {
   it('names its cache by version, so an update drops the old one', () => {
     const src = serviceWorkerSource('0123456789ab');
     expect(src).toContain('const VERSION = "0123456789ab";');
-    expect(src).toContain("k.startsWith('cubefarm-shell-') && k !== CACHE");
+    expect(src).toContain("const CACHE = 'droidsembly-shell-' + VERSION");
+    expect(src).toContain("k.startsWith('cubefarm-shell-')");
+    expect(src).toContain("k.startsWith('droidsembly-shell-')");
     expect(() => new vm.Script(src)).not.toThrow();
+  });
+
+  it('cleans only obsolete app-shell caches in both namespaces', async () => {
+    const handlers: Record<string, (event: unknown) => void> = {};
+    const removed: string[] = [];
+    let done: Promise<unknown> | undefined;
+    const claim = vi.fn();
+    vm.runInNewContext(serviceWorkerSource('current'), {
+      self: { addEventListener: (name: string, fn: (event: unknown) => void) => { handlers[name] = fn; }, clients: { claim } },
+      caches: { keys: async () => ['cubefarm-shell-old', 'droidsembly-shell-old', 'droidsembly-shell-current', 'other-app-cache', 'cubefarm-settings'], delete: async (name: string) => { removed.push(name); return true; } },
+    });
+    handlers.activate({ waitUntil: (task: Promise<unknown>) => { done = task; } });
+    await done;
+    expect(removed).toEqual(['cubefarm-shell-old', 'droidsembly-shell-old']);
+    expect(claim).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends one compatible click message to old or new open pages', async () => {
+    const handlers: Record<string, (event: unknown) => void> = {};
+    let done: Promise<unknown> | undefined;
+    const postMessage = vi.fn(), focus = vi.fn(), openWindow = vi.fn(), close = vi.fn();
+    vm.runInNewContext(serviceWorkerSource('current'), {
+      self: { addEventListener: (name: string, fn: (event: unknown) => void) => { handlers[name] = fn; }, location: { origin: 'https://office.example' }, clients: { matchAll: async () => [{ url: 'https://office.example/', postMessage, focus }], openWindow } }, URL,
+    });
+    handlers.notificationclick({ notification: { data: { url: '/?tab=team' }, close }, waitUntil: (task: Promise<unknown>) => { done = task; } });
+    await done;
+    expect(postMessage).toHaveBeenCalledExactlyOnceWith({ type: 'cubefarm:open', canonicalType: 'droidsembly:open', url: 'https://office.example/?tab=team' });
+    expect(close).toHaveBeenCalledTimes(1); expect(focus).toHaveBeenCalledTimes(1); expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it('never serves an asset from an unrelated or older cache', async () => {
+    const handlers: Record<string, (event: unknown) => void> = {};
+    const open = vi.fn(async () => ({ match: async () => 'current-cache-response' }));
+    const globalMatch = vi.fn();
+    let response: Promise<unknown> | undefined;
+    vm.runInNewContext(serviceWorkerSource('current'), {
+      self: { addEventListener: (name: string, fn: (event: unknown) => void) => { handlers[name] = fn; }, location: { origin: 'https://office.example' } },
+      caches: { open, match: globalMatch, has: async () => true }, URL,
+    });
+    handlers.fetch({ request: { method: 'GET', mode: 'cors', url: 'https://office.example/assets/app.js' }, respondWith: (task: Promise<unknown>) => { response = task; } });
+    expect(await response).toBe('current-cache-response');
+    expect(open).toHaveBeenCalledExactlyOnceWith('droidsembly-shell-current'); expect(globalMatch).not.toHaveBeenCalled();
+  });
+
+  it('does not recreate an already removed shell cache when a stale worker handles an asset', async () => {
+    const handlers: Record<string, (event: unknown) => void> = {};
+    const open = vi.fn();
+    const res = { ok: true, clone: () => res };
+    const fetch = vi.fn(async () => res);
+    let response: Promise<unknown> | undefined, pending: Promise<unknown> | undefined;
+    vm.runInNewContext(serviceWorkerSource('old'), {
+      self: { addEventListener: (name: string, fn: (event: unknown) => void) => { handlers[name] = fn; }, location: { origin: 'https://office.example' } },
+      caches: { open, has: async () => false }, URL, fetch,
+    });
+    handlers.fetch({ request: { method: 'GET', mode: 'cors', url: 'https://office.example/assets/app.js' }, respondWith: (task: Promise<unknown>) => { response = task; }, waitUntil: (task: Promise<unknown>) => { pending = task; } });
+    expect(await response).toBe(res); await pending;
+    expect(fetch).toHaveBeenCalledTimes(1); expect(open).not.toHaveBeenCalled();
   });
 
   it('caches only the app shell: never the API, the websockets or anything else', () => {

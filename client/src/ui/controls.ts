@@ -1,15 +1,16 @@
 import { create } from 'zustand';
+import { preferences } from '../preferences';
 import { defaultControls, keyLabel, normaliseControls, PAD_SENSITIVITY_MAX, PAD_SENSITIVITY_MIN, rebind, unbind, type ActionId, type Controls, type Rebound } from './keymap';
 
 // The player's controls (Help → Controls): key bindings and the gamepad's sensitivity, saved in this browser and read
 // back through normaliseControls (keymap.ts), so a corrupt value falls back to the defaults. The mouse settings live in
 // world/look.ts. Every keyboard shortcut in the office asks here which keys are its.
 
-const STORAGE_KEY = 'cubefarm:controls';
+const STORAGE_KEY = 'droidsembly:controls';
 
 function load(): Controls {
   try {
-    return normaliseControls(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null'));
+    return normaliseControls(JSON.parse(preferences.getItem(STORAGE_KEY) ?? 'null'));
   } catch {
     return defaultControls();
   }
@@ -21,7 +22,7 @@ function update(patch: Partial<Controls>) {
   useControls.setState(patch);
   const { bindings, padSensitivity } = useControls.getState();
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ bindings, padSensitivity }));
+    preferences.setItem(STORAGE_KEY, JSON.stringify({ bindings, padSensitivity }));
   } catch {
     // storage may be unavailable (private mode); the controls just won't survive a reload
   }

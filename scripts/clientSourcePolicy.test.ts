@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { scanClientSources } from './clientSourcePolicy.ts';
+import { scanClientSources, type SourceScanObservation } from './clientSourcePolicy.ts';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -22,6 +22,23 @@ function write(root: string, name: string, text: string) {
 }
 
 describe('client source-policy scan coverage', () => {
+  it('reports timings without changing coverage/results or exposing file contents', async () => {
+    const root = fixture();
+    write(root, '.hidden.ts', 'safe marker content');
+    write(root, 'nested/check.js', 'push.json');
+    write(root, 'ignored.mjs', 'secrets.json');
+    const observations: SourceScanObservation[] = [];
+    const plain = await scanClientSources(root);
+    const traced = await scanClientSources(root, (event) => observations.push(event));
+    expect(traced).toEqual(plain);
+    expect(traced.violations).toEqual([path.join('nested', 'check.js')]);
+    expect(observations.map((event) => event.phase)).toEqual(['enumeration', 'selection', 'file', 'file']);
+    expect(observations.filter((event) => event.phase === 'file').map((event) => event.file)).toEqual(plain.files);
+    for (const event of observations) expect(event.ms).toBeGreaterThanOrEqual(0);
+    expect(JSON.stringify(observations)).not.toContain('safe marker content');
+    expect(JSON.stringify(observations)).not.toContain('push.json');
+  });
+
   it('enumerates exactly the legacy extension set, including hidden and untracked fixture files', async () => {
     const root = fixture();
     for (const name of ['a.ts', 'b.tsx', 'c.js', 'd.html', 'e.json', 'f.webmanifest', '.hidden.js', 'nested/untracked.ts', 'ignored.png', 'ignored.mjs', 'ignored.TS']) write(root, name, 'safe');

@@ -3,16 +3,17 @@
 // window.__swarmPhoto. The camera,
 // filters, panel, recorder and gallery load the first time they're used.
 import { create } from 'zustand';
+import { preferences } from '../preferences';
 import { useStore } from '../store';
 import { isConfirmOpen } from '../ui/Confirm';
 import { bindings } from '../ui/controls';
 import { isBound } from '../ui/keymap';
 
-const REPLAY_KEY = 'cubefarm:replay';
+const REPLAY_KEY = 'droidsembly:replay';
 
 function replayPref(): boolean {
   try {
-    return localStorage.getItem(REPLAY_KEY) === 'on';
+    return preferences.getItem(REPLAY_KEY) === 'on';
   } catch {
     return false;
   }
@@ -73,7 +74,7 @@ export function togglePhoto() {
 export function setReplay(on: boolean) {
   usePhotoGate.setState({ replay: on });
   try {
-    localStorage.setItem(REPLAY_KEY, on ? 'on' : 'off');
+    preferences.setItem(REPLAY_KEY, on ? 'on' : 'off');
   } catch {
     // storage may be unavailable (private mode); the setting just won't be remembered
   }

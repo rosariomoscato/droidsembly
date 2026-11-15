@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useFrame, type RootState } from '@react-three/fiber';
 import { create } from 'zustand';
+import { preferences } from '../../preferences';
 import { DAY_MODES, dayPhase, DEFAULT_DAY_MODE, parseDaytimeParam, parseDayMode, type DayMode } from './time';
 import { replayMoment, setReplayMoment } from '../../officeTime';
 
@@ -10,12 +11,12 @@ import { replayMoment, setReplayMoment } from '../../officeTime';
 // During the time-lapse the sky follows the replayed moment's own time of day instead (setReplayTime).
 // QA: `?daytime=0.73` freezes the phase; window.__swarmSky reads and moves it.
 
-const MODE_KEY = 'cubefarm:daytime';
+const MODE_KEY = 'droidsembly:daytime';
 const COARSE_MS = 60_000;
 
 function loadMode(): DayMode {
   try {
-    return parseDayMode(localStorage.getItem(MODE_KEY));
+    return parseDayMode(preferences.getItem(MODE_KEY));
   } catch {
     return DEFAULT_DAY_MODE;
   }
@@ -56,7 +57,7 @@ export function useDayTime() {
 export function setDayMode(mode: DayMode) {
   dayTime.mode = mode;
   try {
-    localStorage.setItem(MODE_KEY, mode);
+    preferences.setItem(MODE_KEY, mode);
   } catch {
     // storage may be unavailable (private mode); the setting just won't be remembered
   }

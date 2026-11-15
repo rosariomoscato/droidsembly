@@ -22,7 +22,7 @@ import { THEMES } from './themes';
 
 const DEF = THEMES.easter;
 const HIT = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
-const FOUND_KEY = 'cubefarm:eggs';
+const FOUND_KEY = 'droidsembly:eggs';
 
 const eggGeometry = (color: string, band: string) =>
   mergeParts([
