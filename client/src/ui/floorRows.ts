@@ -5,6 +5,7 @@ import type { AgentCli, AgentStatus, CliView, SwarmSettings } from '../../../sha
 import type { Agent } from '../store';
 import { KIND_ICON, STATUS_KIND, type StatusKind } from './statusLook';
 import { translate } from '../../../shared/i18n';
+import { DEFAULT_CEO_CLI } from '../../../shared/agentDefaults';
 
 export interface FloorRow {
   id: string;
@@ -35,7 +36,7 @@ type Runtime = Pick<SwarmSettings, 'runtime' | 'defaultCli'> & Partial<Pick<Swar
 
 /** The coding agent someone runs: their own pick in Real terminals; the Agent SDK is Claude Code for everyone. */
 export const workerCli = (a: Pick<Agent, 'cli' | 'role'>, settings: Runtime): AgentCli =>
-  settings.runtime !== 'terminal' ? 'claude' : a.cli || (a.role === 'ceo' ? 'claude' : settings.defaultCli);
+  settings.runtime !== 'terminal' ? 'claude' : a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : settings.defaultCli);
 
 /** What someone is, in a word or two: the CEO, or the coding agent they run. */
 export function agentLabel(a: Pick<Agent, 'cli' | 'role'>, settings: Runtime, clis: CliView[]): string {

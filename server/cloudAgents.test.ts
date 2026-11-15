@@ -1,13 +1,15 @@
 import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { createDemoBackend } from './demo.ts';
 import { fixtureWork } from '../scripts/fixtureWork.ts';
 
-// Each file owns its persisted state; import only after selecting its home.
-const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-cloud-agents-'));
-process.env.SWARM_HOME = home;
+// Demo imports config too: changing the environment after imports does not isolate cached paths.
+const { home } = vi.hoisted(() => ({ home: `${process.env.SWARM_HOME}/cloud-agents-${process.pid}` }));
+vi.mock('./config.ts', async (original) => ({
+  ...await original<typeof import('./config.ts')>(),
+  HOME_DIR: home, STATE_FILE: `${home}/state.json`, WORKSPACE_ROOT: `${home}/workspaces`,
+}));
+fs.mkdirSync(home, { recursive: true });
 const { Swarm } = await import('./swarm.ts');
 const fixtures: { swarm: InstanceType<typeof Swarm>; work: ReturnType<typeof fixtureWork> }[] = [];
 let cleanupFailed = false;
@@ -54,6 +56,8 @@ describe('where agents work', () => {
     const { swarm, repo, agents } = await office();
     expect(swarm.snapshot().settings.cloud.machineKind).toBe('local');
     expect(agents()[0].host).toBe('local');
+    expect(swarm.snapshot().settings).toMatchObject({ defaultCli: 'opencode', defaultModel: '' });
+    expect(agents()[0]).toMatchObject({ cli: '', model: '' });
     expect(() => swarm.updateSettings({ cloud: { machineKind: 'box', boxSize: 'small', boxLimit: 10 } })).toThrow(/Upstash Box API key/);
     expect(() => swarm.hireAgent(repo.id, { host: 'box', strict: true })).toThrow(/Upstash Box API key/);
   });

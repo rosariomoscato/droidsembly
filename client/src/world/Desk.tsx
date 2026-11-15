@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from
 import { useFrame, useThree } from '@react-three/fiber';
 import { Billboard } from '@react-three/drei';
 import { BILLBOARD } from './viewTags';
+import { DEFAULT_CEO_CLI } from '../../../shared/agentDefaults';
 import * as THREE from 'three';
 import { useStore, type Agent } from '../store';
 import { loadScreenshot } from '../screenshot';
@@ -89,7 +90,7 @@ function useTerminalTexture(agent: Agent, anchor: React.RefObject<THREE.Object3D
     const recentShot = a.screenshotAt != null && Date.now() - a.screenshotAt < 120_000;
     const showBrowser = a.hasScreenshot && a.status !== 'idle' && (a.currentTool?.startsWith('mcp__playwright') || recentShot || a.status === 'done');
     const s = useStore.getState().settings;
-    const program = a.role !== 'ceo' && s.runtime === 'terminal' ? a.cli || s.defaultCli : 'claude';
+    const program = s.runtime === 'terminal' ? a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : s.defaultCli) : 'claude';
     const img = shot.current;
     painted.paint((ctx) => drawTerminal(ctx, SCREEN.px, SCREEN.py, a, logs, img, !!showBrowser, now, program));
   });

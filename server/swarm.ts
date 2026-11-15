@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { DEFAULT_CLI, DEFAULT_CEO_CLI } from '../shared/agentDefaults.ts';
 import { mergeUsage, quotaKey, type AiUsageObservation, type AiResource, type AiLimitSignal, type AiResourceView } from '../shared/aiUsage.ts';
 import { QuotaGate, type QuotaWindow } from './quotaGate.ts';
 import { openCodeModelRef } from '../shared/opencodeModels.ts';
@@ -220,6 +221,7 @@ interface HeldIssue {
 }
 
 interface Persisted {
+  agentDefaultsVersion: 1;
   aiUsage?: AiUsageObservation[];
   aiResources?: Record<string, { resource: AiResource; configuredModel: string; host?: string; at: number }>;
   aiQuotas?: Record<string, QuotaWindow>;
@@ -511,10 +513,10 @@ export class Swarm {
     settings: {
       sessionLimit: 0,
       language: 'en',
-      defaultModel: DEFAULT_MODEL,
+      defaultModel: '',
       defaultEffort: 'medium',
       runtime: 'terminal',
-      defaultCli: 'claude',
+      defaultCli: DEFAULT_CLI,
       scaling: 'approve',
       maxAgents: DEFAULT_MAX_AGENTS,
       ceoHeartbeatMin: 60,
@@ -548,6 +550,7 @@ export class Swarm {
     progress: emptyLedger(),
     pong: {},
     officeId: officeId(),
+    agentDefaultsVersion: 1,
   };
   /**
    * The CEO's office tools. Every session gets its own server: one can only be connected to one session at a time, so
@@ -714,11 +717,15 @@ export class Swarm {
   // ---------- lifecycle ----------
 
   async init() {
+    let legacyDefaults = false;
     try {
       const raw = await fs.readFile(STATE_FILE, 'utf8');
       const loaded = JSON.parse(raw) as Partial<Persisted>;
+      legacyDefaults = loaded.agentDefaultsVersion !== 1;
       this.state = {
-        settings: { ...this.state.settings, ...loaded.settings },
+        agentDefaultsVersion: 1,
+        // Missing legacy defaults meant Claude; do not inherit the new-office proposal.
+        settings: { ...this.state.settings, defaultCli: 'claude', defaultModel: DEFAULT_MODEL, ...loaded.settings },
         repos: (loaded.repos ?? []).map((r) => ({
           ...r,
           autoMerge: r.autoMerge ?? true,
@@ -738,7 +745,7 @@ export class Swarm {
           look: a.look ?? lookFor(a.name),
           style: cleanStyle(a.style),
           task: a.task ?? (a.issueNumber ? 'issue' : null),
-          cli: isCli(a.cli) ? a.cli : '',
+          cli: isCli(a.cli) ? a.cli : legacyDefaults && a.role === 'ceo' ? 'claude' : '',
           sessionCli: a.sessionCli ?? (a.sessionId ? 'claude' : null),
         })),
         qa: (loaded.qa ?? []).map((q) => ({
@@ -892,7 +899,7 @@ export class Swarm {
       this.state.ops = this.backend.seedOps?.(this.state.repos.map((r) => r.id), Date.now()) ?? this.state.ops;
     }
     for (const r of this.state.repos) this.ensureAgent(r);
-    this.ensureCeo(interrupted);
+    this.ensureCeo(interrupted, legacyDefaults ? 'claude' : DEFAULT_CEO_CLI);
     // Agents from before the ledger start their careers now.
     for (const a of this.state.agents) if (a.role !== 'ceo') applyLedger(this.state.progress, { kind: 'hired', agentId: a.id, at: Date.now() });
 
@@ -1471,7 +1478,7 @@ export class Swarm {
 
   async openCodeConnections(id: string): Promise<OpenCodeConnections> {
     const a = this.agent(id);
-    if ((a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli)) !== 'opencode') throw new HttpError(409, 'Choose OpenCode first.');
+    if ((a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : this.state.settings.defaultCli)) !== 'opencode') throw new HttpError(409, 'Choose OpenCode first.');
     if (a.host === 'box' && a.role !== 'ceo') {
       const machine = this.machineOf(a);
       return { scope: 'box', scopeKey: `box:${machine}`, integrations: await this.boxMachines.openCodeConnections(machine, this.boxMachines.deskDir(machine, this.repo(a.repoId).fullName)), configuringAgent: this.openCodeAuthRun?.agentId ?? null };
@@ -1505,7 +1512,7 @@ export class Swarm {
       let args: string[];
       try { args = connectionArgs(catalog.integrations, input); }
       catch (err) { throw new HttpError(400, (err as Error).message); }
-      const unchanged = () => this.openCodeAuthRun === operation && this.state.agents.includes(a) && a.host === host && (a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli)) === 'opencode' && (host !== 'box' || this.machineOf(a) === machine);
+      const unchanged = () => this.openCodeAuthRun === operation && this.state.agents.includes(a) && a.host === host && (a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : this.state.settings.defaultCli)) === 'opencode' && (host !== 'box' || this.machineOf(a) === machine);
       if (!unchanged() || busy()) throw new HttpError(409, 'Agent setup or work changed; reload connections.');
       if (replaceable()) this.dropSignIn(id);
       const term = this.terminalFor(a);
@@ -2758,7 +2765,7 @@ export class Swarm {
     if (patch.cli !== undefined) {
       const cli = isCli(patch.cli) ? patch.cli : '';
       if (a.role === 'ceo' && cli && cli !== 'claude' && cli !== 'opencode') throw new HttpError(400, 'The CEO can run Claude Code or OpenCode.');
-      const localCli = cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli);
+      const localCli = cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : this.state.settings.defaultCli);
       if (a.host !== 'box' && (cli || localCli === 'opencode') && !this.cliReady(localCli)) throw new HttpError(400, `${cliLabel(localCli)} isn't installed on this computer.`);
       const changed = cli !== a.cli;
       a.cli = cli;
@@ -2955,7 +2962,7 @@ export class Swarm {
   private sessionRuntime(a: PersistedAgent, resume?: string): { terminal?: AgentTerminal; cli?: AgentCli; label?: string; resumeSessionId?: string } {
     // A cloud agent's CLI always runs in a terminal: their Box's, which needs nothing from this computer.
     const inTerminal = a.host === 'box' || (this.state.settings.runtime === 'terminal' && this.backend.terminals);
-    let cli: AgentCli = !inTerminal ? 'claude' : a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli);
+    let cli: AgentCli = !inTerminal ? 'claude' : a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : this.state.settings.defaultCli);
     if (resume && a.sessionCli && a.sessionCli !== cli) {
       if (a.role === 'ceo') resume = undefined;
       else if (inTerminal) cli = a.sessionCli;
@@ -4255,7 +4262,7 @@ export class Swarm {
   }
 
   private usageTool(a: PersistedAgent): AgentCli {
-    return a.host === 'box' || (this.state.settings.runtime === 'terminal' && this.backend.terminals) ? a.cli || (a.role === 'ceo' ? 'claude' : this.state.settings.defaultCli) : 'claude';
+    return a.host === 'box' || (this.state.settings.runtime === 'terminal' && this.backend.terminals) ? a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : this.state.settings.defaultCli) : 'claude';
   }
 
   private resourceFor(a: PersistedAgent, tool = this.usageTool(a)): AiResource {
@@ -4677,7 +4684,7 @@ export class Swarm {
   }
 
   /** The company always has a CEO. One cut off by a server restart picks its job back up. */
-  private ensureCeo(interrupted: PersistedAgent[]) {
+  private ensureCeo(interrupted: PersistedAgent[], cli: AgentCli = DEFAULT_CEO_CLI) {
     let a = this.state.agents.find((x) => x.id === CEO_ID);
     if (!a) {
       a = {
@@ -4692,9 +4699,9 @@ export class Swarm {
         hair: '#2b2118',
         skin: pick(SKIN),
         style: null,
-        model: CEO_MODEL,
+        model: cli === 'claude' ? CEO_MODEL : '',
         effort: CEO_EFFORT,
-        cli: 'claude',
+        cli,
         machine: null,
         status: 'idle',
         issueNumber: null,
@@ -4798,7 +4805,7 @@ export class Swarm {
 
   private ceoPromptInput(a: PersistedAgent): Parameters<typeof ceoSystemPrompt>[0] {
     const s = this.state.settings;
-    return { name: a.name, company: s.companyName, manager: s.managerName, notesFile: path.join(CEO_DIR, 'NOTES.md'), sessionLimit: s.sessionLimit, maxAgents: s.maxAgents, scaling: s.scaling, cli: s.runtime === 'terminal' && this.backend.terminals ? a.cli || 'claude' : 'claude', language: languageOf(s.language) };
+    return { name: a.name, company: s.companyName, manager: s.managerName, notesFile: path.join(CEO_DIR, 'NOTES.md'), sessionLimit: s.sessionLimit, maxAgents: s.maxAgents, scaling: s.scaling, cli: s.runtime === 'terminal' && this.backend.terminals ? a.cli || DEFAULT_CEO_CLI : 'claude', language: languageOf(s.language) };
   }
 
   private async runCeoJob(a: PersistedAgent, job: CeoJob) {
@@ -5850,7 +5857,7 @@ export class Swarm {
   private agentSetup(a: PersistedAgent) {
     const ceo = a.role === 'ceo';
     const terminal = a.host === 'box' || (this.state.settings.runtime === 'terminal' && this.backend.terminals);
-    const cli = terminal ? a.cli || (ceo ? 'claude' : this.state.settings.defaultCli) : 'claude';
+    const cli = terminal ? a.cli || (ceo ? DEFAULT_CEO_CLI : this.state.settings.defaultCli) : 'claude';
     return {
       codingAgent: cli,
       model: this.modelFor(a, cli) || 'the coding agent default',
