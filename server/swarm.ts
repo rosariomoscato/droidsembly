@@ -3422,7 +3422,10 @@ export class Swarm {
     recordCost(this.state.ops, repo.id, result.costUsd, a.endedAt);
     this.ledger({ kind: 'session', agentId: a.id, key: `${a.id}:${a.startedAt}:${a.endedAt}`, costUsd: result.costUsd, turns: result.turns }, false); // emitted below
     // Dev servers the agent forgot to stop would otherwise keep its port and lock its desk folder.
-    await this.releaseDesk(a, repo).catch(() => undefined);
+    const released = this.releaseDesk(a, repo).catch(() => undefined);
+    // Local analysis follow-ups have always been available synchronously when
+    // finished is reported. Only a Box pause must wait for remote cleanup.
+    if (a.host === 'box') await released;
     if (result.interrupted) this.interrupted(a);
 
     if (this.dropping.has(a.id)) this.dropTask(a, '↺ Cleared desk. Ready for new work.'); // stopped: its issue or PR closed
