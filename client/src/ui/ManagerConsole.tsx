@@ -9,6 +9,7 @@ import { agentsOnRepo, pendingRequests, useStore, type ManagerTab } from '../sto
 import { CEO_ID, DEFAULT_MAX_AGENTS, FLOOR_SEATS, type AgentCli, type EffortLevel, type OfficeUpdateView, type RepoView } from '../../../shared/types';
 import { CLAUDE_MODELS, modelSuggestions } from '../../../shared/models';
 import { CliOptions, CliSelect, cliName, EFFORTS, EffortSelect, LookEditor, LookSelect, ModelInput, NameInput, PromptPreview } from './AgentSettings';
+import { CodingAgentTestNotice } from './CodingAgentTestNotice';
 import { canPostpone, canUpdateNow, drainDeadline, officeUpdateText } from '../officeUpdate';
 import { confirmDialog } from './Confirm';
 import { IssueForm } from './KanbanView';
@@ -246,7 +247,7 @@ function FloorBrief({ repo }: { repo: RepoView }) {
         </button>
       </div>
       <details className="small">
-        <summary><T>QA brief</T>{repo.qaBrief ? '' : t(' (none yet)')}</summary>
+        <summary>{t(repo.qaBrief ? 'QA brief' : 'QA brief — not filled in yet')}</summary>
         <textarea
           key={repo.qaBrief}
           rows={4}
@@ -299,6 +300,7 @@ function CeoTab() {
             <ModelInput agent={ceo} style={{ maxWidth: 240, minWidth: 180, flex: '1 1 180px' }} />
             <EffortSelect agent={ceo} style={{ width: 'auto' }} />
           </div>
+          {terminal && <CodingAgentTestNotice />}
           {terminal && ceo.cli === 'opencode' && <p className="muted small"><T>Model: provider/model, or provider/model#variant for reasoning. Empty uses the OpenCode default.</T></p>}
           <div className="small">
             <b><T>Now:</T></b> {working ? info.job?.label : t('free')}
@@ -654,6 +656,7 @@ function SettingsTab() {
             </select>
           </label>
         )}
+        {terminal && <CodingAgentTestNotice />}
         <div className="field">
           <span><T>Default model</T>{terminal ? ` · ${cliName(clis, settings.defaultCli)}` : ''}</span>
           <input

@@ -9,9 +9,10 @@ const terminals = { runtime: 'terminal', defaultCli: 'claude' } as const;
 const clis = [{ id: 'codex', label: 'Codex CLI' }] as CliView[];
 
 describe('workerCli', () => {
-  it('uses the CEO own OpenCode choice, while leaving the default and SDK on Claude', () => {
+  it('uses OpenCode for the CEO default, respects explicit Claude and leaves SDK on Claude', () => {
     expect(workerCli(agent({ role: 'ceo', cli: 'opencode' }), terminals)).toBe('opencode');
-    expect(workerCli(agent({ role: 'ceo', cli: '' }), { runtime: 'terminal', defaultCli: 'opencode' })).toBe('claude');
+    expect(workerCli(agent({ role: 'ceo', cli: '' }), terminals)).toBe('opencode');
+    expect(workerCli(agent({ role: 'ceo', cli: 'claude' }), { runtime: 'terminal', defaultCli: 'opencode' })).toBe('claude');
     expect(workerCli(agent({ role: 'ceo', cli: 'opencode' }), { runtime: 'sdk', defaultCli: 'opencode' })).toBe('claude');
   });
 });

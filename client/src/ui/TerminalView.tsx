@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { T, useT } from '../i18n';
 import { CareerCard } from './CareerCard';
+import { signInInstructions } from './signInText';
 import { api } from '../api';
 import { isBusy, kanbanFor, agentsOnRepo, useStore } from '../store';
 import { AgentSetup } from './AgentSettings';
@@ -210,9 +211,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
               {t('🔑 Sign {name}’s {provider} in', { name: agent.name, provider: signIn })}
             </b>
             <br />
-            {t(signIn === 'Codex'
-              ? 'Open the link in their terminal, sign in to ChatGPT there and enter the one-time code the terminal shows.'
-              : 'Open the link in their terminal, approve it with your Claude account, then paste the code the page gives you into the terminal and press Enter.')}{' '}
+            {signInInstructions(signIn, settings.language)}{' '}
             {t(agent.task && isBusy(agent) ? 'Their cloud machine keeps the sign-in, and their task starts once it’s done.' : 'Their cloud machine keeps the sign-in.')}
           </span>
           <button className="btn btn-small" disabled={busy} title={t('Close this sign-in and show a new link')} onClick={() => run(() => api.signIn(agent.id))}>

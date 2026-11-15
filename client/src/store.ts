@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { DEFAULT_CLI } from '../../shared/agentDefaults';
 import { translate, type Language } from '../../shared/i18n';
 import { CEO_ID, DEFAULT_DOG_NAME, DEFAULT_MAX_AGENTS, type AgentView, type CeoInfo, type CliView, type CloudView, type DoctorFinding, type HireRequestView, type LogLine, type NotifyChannelsView, type OfficeUpdateView, type OpsView, type PhoneMessage, type PongRow, type PrPreviewView, type QaView, type RepoView, type ServerEvent, type SwarmSettings, type TickerItem, type UsageView, type VisitorView, type VoiceCacheView, type WorldSnapshot } from '../../shared/types';
 import { blockers } from '../../shared/issues';
@@ -215,10 +216,10 @@ export const useStore = create<State>((set, get) => ({
   // Until the server's snapshot arrives; setupDone stays true so the wizard doesn't flash while loading.
   settings: {
     sessionLimit: 0,
-    defaultModel: 'claude-opus-5-5',
+    defaultModel: '',
     defaultEffort: 'medium',
     runtime: 'terminal',
-    defaultCli: 'claude',
+    defaultCli: DEFAULT_CLI,
     scaling: 'approve',
     maxAgents: DEFAULT_MAX_AGENTS,
     ceoHeartbeatMin: 60,

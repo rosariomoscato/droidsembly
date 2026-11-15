@@ -23,6 +23,16 @@ La data della prima modifica è ricavata dalla cronologia Git; non viene usata c
 
 ## 2026-11-15
 
+### Default OpenCode e testi accesso/QA — branch in verifica
+
+Nota informativa IT/EN richiesta successivamente dall'utente: nelle impostazioni dell'ufficio, nella configurazione agenti/CEO e nella scheda CEO della console, vicino alla scelta dello strumento, indicato che OpenCode è stato collaudato manualmente e Claude Code/Codex non ancora allo stesso livello. Non afferma instabilità accertata, non è un blocco e non modifica selezioni, autenticazioni o runtime. Componente condiviso e test di rendering nelle due lingue; verifica aggiunta: 15/15 test UI e typecheck passati. Nessuna nuova suite completa/build per questa sola nota; restano gli esiti precedenti.
+
+Aggiornamento verifiche: build completa passata. Suite completa non verde: 3137 passati, 24 falliti, 11 non eseguiti (1138,17 s), con timeout processi/Git/Box/HTTP/journal/workspace/fisica/scale e tre casi CEO. Diagnosi CEO isolata 15/15 passata, senza riprodurre i timeout. Estesa la proprietà delle promesse della fixture a init e journalSample, con test a barriera controllata. Prima verifica di questa correzione 53 passati/1 fallito + rejection da spy ricorsivo nel nuovo test; corretto tracciando direttamente la promessa init. Verifica finale mirata **54/54 passati**, 8 file, 21,22 s; typecheck passato. Nessun timeout/assertion/carico ridotto. La suite completa precedente rimane fallita, non ripetuta né dichiarata risolta; nessun commit/PR/pubblicazione o aggiornamento live.
+
+- **Feature, default:** nuovi uffici e CEO propongono OpenCode, senza modello/provider imposto; worker locali e Box ereditano il default dell'ufficio. I salvataggi legacy mantengono le scelte esplicite e il precedente significato Claude dei campi impliciti; versione della semantica persistita per non reinterpretare le nuove scelte vuote ai riavvii. SDK ancora specifico Claude; nessuna credenziale o risorsa cloud copiata/creata dalla migrazione.
+- **Fix, UI:** default CEO allineato nelle impostazioni e sulle postazioni; istruzioni OpenCode cloud dipendenti dal provider/metodo scelto, senza imporre account Claude o un unico flusso codice. I testi Claude/Codex rimangono distinti. Etichetta QA vuota dedicata: «Indicazioni QA — non ancora compilate», senza cambiare il suffisso condiviso.
+- **Verifica:** primo gruppo 31/31 passato; secondo 44 passati e 2 falliti per aspettative Claude implicite in test cloud, ora rese scelte esplicite senza ridurre assertion o timeout. Corretto isolamento dei percorsi config di due fixture dopo avvisi rename EPERM/ENOENT. Esiti successivi ancora da completare; dettagli in [OPENCODE_DEFAULTS_VALIDATION.md](OPENCODE_DEFAULTS_VALIDATION.md). Lavoro non integrato né pubblicato, ufficio installato e Box invariati.
+
 ### Pausa automatica Box e isolamento shell del setup — candidata
 
 **Cloud / correzione:** controllata la pausa sia alla liberazione del task sia alla chiusura della CLI, compresi task completati lasciati sulla scrivania. Cleanup remota prima della notifica di chiusura; finalizzazione dei risultati protetta; richieste duplicate accorpate e nuovo lavoro serializzato con pausa in corso. Una callback obsoleta non cancella il record della CLI successiva. Errori di pausa segnalati senza esporre il corpo della risposta provider.
