@@ -23,6 +23,13 @@ La data della prima modifica è ricavata dalla cronologia Git; non viene usata c
 
 ## 2026-11-15
 
+### Nome tecnico — fase 1 compatibile, branch in verifica
+
+- **Feature, cloud:** nuove Box con nome `droidsembly-<office>-<machine>` e tag canonici `droidsembly`/`ds:<office>`. Mantenuti anche `cubefarm`/`cf:<office>` entro il limite di cinque tag per riconoscimento dopo rollback. Box esistenti riutilizzate senza rinomina/retag o ricreazione; percorsi, sessioni e login invariati.
+- **Sicurezza, ownership:** parser comune per schemi legacy/nuovi/doppi in discovery, inventario e pulizia orfani. Metadati incompleti o in conflitto esclusi dalla gestione automatica; totale account continua a includere risorse estranee ai fini della quota. Ricontrollo ownership prima di ogni eliminazione.
+- **Refactor, CLI:** entry canonico `bin/droidsembly.js`, con wrapper `bin/cubefarm.js` per launcher/shortcut esistenti; package/lock, launcher e controlli di distribuzione allineati. Nessun alias globale `cubefarm`, cambio versione o dipendenze. Smoke pacchetto verifica entrambe le entry e conserva fixture in caso di fallimento.
+- **Verifica:** primo gruppo 96/96 test passati, typecheck e build completa passati; smoke tarball installato passato (CLI/compatibilità, 93 licenze, demo HTTP/client/stato isolato, due piani e 11 agenti). Nessuna suite completa eseguita per questo branch; fallimenti precedenti conservati. Nessuna operazione Upstash o modifica all'ufficio installato; migrazione home/env/storage resta fuori dal perimetro approvato. Dettagli e rollback in [TECHNICAL_NAME_MIGRATION.md](TECHNICAL_NAME_MIGRATION.md).
+
 ### Default OpenCode e testi accesso/QA — branch in verifica
 
 Nota informativa IT/EN richiesta successivamente dall'utente: nelle impostazioni dell'ufficio, nella configurazione agenti/CEO e nella scheda CEO della console, vicino alla scelta dello strumento, indicato che OpenCode è stato collaudato manualmente e Claude Code/Codex non ancora allo stesso livello. Non afferma instabilità accertata, non è un blocco e non modifica selezioni, autenticazioni o runtime. Componente condiviso e test di rendering nelle due lingue; verifica aggiunta: 15/15 test UI e typecheck passati. Nessuna nuova suite completa/build per questa sola nota; restano gli esiti precedenti.

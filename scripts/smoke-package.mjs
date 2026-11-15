@@ -11,7 +11,7 @@ import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 assert.equal(pkg.name, 'droidsembly');
-assert.deepEqual(pkg.bin, { droidsembly: 'bin/cubefarm.js' });
+assert.deepEqual(pkg.bin, { droidsembly: 'bin/droidsembly.js' });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'droidsembly-package-'));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const env = { ...process.env, CI: '1', SWARM_HOME: path.join(tmp, 'home'), SWARM_HOST: '127.0.0.1', SWARM_DEMO: '1' };
@@ -24,6 +24,7 @@ const sh = (cmd, cwd) => {
 };
 
 let server;
+let verified = false;
 try {
   // Optional retained tarball: validate exactly the artifact that was reviewed.
   let tarball = process.argv[2] && path.resolve(process.argv[2]);
@@ -44,9 +45,11 @@ try {
   console.log(`droidsembly --version/--help: ${pkg.version}`);
 
   const installed = path.join(tmp, 'node_modules', pkg.name);
-  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
+  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
     assert.ok(fs.existsSync(path.join(installed, file)), `missing package file: ${file}`);
   }
+  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
+  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
   const licenses = JSON.parse(fs.readFileSync(path.join(installed, 'dist/third-party-licenses.json'), 'utf8'));
   const notices = fs.readFileSync(path.join(installed, 'dist/THIRD_PARTY_LICENSES.txt'), 'utf8');
   assert.ok(licenses.length > 0, 'empty client license inventory');
@@ -101,11 +104,13 @@ try {
   assert.deepEqual(saved.repos.map((r) => r.id).sort(), state.repos.map((r) => r.id).sort(), 'persisted state must belong to this demo');
   assert.ok(!fs.existsSync(path.join(env.SWARM_HOME, 'state.json')), 'real state must not be created');
   console.log(`demo office up: ${state.repos.length} floors, ${state.agents.length} agents; isolated data and client verified`);
+  verified = true;
 } finally {
   if (server?.pid && server.exitCode === null && server.signalCode === null) {
     const closed = once(server, 'close');
     server.kill();
     await closed;
   }
-  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
+  if (verified) fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
+  else console.error(`Package smoke failed; isolated fixture retained for diagnosis: ${tmp}`);
 }

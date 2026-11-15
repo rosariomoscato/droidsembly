@@ -7,7 +7,7 @@
 Aprire un terminale nella propria cartella Droidsembly:
 
 ```powershell
-node bin/cubefarm.js --version
+node bin/droidsembly.js --version
 npm.cmd start
 ```
 
@@ -35,7 +35,7 @@ Questo comando può scaricare il pacchetto; `--version` non avvia l'ufficio. Per
 
 ## English
 
-From an existing source checkout, run `node bin/cubefarm.js --version`, then `npm start` (`npm.cmd start` in PowerShell). Keep the terminal open; default URL is `http://localhost:4317`, and `Ctrl+C` stops the office. `npm start -- --no-open` avoids opening a browser. Do not bypass an occupied port by launching duplicate offices against the same profile.
+From an existing source checkout, run `node bin/droidsembly.js --version`, then `npm start` (`npm.cmd start` in PowerShell). Older shortcuts using `bin/cubefarm.js` remain compatible. Keep the terminal open; default URL is `http://localhost:4317`, and `Ctrl+C` stops the office. `npm start -- --no-open` avoids opening a browser. Do not bypass an occupied port by launching duplicate offices against the same profile.
 
 If the office is unexpectedly empty, do not reconnect repositories immediately. Confirm the original launcher and data location: default `~/.cubefarm`, overridden by `SWARM_HOME`. Never inspect/share authentication files or blindly merge profiles. Reconnecting a repository or resuming work may start AI sessions and cloud resources.
 

@@ -1,7 +1,7 @@
 // The office's parent process, for a checkout of this repo (`npm run dev`, `npm run demo`, `npm start`).
 //
 //   --dev    the server from source (tsx) plus Vite, restarting the server when server/ or shared/ code changes
-//   (none)   the built office: bin/cubefarm.js (checks, then dist-server/ serving dist/), no Vite, no watching
+//   (none)   the built office: bin/droidsembly.js (checks, then dist-server/ serving dist/), no Vite, no watching
 //   --demo   passed to the server
 //
 // It also updates the office. When the server has drained and sends `office:update` (or you type `u` + Enter here),
@@ -101,7 +101,7 @@ function startServer() {
   const demo = opts.demo ? ['--demo'] : [];
   const args = opts.dev
     ? ['--import', 'tsx', path.join('server', 'index.ts'), ...demo]
-    : [path.join('bin', 'cubefarm.js'), ...demo, ...(opts.open && firstStart ? [] : ['--no-open'])];
+    : [path.join('bin', 'droidsembly.js'), ...demo, ...(opts.open && firstStart ? [] : ['--no-open'])];
   const child = spawnChild('server', args, { ipc: true, env: { ...process.env, SWARM_LAUNCHER: '1' } });
   child.proc.on('message', (msg) => {
     if (msg?.type === 'office:update') void update(`the office asked, from ${short(String(msg.from ?? ''))}`);
