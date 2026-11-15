@@ -84,6 +84,7 @@ export class BoxMachines implements MachineProvider {
   private ids = new Map<string, string>(); // machine -> Box id
   private ready = new Map<string, { profile: string; promise: Promise<string> }>();
   private states = new Map<string, CloudMachineState>();
+  private pausing = new Map<string, Promise<void>>();
 
   constructor(private deps: BoxMachinesDeps) {}
 
@@ -136,6 +137,9 @@ export class BoxMachines implements MachineProvider {
 
   /** The machine's Box, created, running and set up: the first time takes a few minutes. */
   ensure(machine: string, note?: (text: string) => void): Promise<string> {
+    // A new task must wake the Box after, not race against, an idle pause.
+    const pausing = this.pausing.get(machine);
+    if (pausing) return pausing.catch(() => undefined).then(() => this.ensure(machine, note));
     const cli = this.deps.cli?.(machine);
     const browser = this.deps.browser?.(machine) ?? !cli;
     const profile = `${cli ?? 'all'}:${browser}`;
@@ -190,8 +194,14 @@ export class BoxMachines implements MachineProvider {
     }
     this.setState(machine, 'setting-up');
     const git = await this.deps.git();
-    const setup = await api.run(id, setupScript({ versions: this.deps.versions, rev: SETUP_REV, gitName: git.name, gitEmail: git.email, cli, browser }), { timeoutMs: SETUP_TIMEOUT_MS });
-    if (setup.code !== 0 || !setup.output.includes('CUBEFARM_SETUP_OK')) throw failure("Couldn't set up the cloud machine", setup.output, this.deps.secrets());
+    // Isolate errexit/exit from the SDK command shell, preserving the child's
+    // actual status instead of treating success-looking stdout as success.
+    const setup = await api.run(id, `sh -c ${sq(setupScript({ versions: this.deps.versions, rev: SETUP_REV, gitName: git.name, gitEmail: git.email, cli, browser }))}`, { timeoutMs: SETUP_TIMEOUT_MS });
+    const setupMarkerPresent = setup.output.includes('CUBEFARM_SETUP_OK');
+    if (setup.code !== 0 || !setupMarkerPresent) {
+      const exit = Number.isInteger(setup.code) ? String(setup.code) : 'unverified';
+      throw failure(`Couldn't set up the cloud machine (exit ${exit}; setup marker ${setupMarkerPresent ? 'present' : 'missing'})`, setup.output, this.deps.secrets());
+    }
     for (const [name, source] of Object.entries(BOX_HELPERS)) await api.write(id, `${BOX_BIN}/${name}`, source);
     await api.write(id, BOX_TMUX_CONF, TMUX_CONF);
     this.setState(machine, 'ready');
@@ -392,11 +402,18 @@ export class BoxMachines implements MachineProvider {
   }
 
   /** Pause a machine's Box (an idle cloud agent); it wakes for their next task. */
-  async pause(machine: string): Promise<void> {
-    const id = await this.running(machine);
-    if (!id) return;
-    await this.api().pause(id);
-    this.setState(machine, 'paused');
+  pause(machine: string, stillIdle: () => boolean = () => true): Promise<void> {
+    const previous = this.pausing.get(machine);
+    if (previous) return previous;
+    const pending = (async () => {
+      const id = await this.running(machine);
+      // Looking up status is asynchronous: a task/sign-in may have started.
+      if (!id || !stillIdle()) return;
+      await this.api().pause(id);
+      this.setState(machine, 'paused');
+    })().finally(() => { this.pausing.delete(machine); });
+    this.pausing.set(machine, pending);
+    return pending;
   }
 
   private async saveLeftovers(fullName: string, machine: string, data: Buffer): Promise<string> {

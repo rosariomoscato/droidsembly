@@ -21,6 +21,20 @@ Questo documento raccoglie le personalizzazioni di [rosariomoscato/cubefarm](htt
 
 La data della prima modifica è ricavata dalla cronologia Git; non viene usata come attestazione della data di creazione del fork su GitHub.
 
+## 2026-11-15
+
+### Pausa automatica Box e isolamento shell del setup — candidata
+
+**Cloud / correzione:** controllata la pausa sia alla liberazione del task sia alla chiusura della CLI, compresi task completati lasciati sulla scrivania. Cleanup remota prima della notifica di chiusura; finalizzazione dei risultati protetta; richieste duplicate accorpate e nuovo lavoro serializzato con pausa in corso. Una callback obsoleta non cancella il record della CLI successiva. Errori di pausa segnalati senza esporre il corpo della risposta provider.
+
+**Setup / correzione:** shell figlia `sh -c` con quoting sicuro, senza modificare verifiche, revisione marker, timeout o obbligo di exit zero. Diagnostica distingue codice di uscita e presenza marker. Probe remoti autorizzati hanno riprodotto exit 1 con `set -e` nel cmd diretto ed exit 0/1 corretti nella shell esplicita. La prova reale successiva ha completato lavoro e QA OpenCode e confermato la stessa Box paused dopo Clear desk, mediante sola lettura del provider.
+
+**Test e limiti:** nuova copertura lifecycle, scadenza CLI a cinque minuti con clock simulato e script setup in shell locale reale con tool inerti. Il percorso dei cinque minuti non è ancora collaudato con una nuova attesa reale sul provider. Conservati i fallimenti precedenti: due regressioni inizialmente rosse, verifica estesa iniziale con 229 pass / 3 timeout / 10 test saltati per timeout di hook; successiva prova della candidata con 67 pass / 2 assertion su richieste duplicate / un timeout shell con errore cleanup albero 255. Quest'ultima ha motivato deduplica anche a livello agente; non è una prova della causa del timeout shell. Le verifiche beta.4 separate erano passate (234 test prima della diagnostica, 87 dopo correzione setup); non sostituiscono la verifica finale su dev. Esiti finali da aggiornare prima dell'integrazione. Nessuna release o promozione a main prevista da questa modifica. Dettagli funzionali e limiti in [CLOUD_IDLE_PAUSE_VALIDATION.md](CLOUD_IDLE_PAUSE_VALIDATION.md).
+
+La prima suite completa della PR ha rilevato due regressioni nei follow-up di analisi locali, riprodotte su tutte le piattaforme CI: l'attesa cleanup aggiunta al percorso comune posticipava la disponibilità dell'agente. Corretto il perimetro attendendo soltanto nel cloud, senza modificare i test locali. La prima suite PC ha inoltre registrato timeout di afterAll scale (10 s) e la prima CI Windows Node22 un timeout del launcher PowerShell: cause non stabilite, non dichiarate risolte dalla correzione locale/cloud. Verifica mirata della correzione: analisi locali passate, ma timeout hook di import del runtime cloud (11 test non eseguiti) e avviso rename stato fixture ENOENT; non un esito interamente verde. Build completa corretta passata. Log ed esiti restano conservati; nessun budget, assertion o carico ridotto. I risultati finali della revisione esatta sono riportati nella PR, senza cancellare queste evidenze storiche.
+
+Una traccia diagnostica separata ha osservato clone ancora pendenti dopo shutdown/rimozione home nei test CEO. Corretta soltanto la fixture ceoRuntime per tracciare e drenare tutte le attività avviate e tutti gli uffici, inclusi quelli riavviati nel caso di test; directory conservata se drain/shutdown fallisce. Nessuna assertion o timeout cambiati. Verifica mirata successiva: 33/33 test passati (CEO, analisi, drain e lifecycle pausa); questo non cancella i precedenti fallimenti della suite completa né prova la causa esatta dell'assertion directory.
+
 ## 2026-11-01
 
 ### GitHub Sponsors pubblico — collegamenti preparati

@@ -292,8 +292,9 @@ export class BoxPty implements Pty {
     const wasRunning = !this.exited;
     this.stopped = true;
     this.close();
-    void this.o.api.run(this.o.boxId, tmuxKill(this.o.token), { timeoutMs: 60_000 }).catch(() => undefined);
-    this.o.gone();
+    // The record's removal can suspend the Box. Finish remote cleanup first,
+    // otherwise this command can race with the pause and wake it back up.
+    void this.o.api.run(this.o.boxId, tmuxKill(this.o.token), { timeoutMs: 60_000 }).catch(() => undefined).then(() => this.o.gone());
     if (wasRunning) for (const cb of this.exitCbs) cb(-1);
   }
 

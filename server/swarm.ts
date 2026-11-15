@@ -627,6 +627,8 @@ export class Swarm {
   readonly cloud: Cloud;
   /** Cloud agents' machines: an Upstash Box each. */
   private boxMachines: BoxMachines;
+  private finishingAgents = new Map<string, number>();
+  private pausingAgents = new Set<string>();
   /** Cloud agents waiting for a sign-in in their terminal (holdForSignIn), by agent id. */
   private signIns = new Map<string, SignIn>();
   private toldStuck = new Set<string>(); // `${agentId}:${endedAt}`: agents in an error the manager was notified about
@@ -841,13 +843,16 @@ export class Swarm {
     const boxKept = this.state.agents.filter((a) => a.host === 'box' && a.boxCli);
     if (!boxApi) for (const a of boxKept) a.boxCli = null;
     else {
-      const kept = boxKept.map((a) => ({
-        agentId: a.id,
-        rec: a.boxCli!,
-        api: boxApi,
-        record: (rec: BoxCliRecord | null) => this.boxCliRecord(a.id, rec),
-        connection: (up: boolean) => this.boxMachines.connection(a.machine ?? machineName(a.id), up),
-      }));
+      const kept = boxKept.map((a) => {
+        const token = a.boxCli!.token;
+        return {
+          agentId: a.id,
+          rec: a.boxCli!,
+          api: boxApi,
+          record: (rec: BoxCliRecord | null) => this.boxCliRecord(a.id, rec, rec ? undefined : token),
+          connection: (up: boolean) => this.boxMachines.connection(a.machine ?? machineName(a.id), up),
+        };
+      });
       back.push(
         ...(await this.backend.cloud.reconnect(kept, terminalOf).catch((err) => {
           console.warn("could not pick up cloud agents' CLIs", err);
@@ -1438,6 +1443,21 @@ export class Swarm {
     this.quotaWaiting.delete(a.id);
     Object.assign(a, { status: 'idle', task: null, issueNumber: null, issueTitle: null, branch: null, prNumber: null, prUrl: null, lastError: null });
     this.emitAgent(a);
+    this.pauseIdleBox(a);
+  }
+
+  /** Either the task or the CLI can finish first; check both transitions. */
+  private pauseIdleBox(a: PersistedAgent) {
+    const machine = a.machine;
+    const idle = () => this.state.agents.includes(a) && a.host === 'box' && a.machine === machine &&
+      ((a.status === 'idle' && !a.task) || a.status === 'done') &&
+      !this.finishingAgents.has(a.id) && !a.boxCli && !a.needsSignIn && this.openCodeAuthRun?.agentId !== a.id;
+    if (!machine || !idle() || this.pausingAgents.has(a.id)) return;
+    this.pausingAgents.add(a.id);
+    void this.boxMachines.pause(machine, idle).catch(() => {
+      // Never include provider error bodies (which can contain credentials).
+      this.appendLog(a, [{ kind: 'system', text: '☁ Automatic Box pause failed. The cloud machine may still be active.' }]);
+    }).finally(() => { this.pausingAgents.delete(a.id); });
   }
 
   // ---------- GitHub / repos ----------
@@ -2445,18 +2465,28 @@ export class Swarm {
     if (check && creds.ownLogin && !(await this.boxSignedIn(a, cli))) throw new SignInNeeded(cli);
     // The Box's own Chromium starts with a first tab; Playwright attaches to it.
     const browser = browserTesting ? await api.browser(boxId).catch(() => false) : false;
-    return { api, boxId, env: creds.env, apiKeyHelper: creds.apiKeyHelper, browser, record: (rec) => this.boxCliRecord(a.id, rec), connection: (up) => this.boxMachines.connection(machine, up) };
+    let token: string | undefined;
+    return {
+      api, boxId, env: creds.env, apiKeyHelper: creds.apiKeyHelper, browser,
+      record: (rec) => {
+        if (rec) token = rec.token;
+        if (rec || token) this.boxCliRecord(a.id, rec, rec ? undefined : token);
+      },
+      connection: (up) => this.boxMachines.connection(machine, up),
+    };
   }
 
   /** A cloud agent's live CLI record changed: kept with them, so a restart picks the CLI up. Gone with no task: the Box can pause. */
-  private boxCliRecord(agentId: string, rec: BoxCliRecord | null) {
+  private boxCliRecord(agentId: string, rec: BoxCliRecord | null, expectedToken?: string) {
     const a = this.state.agents.find((x) => x.id === agentId);
     if (!a) return;
+    // A delayed cleanup from an old CLI must not erase a newer task's record.
+    if (!rec && expectedToken && a.boxCli?.token !== expectedToken) return;
     const was = a.boxCli;
     a.boxCli = rec;
     if (rec && was && was.token === rec.token && was.offset === rec.offset && was.busy === rec.busy && was.resumeId === rec.resumeId) return;
     this.save();
-    if (!rec && was && !a.task && a.machine && a.host === 'box') void this.boxMachines.pause(a.machine).catch(() => undefined);
+    if (!rec && was) this.pauseIdleBox(a);
   }
 
   /** A machine's Box changed state: its agent's card shows it. */
@@ -3368,6 +3398,18 @@ export class Swarm {
   }
 
   private async onFinished(a: PersistedAgent, repo: PersistedRepo, result: SessionResult) {
+    this.finishingAgents.set(a.id, (this.finishingAgents.get(a.id) ?? 0) + 1);
+    try {
+      await this.finishAgentSession(a, repo, result);
+    } finally {
+      const remaining = this.finishingAgents.get(a.id)! - 1;
+      if (remaining) this.finishingAgents.set(a.id, remaining);
+      else this.finishingAgents.delete(a.id);
+      this.pauseIdleBox(a);
+    }
+  }
+
+  private async finishAgentSession(a: PersistedAgent, repo: PersistedRepo, result: SessionResult) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // fired
     if (this.officeUpdate.handedOver && a.host !== 'box') return; // stopped for the office's update: recovered like after a restart
@@ -3380,7 +3422,10 @@ export class Swarm {
     recordCost(this.state.ops, repo.id, result.costUsd, a.endedAt);
     this.ledger({ kind: 'session', agentId: a.id, key: `${a.id}:${a.startedAt}:${a.endedAt}`, costUsd: result.costUsd, turns: result.turns }, false); // emitted below
     // Dev servers the agent forgot to stop would otherwise keep its port and lock its desk folder.
-    void this.releaseDesk(a, repo).catch(() => undefined);
+    const released = this.releaseDesk(a, repo).catch(() => undefined);
+    // Local analysis follow-ups have always been available synchronously when
+    // finished is reported. Only a Box pause must wait for remote cleanup.
+    if (a.host === 'box') await released;
     if (result.interrupted) this.interrupted(a);
 
     if (this.dropping.has(a.id)) this.dropTask(a, '↺ Cleared desk. Ready for new work.'); // stopped: its issue or PR closed
