@@ -140,6 +140,32 @@ describe('OpenCode cloud terminal (fake Box, no provider calls)', () => {
     // This proves only our adapter's contract, NOT Upstash's actual process lifetime.
   });
 
+  it('closes an idle cloud CLI at exactly five minutes without Clear desk', async () => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    const runner = await import('./cliRunner.ts');
+    runner.hooksReady();
+    const box = remote();
+    const term = new AgentTerminal();
+    let completedAt = 0;
+    const finished = vi.fn(() => { completedAt = Date.now(); });
+    const handle = runner.startCliSession({ cwd: '/remote/work', prompt: 'One task', systemAppend: '', cli: 'opencode', model: 'openai/fake', effort: 'medium', role: 'agent', terminal: term, keepAlive: true, browserTesting: false, additionalDirectories: [], box: box.target },
+      { log: () => undefined, tool: () => undefined, sessionId: () => undefined, browserUrl: () => undefined, screenshot: () => undefined, finished });
+    try {
+      await vi.advanceTimersByTimeAsync(0);
+      const tail = box.sessions.find(s => s.cmd.includes('tail -c'))!;
+      tail.onData(JSON.stringify({ hook_event_name: 'TurnComplete', last_assistant_message: 'Done' }) + '\n');
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(finished).toHaveBeenCalledOnce();
+      expect(box.record()).not.toBeNull();
+      await vi.advanceTimersByTimeAsync(completedAt + 5 * 60_000 - Date.now() - 1);
+      expect(box.record()).not.toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(box.record()).toBeNull();
+      expect(localSpawn).not.toHaveBeenCalled();
+    } finally { handle.stop(); term.dispose(); }
+  });
+
   it.each(['TurnError', 'Interrupt'])('replays %s that arrived while the office was closed, without a new task', async (event) => {
     vi.resetModules();
     vi.useFakeTimers();

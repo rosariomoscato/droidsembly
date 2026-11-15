@@ -21,6 +21,16 @@ Questo documento raccoglie le personalizzazioni di [rosariomoscato/cubefarm](htt
 
 La data della prima modifica è ricavata dalla cronologia Git; non viene usata come attestazione della data di creazione del fork su GitHub.
 
+## 2026-11-15
+
+### Pausa automatica Box e isolamento shell del setup — candidata
+
+**Cloud / correzione:** controllata la pausa sia alla liberazione del task sia alla chiusura della CLI, compresi task completati lasciati sulla scrivania. Cleanup remota prima della notifica di chiusura; finalizzazione dei risultati protetta; richieste duplicate accorpate e nuovo lavoro serializzato con pausa in corso. Una callback obsoleta non cancella il record della CLI successiva. Errori di pausa segnalati senza esporre il corpo della risposta provider.
+
+**Setup / correzione:** shell figlia `sh -c` con quoting sicuro, senza modificare verifiche, revisione marker, timeout o obbligo di exit zero. Diagnostica distingue codice di uscita e presenza marker. Probe remoti autorizzati hanno riprodotto exit 1 con `set -e` nel cmd diretto ed exit 0/1 corretti nella shell esplicita. La prova reale successiva ha completato lavoro e QA OpenCode e confermato la stessa Box paused dopo Clear desk, mediante sola lettura del provider.
+
+**Test e limiti:** nuova copertura lifecycle, scadenza CLI a cinque minuti con clock simulato e script setup in shell locale reale con tool inerti. Il percorso dei cinque minuti non è ancora collaudato con una nuova attesa reale sul provider. Conservati i fallimenti precedenti: due regressioni inizialmente rosse, verifica estesa iniziale con 229 pass / 3 timeout / 10 test saltati per timeout di hook; successiva prova della candidata con 67 pass / 2 assertion su richieste duplicate / un timeout shell con errore cleanup albero 255. Quest'ultima ha motivato deduplica anche a livello agente; non è una prova della causa del timeout shell. Le verifiche beta.4 separate erano passate (234 test prima della diagnostica, 87 dopo correzione setup); non sostituiscono la verifica finale su dev. Esiti finali da aggiornare prima dell'integrazione. Nessuna release o promozione a main prevista da questa modifica. Dettagli funzionali e limiti in [CLOUD_IDLE_PAUSE_VALIDATION.md](CLOUD_IDLE_PAUSE_VALIDATION.md).
+
 ## 2026-11-01
 
 ### GitHub Sponsors pubblico — collegamenti preparati
