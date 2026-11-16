@@ -4,7 +4,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import type { IPty } from '@lydell/node-pty';
-import { encode, hostSocket, PTY_PROTOCOL, readMessages, type FromHost, type HeldPty } from './ptyProtocol.ts';
+import { encode, hostSocket, PTY_PROTOCOL, ptyExitCode, readMessages, type FromHost, type HeldPty } from './ptyProtocol.ts';
 
 // The office's side of its terminal keeper (ptyHost.ts): CLIs start in terminals the keeper holds, so they outlive an
 // office restart, and the office picks them up again when it comes back. If the keeper can't start, terminals run in
@@ -100,7 +100,7 @@ function onMessage(m: FromHost) {
     case 'data':
       return remote.get(m.id)?.data(m.data);
     case 'exit':
-      return remote.get(m.id)?.exit(m.code);
+      return remote.get(m.id)?.exit(ptyExitCode(m.code));
     case 'hook':
       void Promise.resolve()
         .then(() => hookHandler(m.token, m.body))
@@ -235,7 +235,7 @@ export function spawnPty(file: string, args: string[], o: PtyOptions, meta: unkn
     kill: () => killTree(p),
     setMeta: () => undefined,
     onData: (cb) => void p.onData(cb),
-    onExit: (cb) => void p.onExit(({ exitCode }) => cb(exitCode)),
+    onExit: (cb) => void p.onExit(({ exitCode }) => cb(ptyExitCode(exitCode))),
   };
 }
 

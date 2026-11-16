@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import path from 'node:path';
 import type { Socket } from 'node:net';
 import { describe, expect, it } from 'vitest';
-import { encode, hostSocket, readMessages, type ToHost } from './ptyProtocol.ts';
+import { encode, hostSocket, ptyExitCode, readMessages, type ToHost } from './ptyProtocol.ts';
 
 describe('hostSocket', () => {
   it('names one named pipe per office home on Windows, whatever the path looks like', () => {
@@ -29,5 +29,16 @@ describe('readMessages', () => {
       { op: 'write', id: 'x', data: 'line one\nline two' },
       { op: 'kill', id: 'x' },
     ]);
+  });
+});
+
+describe('exit status boundary', () => {
+  it.each([0, 3, 73, -1, 4294967295])('preserves verified integer status %s', (code) => {
+    expect(ptyExitCode(code)).toBe(code);
+  });
+  it.each([undefined, null, NaN, Infinity, -Infinity, 0.5, '3', {}, Number.MAX_SAFE_INTEGER + 1])('fails closed for an unavailable or invalid exit status %s', (code) => {
+    expect(ptyExitCode(code)).toBe(-1);
+    expect(JSON.parse(encode({ op: 'exit', id: 'synthetic', code: ptyExitCode(code) })))
+      .toEqual({ op: 'exit', id: 'synthetic', code: -1 });
   });
 });
