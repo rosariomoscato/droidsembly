@@ -12,7 +12,7 @@ A visual workspace for AI-assisted software development: connect your GitHub rep
 
 [Website](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Releases](https://github.com/rosariomoscato/droidsembly/releases) · [Report an issue](https://github.com/rosariomoscato/droidsembly/issues) · [Contributing](CONTRIBUTING.md) · [Documentation](#documentation) · [Support the project](#support-the-project)
 
-**Published beta:** [0.4.0-beta.4 release notes](docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 is a local candidate, not yet published or fully validated:** see [candidate notes and pending checks](docs/RELEASE_NOTES_0.4.0-beta.5.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
+**Published beta:** [0.4.0-beta.4 release notes](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 is a local candidate, not yet published or fully validated:** see [candidate notes and pending checks](https://github.com/rosariomoscato/droidsembly/blob/fix/beta5-validation-blockers/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
 
 **Free and open source, under the MIT license.** No paid activation or commercial agent unlocks. Voluntary support helps development; your AI subscriptions, API usage and optional cloud services have their own costs and limits.
 
@@ -41,7 +41,7 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 
 ## What you can do
 
-- **Coordinate coding agents:** Claude Code, Codex and OpenCode V2, with model selection and supported reasoning variants. Provider availability depends on the runtime; the Agent SDK runtime is Claude-only. OpenCode supports local terminals and Upstash Box workers; the office and CEO remain local. See [Box validation limits](docs/OPENCODE_BOX_VALIDATION.md).
+- **Coordinate coding agents:** Claude Code, Codex and OpenCode V2, with model selection and supported reasoning variants. Provider availability depends on the runtime; the Agent SDK runtime is Claude-only. OpenCode supports local terminals and Upstash Box workers; the office and CEO remain local. See [Box validation limits](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Follow the full workflow:** issue → development and initial checks → pull request → separate QA session → corrections → merge when the configured conditions pass.
 - **Keep control:** manual or automatic assignment, optional CEO onboarding, team-change approvals and a separate auto-merge switch.
 - **Watch real work:** live terminals, project floors, a Kanban board and the manager console. Local clones and worktrees separate agents' working copies; they are not security sandboxes.
@@ -63,7 +63,7 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 - Claude Code is bundled through the Agent SDK. OpenCode **2.x** and Codex are installed separately when selected. OpenCode-only terminal sessions do not require a Claude subscription.
 - Google Chrome for agents that test projects in a browser.
 
-**Recommended office browser:** up-to-date Google Chrome is our reference browser for the isolated desktop checks. Other modern browsers may work, but were not validated in this test cycle; this is not a Chrome-only support policy. Native notification clicks and window focus remain unverified. See [candidate validation scope and limits](docs/RELEASE_NOTES_0.4.0-beta.5.md).
+**Recommended office browser:** up-to-date Google Chrome is our reference browser for the isolated desktop checks. Other modern browsers may work, but were not validated in this test cycle; this is not a Chrome-only support policy. Native notification clicks and window focus remain unverified. See [candidate validation scope and limits](https://github.com/rosariomoscato/droidsembly/blob/fix/beta5-validation-blockers/docs/RELEASE_NOTES_0.4.0-beta.5.md).
 
 The project targets Windows, macOS and Linux. The no-AI demo below does not require provider credentials or a GitHub login.
 

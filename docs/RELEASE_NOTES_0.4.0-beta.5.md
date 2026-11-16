@@ -2,7 +2,8 @@
 
 **Not published. Local package gates passed; independent QA/CI pending. / Non pubblicata. Gate locali del pacchetto superati; QA indipendente/CI pendenti.**
 Prepared locally from dev `93fdcc366a7d6644da8381856343ff825a0d3260` plus the
-uncommitted changes documented in [the blocker worklog](BETA5_BLOCKERS_WORKLOG.md).
+changes frozen in commit `0763672` and subsequent review corrections documented
+in [the blocker worklog](BETA5_BLOCKERS_WORKLOG.md).
 This is not the old PR #67 candidate and does not supersede its failed gates.
 
 ## Italiano
@@ -40,7 +41,15 @@ Smoke installato del tarball esatto **PASS, exit 0**: versione/help beta.5,
 compatibilità entry legacy, 93 testi di licenza, CLI browser tool, client/API e
 persistenza della demo isolata con 2 piani/11 agenti; nessuno stato reale creato.
 
-**Gate ancora aperti:** review indipendente e CI. Fallimenti storici conservati: candidato
+La review statica indipendente ha richiesto due correzioni: diagnostica launcher
+con stream null e link README per il pacchetto installato. Le correzioni non
+cambiano il runtime; il tarball sopra resta l'artefatto precedente conservato.
+Follow-up approvato nella review statica; typecheck e 11/11 test mirati PASS.
+Nuovo tarball con README corretti: smoke installato PASS, SHA256
+`d3ab342c28034737c6f279a2b714d7add82d126ccf4a72b8f24c9a4eff49536c`.
+Runtime e dipendenze invariati dopo il run completo; nessun nuovo full run dichiarato.
+
+**Gate ancora aperti:** QA funzionale indipendente e CI. Fallimenti storici conservati: candidato
 precedente 3129 PASS/3 FAIL; diagnosi dev 3273 PASS/5 FAIL. Le cause del PTY e
 launcher storici e altri timeout Git/npm/workspace non sono dichiarate risolte.
 Issue #39/#42 non chiuse e nessuna rinuncia implicita ai rischi.
@@ -48,7 +57,9 @@ Issue #39/#42 non chiuse e nessuna rinuncia implicita ai rischi.
 Solo prove sintetiche attuali: non certificano SDK Claude reale, login cloud,
 ciclo completo Box o notifiche native/focus. Nessun aggiornamento del PC, dei
 dati o dei provider. Nessun commit/push/merge/pubblicazione eseguito per questa
-candidata; canale previsto `next`, senza modifica di `latest`.
+candidata al momento dei gate locali; successivamente è stato creato il commit
+locale `0763672`, senza push/merge/pubblicazione. Canale previsto `next`, senza
+modifica di `latest`.
 
 ## English
 
@@ -70,7 +81,10 @@ and isolated home. Build and102-file tarball preparation passed (SHA256 above);
 bundler warnings remain visible. Exact installed tarball smoke **passed, exit0**:
 version/help, legacy entry,93 license texts,browser-tool CLI,client/API and isolated
 demo persistence (2floors/11agents),without real state. **Independent review and
-CI remain pending**. Historical failures remain
+CI remain pending**. Follow-up static review approved the nullable-stream and
+hosted README-link corrections; typecheck and11/11 targeted tests passed. The
+new README tarball also passed installed smoke (SHA256 d3ab342c28034737c6f279a2b714d7add82d126ccf4a72b8f24c9a4eff49536c).
+Runtime/dependencies are unchanged since the full run. Historical failures remain
 evidence, not retroactively green. Issues #39/#42 and unexplained native/launcher/
 CLI timing failures are not declared resolved. No live provider/Box/PC update,
 publication or channel changes are implied. Planned channel: `next`.

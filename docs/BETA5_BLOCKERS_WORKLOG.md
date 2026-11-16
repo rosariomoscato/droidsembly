@@ -126,3 +126,27 @@ Successful smoke fixture removed by the runner; logs/tarball/evidence retained.
 This is a local demo package gate, not real provider/Box/native-focus testing.
 Local preparation gates now PASS; independent fresh-session QA and CI remain
 pending. No commit, push, PR change, merge, release or installed-office update.
+
+## Independent static review and follow-up
+
+The preparation-time statements above about uncommitted work/no commit describe
+their original phase. Candidate frozen in local commit0763672, then reviewed in
+a fresh independent session (static review, not complete functional QA).
+Review found P2: new launcher diagnostics called includes on nullable streams,
+masking ENOENT diagnostics; P3: newly relative README doc links point outside the
+packed whitelist. Follow-up normalizes diagnostic streams, adds an ENOENT/null
+regression, and uses hosted links with a packaged-README link regression. No
+runtime/dependency/deadline change. Old tarball remains retained, not overwritten;
+README changes require a new artifact and smoke before claiming final-package
+validation. PTY boundary injection coverage remains a disclosed review gap.
+Independent follow-up review and targeted checks pending; no push/publication yet.
+
+Follow-up static review approved: P2 closed, P3 source correction approved with
+hosted URL reachability to check after push. Typecheck and11/11 targeted tests
+PASS. New README tarball installed smoke PASS,exit0 (version/help,93license texts,
+browser-tool CLI,isolated demo2floors/11agents); SHA256
+`d3ab342c28034737c6f279a2b714d7add82d126ccf4a72b8f24c9a4eff49536c`, retained in
+`b5review-20261116`, separately from original artifact. No runtime/dependency
+change after the3306-test full run; only reviewed tests/README/documentation.
+Follow-up commit and draft PR toward dev now planned under owner authorization;
+no merge/publication/PC update. Independent functional QA and CI remain gates.

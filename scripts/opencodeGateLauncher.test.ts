@@ -4,14 +4,20 @@ import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 
 let dir='';
+type LauncherResult = Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'signal'> & { stdout: string | null; stderr: string | null };
 // Fixed protocol only: never include raw subprocess streams, errors, paths or environment in CI diagnostics.
-function launcherDiagnostics(result: Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'signal' | 'stderr'>) {
+function launcherDiagnostics(result: Omit<LauncherResult, 'stdout'>) {
   const milestones=[...(result.stderr ?? '').matchAll(/^probe (preflight-start|preflight-done|first-input-done|inputs-done|marshal-start|marshal-done|process-info-ready|environment-ready|child-start|child-wait|disposed) ms=(\d{1,9})\r?$/gm)]
     .slice(-16).map((m)=>({stage:m[1],ms:Number(m[2])}));
   const code=(result.error as NodeJS.ErrnoException | undefined)?.code;
   return {error:result.error ? (code && ['ETIMEDOUT','ENOENT','EACCES','EPERM'].includes(code) ? code : 'other') : null,
     status:result.status,signal:result.signal ? (/^SIG[A-Z]{1,10}$/.test(result.signal) ? result.signal : 'other') : null,
     milestones,lastStage:milestones.at(-1)?.stage ?? 'no-milestone'};
+}
+function launcherProbeDiagnostics(result: LauncherResult) {
+  const stdout=result.stdout ?? '', stderr=result.stderr ?? '';
+  return {...launcherDiagnostics(result),parserError:stderr.includes('ParserError'),preflightRejected:stderr.includes('Preflight failed.'),
+    failureVisible:stdout.includes('Runner exit code: 1'),disposed:stderr.includes('probe disposed ms=')};
 }
 afterEach((context)=>{
   if(dir && context.task.result?.state==='fail') {
@@ -21,6 +27,12 @@ afterEach((context)=>{
   if(dir)fs.rmSync(dir,{recursive:true,force:true,maxRetries:5});
 });
 describe('protected PowerShell launcher failure visibility, no real credentials or provider',()=>{
+  it('retains safe startup-error diagnostics when both subprocess streams are null',()=>{
+    const diagnostics=launcherProbeDiagnostics({error:Object.assign(new Error('private executable path'),{code:'ENOENT'}),status:null,signal:null,stdout:null,stderr:null});
+    expect(diagnostics).toEqual({error:'ENOENT',status:null,signal:null,milestones:[],lastStage:'no-milestone',
+      parserError:false,preflightRejected:false,failureVisible:false,disposed:false});
+    expect(JSON.stringify(diagnostics)).not.toContain('private executable path');
+  });
   it('retains bounded milestone diagnostics for a timeout without exposing raw subprocess data',()=>{
     const diagnostics=launcherDiagnostics({error:Object.assign(new Error('synthetic-private-error'),{code:'ETIMEDOUT'}),status:null,signal:'SIGTERM',
       stderr:'synthetic-private-output\nprobe child-wait ms=123\r\nprobe synthetic-private-stage ms=124\n'});
@@ -65,11 +77,10 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     const keep=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','LOCALAPPDATA','APPDATA','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','HOMEDRIVE','HOMEPATH','USERNAME','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS']);
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{env,encoding:'utf8',timeout:4000,windowsHide:true});
+    const diagnostics=launcherProbeDiagnostics(result);
     // Reporters can omit assertion-message stderr; emit only bounded safe protocol data on failure.
-    if(result.error || result.status!==1 || result.signal || !result.stdout.includes('Runner exit code: 1') || !result.stderr.includes('probe disposed ms=')) {
-      console.error('launcher-probe-diagnostics',JSON.stringify({...launcherDiagnostics(result),
-        parserError:result.stderr.includes('ParserError'),preflightRejected:result.stderr.includes('Preflight failed.'),
-        failureVisible:result.stdout.includes('Runner exit code: 1'),disposed:result.stderr.includes('probe disposed ms=')}));
+    if(result.error || result.status!==1 || result.signal || !diagnostics.failureVisible || !diagnostics.disposed) {
+      console.error('launcher-probe-diagnostics',JSON.stringify(diagnostics));
       // This fixture has only fixed synthetic inputs. Keep its local raw result
       // for diagnosis, but never emit arbitrary streams/paths to the CI log.
       fs.writeFileSync(path.join(dir,'synthetic-result.json'),JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr},null,2));
