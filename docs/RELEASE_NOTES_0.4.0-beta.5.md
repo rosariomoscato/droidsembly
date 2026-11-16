@@ -1,6 +1,17 @@
 # Droidsembly 0.4.0-beta.5 — release candidate / candidata al rilascio
 
 **Not published. Integrated into dev with independent QA and green CI. / Non pubblicata. Integrata in dev con QA indipendente e CI verde.**
+
+**Promotion blocked / Promozione bloccata:** the subsequent dev-to-main
+[PR #78](https://github.com/rosariomoscato/droidsembly/pull/78) CI
+[43833575604](https://github.com/rosariomoscato/droidsembly/actions/runs/43833575604)
+failed on Windows Node 24:3307 PASS/1 FAIL,304files,launcher PowerShell timeout
+at the original4000ms deadline,no recognized milestones. The other four platform
+jobs passed; Windows Node24 build/smoke did not run. Previous integration CI
+remains separate evidence,not a pass for this promotion. No unchanged rerun,
+deadline increase,main merge or publication. Startup diagnostics are being
+extended; the cause remains unproven. / Diagnostica startup in preparazione,
+causa ancora non dimostrata; nessuna promozione o pubblicazione eseguita.
 Prepared locally from dev `93fdcc366a7d6644da8381856343ff825a0d3260` plus the
 changes frozen in commit `0763672` and subsequent review corrections documented
 in [the blocker worklog](BETA5_BLOCKERS_WORKLOG.md).

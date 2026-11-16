@@ -1,5 +1,35 @@
 # Beta.5 blockers — autonomous local follow-up
 
+## Promotion blocker after documentation integration
+
+PR77 documentation merged devacd0fbcb61559f3b129dc6e8480da6b46bd02e47.
+Draft dev-to-main PR78 opened under preparation-only authorization; main merge
+and publication remain separate. Promotion CI43833575604 failed Windows Node24:
+3307PASS/1FAIL,304files,129.62s,launcher spawnSync ETIMEDOUT4000ms,statusnull,
+SIGTERM,no recognized milestones. Other4platform jobs PASS; failed job's build
+and smoke skipped. Prior green pre/postmerge76 and docs77 CI remain distinct.
+Raw promotion logs/status retained in b5review-20261116; no CI rerun requested.
+
+Read-only diagnosis: first existing marker follows PowerShell startup/parsing,
+stopwatch/function initialization,Get-Command node.exe and URI/script assignment.
+No-milestone does NOT prove empty stderr or a specific host/Defender/Node cause.
+Local source comparison after fetch confirms launcher/scheduling/config identical
+between reviewed docs87b948c and actual CI headacd0fbc.
+
+Dedicated diagnostic branch adds script-entry and pre/post node/loader markers,
+stream nullness/length and fixed startup categories plus monotonic spawn duration
+and essential-variable presence booleans. No raw streams/environment/path values
+printed. Extra synthetic regressions cover startup phases/null/unclassified/error
+categories. Original real case,assertions,4000ms command budget,scheduling and
+payload retained; no warmup. This is observability,not a claimed performance fix.
+No external fixture/provider action or main merge/publication performed.
+
+Diagnostic patch typecheck and8/8 targeted tests PASS; native synthetic launcher
+2174ms,original4000ms deadline. Independent fresh-session static review PASS,
+no blocking findings. These local results do not explain the original CI timeout.
+Separate diagnostic PR toward dev planned for a changed,observable CI experiment;
+promotion78 remains draft/blocked and failed run43833575604 is not retried.
+
 ## Current integration status — November 16, 2026
 
 Historical sections below retain their then-current pending/negative states.
