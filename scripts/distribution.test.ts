@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { isNewer, releaseInfo, updateInfo } from '../bin/distribution.js';
 
 describe('npm distribution channels', () => {
+  it('keeps beta.5 on next with its exact tag and recognizes the beta.4 update', () => {
+    expect(releaseInfo('0.4.0-beta.5', 'droidsembly-v0.4.0-beta.5')).toEqual({ tag: 'droidsembly-v0.4.0-beta.5', channel: 'next' });
+    expect(updateInfo('droidsembly', '0.4.0-beta.5').channel).toBe('next');
+    expect(isNewer('0.4.0-beta.5', '0.4.0-beta.4')).toBe(true);
+    expect(() => releaseInfo('0.4.0-beta.5', 'droidsembly-v0.4.0-beta.4')).toThrow();
+  });
   it('keeps beta.2 on next with its own tag and recognizes an update from beta.1', () => {
     expect(releaseInfo('0.4.0-beta.2', 'droidsembly-v0.4.0-beta.2')).toEqual({ tag: 'droidsembly-v0.4.0-beta.2', channel: 'next' });
     expect(updateInfo('droidsembly', '0.4.0-beta.2').channel).toBe('next');

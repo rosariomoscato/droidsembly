@@ -13,7 +13,13 @@ function launcherDiagnostics(result: Pick<SpawnSyncReturns<string>, 'error' | 's
     status:result.status,signal:result.signal ? (/^SIG[A-Z]{1,10}$/.test(result.signal) ? result.signal : 'other') : null,
     milestones,lastStage:milestones.at(-1)?.stage ?? 'no-milestone'};
 }
-afterEach(()=>{if(dir)fs.rmSync(dir,{recursive:true,force:true,maxRetries:5});});
+afterEach((context)=>{
+  if(dir && context.task.result?.state==='fail') {
+    console.error('launcher-fixture-retained', JSON.stringify({synthetic:true}));
+    return;
+  }
+  if(dir)fs.rmSync(dir,{recursive:true,force:true,maxRetries:5});
+});
 describe('protected PowerShell launcher failure visibility, no real credentials or provider',()=>{
   it('retains bounded milestone diagnostics for a timeout without exposing raw subprocess data',()=>{
     const diagnostics=launcherDiagnostics({error:Object.assign(new Error('synthetic-private-error'),{code:'ETIMEDOUT'}),status:null,signal:'SIGTERM',
@@ -60,7 +66,14 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{env,encoding:'utf8',timeout:4000,windowsHide:true});
     // Reporters can omit assertion-message stderr; emit only bounded safe protocol data on failure.
-    if(result.error || result.status!==1 || result.signal) console.error('launcher-probe-diagnostics',JSON.stringify(launcherDiagnostics(result)));
+    if(result.error || result.status!==1 || result.signal || !result.stdout.includes('Runner exit code: 1') || !result.stderr.includes('probe disposed ms=')) {
+      console.error('launcher-probe-diagnostics',JSON.stringify({...launcherDiagnostics(result),
+        parserError:result.stderr.includes('ParserError'),preflightRejected:result.stderr.includes('Preflight failed.'),
+        failureVisible:result.stdout.includes('Runner exit code: 1'),disposed:result.stderr.includes('probe disposed ms=')}));
+      // This fixture has only fixed synthetic inputs. Keep its local raw result
+      // for diagnosis, but never emit arbitrary streams/paths to the CI log.
+      fs.writeFileSync(path.join(dir,'synthetic-result.json'),JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr},null,2));
+    }
     expect(result.error).toBeUndefined();expect(result.status).toBe(1);
     expect(result.stdout).toContain('Runner exit code: 1');
     expect(result.stderr).toContain('probe disposed ms=');

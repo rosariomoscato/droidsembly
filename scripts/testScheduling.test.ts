@@ -52,6 +52,11 @@ describe('test resource scheduling', () => {
     expect(timingSensitiveTests).toContain('scripts/opencodeGateLauncher.test.ts');
   });
 
+  it('runs the complete AST/i18n coverage file in the quiet phase without changing its budget', () => {
+    expect(timingSensitiveTests).toContain('client/src/i18nCoverage.test.ts');
+    for (const project of testSchedulingProjects) expect(project.test).not.toHaveProperty('testTimeout');
+  });
+
   it('does not override timeouts, retries, sampling, isolation or the functional worker count', () => {
     for (const project of testSchedulingProjects) {
       for (const key of ['testTimeout', 'hookTimeout', 'retry', 'isolate', 'testNamePattern', 'passWithNoTests']) {
