@@ -182,7 +182,7 @@ describe('launchArgs', () => {
     expect(launch.args).not.toContain('--model');
     expect(launch.args.slice(-2)).toEqual(['--prompt', '--looks like a flag']);
     const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
-    expect(config.plugins).toEqual([{ package: 'file:///cubefarm-plugin', options: { sessionID: 'ses_cubefarm11111111111111111111111111111111', notifyUrl: ctx().notify.url, model: null } }]);
+    expect(config.plugins).toEqual([{ package: 'file:///cubefarm-plugin', options: { sessionID: 'ses_droidsembly11111111111111111111111111111111', notifyUrl: ctx().notify.url, model: null } }]);
     expect(config.default_agent).toBe('droidsembly');
     expect(config.agents).toEqual({ droidsembly: { description: 'The Droidsembly office session', mode: 'primary' } });
     for (const deprecated of ['plugin', 'permission', 'provider', 'autoupdate']) expect(config).not.toHaveProperty(deprecated);
@@ -213,8 +213,10 @@ describe('launchArgs', () => {
     expect(config.mcp.servers.playwright).toEqual({ type: 'local', command: ['node', 'browser.js'] });
   });
 
-  it.each(['agent', 'ceo'] as const)('keeps a historical OpenCode session ID and model variant intact for a %s', (role) => {
-    const resumeId = 'ses_cubefarm11111111111111111111111111111111';
+  it.each([
+    ['agent', 'cubefarm'], ['ceo', 'cubefarm'], ['agent', 'droidsembly'], ['ceo', 'droidsembly'],
+  ] as const)('keeps the OpenCode session ID and model variant intact for a %s (%s)', (role, prefix) => {
+    const resumeId = `ses_${prefix}11111111111111111111111111111111`;
     const launch = launchArgs('opencode', ctx({ role, resumeId, model: 'openai/test-model#medium' }));
     const config = JSON.parse(launch.env.OPENCODE_CONFIG_CONTENT);
     expect(launch.args[launch.args.indexOf('--session') + 1]).toBe(resumeId);
@@ -251,6 +253,8 @@ describe('localUrl', () => {
     const ollama = LOCAL_PROVIDERS[0];
     expect(localUrl(ollama, {})).toBe('http://127.0.0.1:11434/v1');
     expect(localUrl(ollama, { CUBEFARM_OLLAMA_URL: ' http://gpu-box:11434/v1 ' })).toBe('http://gpu-box:11434/v1');
+    expect(localUrl(ollama, { DROIDSEMBLY_OLLAMA_URL: 'http://new:11434/v1', CUBEFARM_OLLAMA_URL: 'http://old:11434/v1' })).toBe('http://new:11434/v1');
+    expect(localUrl(ollama, { DROIDSEMBLY_OLLAMA_URL: '', CUBEFARM_OLLAMA_URL: 'http://old:11434/v1' })).toBe(ollama.url);
   });
 });
 

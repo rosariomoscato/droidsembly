@@ -30,8 +30,8 @@ import { THEMES } from './themes';
 // synthesized), then cheers, throws confetti and goes back up to work. The CEO's phone greeting comes from the server.
 
 const DEF = THEMES.birthday;
-const SUNG_KEY = 'cubefarm:birthday-sung';
-const CAKE_KEY = 'cubefarm:cake';
+const SUNG_KEY = 'droidsembly:birthday-sung';
+const CAKE_KEY = 'droidsembly:cake';
 
 function useName() {
   const manager = useStore((s) => s.settings.managerName);

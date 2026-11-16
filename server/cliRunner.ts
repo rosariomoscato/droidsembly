@@ -105,7 +105,7 @@ function writeHelpers() {
   const pluginDir = path.join(BIN_DIR, 'opencode-plugin');
   fs.mkdirSync(pluginDir, { recursive: true });
   fs.writeFileSync(path.join(pluginDir, 'index.js'), OPENCODE_PLUGIN_SOURCE);
-  fs.writeFileSync(path.join(pluginDir, 'package.json'), JSON.stringify({ name: 'cubefarm-office-plugin', type: 'module', exports: './index.js' }));
+  fs.writeFileSync(path.join(pluginDir, 'package.json'), JSON.stringify({ name: 'droidsembly-office-plugin', type: 'module', exports: './index.js' }));
   helpersWritten = true;
 }
 

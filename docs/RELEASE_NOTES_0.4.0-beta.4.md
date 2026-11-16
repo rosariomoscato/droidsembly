@@ -1,6 +1,10 @@
-# Droidsembly 0.4.0-beta.4 — candidate / candidata
+# Droidsembly 0.4.0-beta.4 — published on next / pubblicata su next
 
-**Not yet published / Non ancora pubblicata.** Prepared from reviewed `dev` commit `86de37f96829250fd7537d148a8627e023a478d5`. Intended channel: **`next`**; `latest` stays unchanged. PC updates are deferred. Package preparation changes version/documentation only, not dependencies or runtime behavior.
+**Published and verified November 14, 2026 / Pubblicata e verificata il 14 novembre 2026.** Channel **`next`**; `latest` remains beta.1. [Release](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.4), [successful publication workflow](https://github.com/rosariomoscato/droidsembly/actions/runs/43610301565). The immutable package commit is `09d2089c4e47db0f25f5784f0d336ae7e354b689`; canonical 99-file tarball SHA256 is `03bcfc018cfd562a6c38a34949cfb0e2a11338ad53e46459ab59669c19660e52`. Public artifact and channel verification and installed smoke passed. Publication does not update your PC automatically or migrate office data.
+
+The preparation-time record below is preserved, including original failures and its then-pending release gates. “Not yet published” and “deferred” statements below describe that historical phase, not current registry availability. / Lo storico di preparazione seguente conserva fallimenti e verifiche allora pendenti: le indicazioni di pubblicazione non ancora avvenuta e rinvio riguardano quella fase, non lo stato attuale del registry.
+
+Prepared from reviewed `dev` commit `86de37f96829250fd7537d148a8627e023a478d5`. Package preparation changed version/documentation only, not dependencies or runtime behavior. Existing installs require a separate controlled update; see [startup and update guidance](QUICKSTART_PC.md).
 
 ## Italiano
 

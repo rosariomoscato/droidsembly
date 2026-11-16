@@ -8,6 +8,7 @@ export const timingSensitiveTests = [
   'server/httpParser.test.ts',
   'server/notifier.test.ts',
   'client/src/world/appearance.test.ts',
+  'client/src/i18nCoverage.test.ts',
   'client/src/world/face.test.ts',
   'client/src/world/walkways.test.ts',
   'client/src/ui/keyboards.test.ts',

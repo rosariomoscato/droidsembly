@@ -24,6 +24,8 @@ import type { OfficeUpdateView } from '../../shared/types';
 import type { Agent } from './store';
 
 const surfaces = [
+  'ui/CodingAgentTestNotice.tsx',
+  'ui/signInText.ts',
   'ui/OpenCodeConnections.tsx',
   'ui/PhoneAccess.tsx',
   'world/CoffeeMachine.tsx',
@@ -43,6 +45,7 @@ const surfaces = [
 
 describe('Italian interface coverage', () => {
   it('has translations for literal messages explicitly marked on the covered surfaces', () => {
+    const started = performance.now();
     const keys = new Set<string>();
     let surface = '';
     type Node = { type?: string; [key: string]: unknown };
@@ -97,6 +100,7 @@ describe('Italian interface coverage', () => {
       expect(parsed.errors, file).toEqual([]);
       visit(parsed.program as unknown as Node);
     }
+    expect(performance.now() - started).toBeLessThan(5000);
     expect(keys.size).toBeGreaterThan(200);
     expect([...keys].filter((key) => !Object.hasOwn(italian, key))).toEqual([]);
   });

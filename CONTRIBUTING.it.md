@@ -32,7 +32,7 @@ Dettagli su test, browser degli agenti e struttura del codice: [Testing](CONTRIB
 
 ## Release
 
-La prima beta `droidsembly@0.4.0-beta.1` è [pubblicata su npm](https://www.npmjs.com/package/droidsembly). Il canale consigliato è `next`; il comando pubblico è `droidsembly`. Il file interno `bin/cubefarm.js` resta per compatibilità.
+La prima beta `droidsembly@0.4.0-beta.1` è [pubblicata su npm](https://www.npmjs.com/package/droidsembly). Il canale consigliato è `next`; il comando pubblico è `droidsembly`. L'entry canonico è `bin/droidsembly.js`; `bin/cubefarm.js` resta come wrapper per compatibilità.
 
 La configurazione OIDC per le prossime pubblicazioni è ancora da completare e validare. Tag, pubblicazione npm ed esecuzione del workflow di release richiedono autorizzazione esplicita del maintainer. Vedi la [guida alle release](docs/NPM_RELEASE.md).
 

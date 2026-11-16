@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { preferences } from './preferences';
+import { DEFAULT_CLI } from '../../shared/agentDefaults';
 import { translate, type Language } from '../../shared/i18n';
 import { CEO_ID, DEFAULT_DOG_NAME, DEFAULT_MAX_AGENTS, type AgentView, type CeoInfo, type CliView, type CloudView, type DoctorFinding, type HireRequestView, type LogLine, type NotifyChannelsView, type OfficeUpdateView, type OpsView, type PhoneMessage, type PongRow, type PrPreviewView, type QaView, type RepoView, type ServerEvent, type SwarmSettings, type TickerItem, type UsageView, type VisitorView, type VoiceCacheView, type WorldSnapshot } from '../../shared/types';
 import { blockers } from '../../shared/issues';
@@ -184,11 +186,11 @@ export interface SavedView {
   yaw: number;
   pitch: number;
 }
-const VIEW_KEY = 'cubefarm:view';
+const VIEW_KEY = 'droidsembly:view';
 
 export function loadView(): SavedView | null {
   try {
-    const v = JSON.parse(localStorage.getItem(VIEW_KEY) ?? 'null') as SavedView | null;
+    const v = JSON.parse(preferences.getItem(VIEW_KEY) ?? 'null') as SavedView | null;
     return v && [v.floor, v.x, v.z, v.yaw, v.pitch].every(Number.isFinite) ? v : null;
   } catch {
     return null;
@@ -197,7 +199,7 @@ export function loadView(): SavedView | null {
 
 export function saveView(v: SavedView) {
   try {
-    localStorage.setItem(VIEW_KEY, JSON.stringify(v));
+    preferences.setItem(VIEW_KEY, JSON.stringify(v));
   } catch {
     // storage may be unavailable (private mode); the view just won't be remembered
   }
@@ -215,10 +217,10 @@ export const useStore = create<State>((set, get) => ({
   // Until the server's snapshot arrives; setupDone stays true so the wizard doesn't flash while loading.
   settings: {
     sessionLimit: 0,
-    defaultModel: 'claude-opus-5-5',
+    defaultModel: '',
     defaultEffort: 'medium',
     runtime: 'terminal',
-    defaultCli: 'claude',
+    defaultCli: DEFAULT_CLI,
     scaling: 'approve',
     maxAgents: DEFAULT_MAX_AGENTS,
     ceoHeartbeatMin: 60,

@@ -4,6 +4,7 @@ import { Outlines } from './Outlines';
 import * as THREE from 'three';
 import { useRenderPaused } from '../perf';
 import { useStore } from '../store';
+import { preferences } from '../preferences';
 import { musicDucked, musicNodes, musicTime, nowPlaying, playTrack, setMusicLevel, setMusicQuiet, stopMusic } from '../ui/music';
 import { clampMusicLevel, MAX_MUSIC_LEVEL } from '../ui/musicMix';
 import { noise, tone, type Vec3 } from '../ui/sfx';
@@ -25,13 +26,13 @@ import { Ball, Box, Cyl } from './Toon';
 // spins its record, cycles its neon and puffs music notes on the beat. Only the current floor is drawn, so there's one
 // jukebox at a time; each floor remembers the song it's on for the session.
 
-const ON_KEY = 'cubefarm:jukebox';
-const VOL_KEY = 'cubefarm:jukebox:vol:';
-const STATION_KEY = 'cubefarm:jukebox:station:';
+const ON_KEY = 'droidsembly:jukebox';
+const VOL_KEY = 'droidsembly:jukebox:vol:';
+const STATION_KEY = 'droidsembly:jukebox:station:';
 
 function loadOn() {
   try {
-    return localStorage.getItem(ON_KEY) !== 'off';
+    return preferences.getItem(ON_KEY) !== 'off';
   } catch {
     return true;
   }
@@ -79,7 +80,7 @@ function stationFor(floor: number): Station {
   let s = stations.get(floor);
   if (s === undefined) {
     try {
-      s = parseStation(localStorage.getItem(STATION_KEY + floor));
+      s = parseStation(preferences.getItem(STATION_KEY + floor));
     } catch {
       s = 'all';
     }
@@ -92,7 +93,7 @@ function volumeFor(floor: number) {
   let v = volumes.get(floor);
   if (v === undefined) {
     try {
-      v = clampMusicLevel(localStorage.getItem(VOL_KEY + floor));
+      v = clampMusicLevel(preferences.getItem(VOL_KEY + floor));
     } catch {
       v = clampMusicLevel(null);
     }
@@ -152,7 +153,7 @@ export function setJukeboxVolume(n: number) {
   if (v === from) return;
   volumes.set(floorNow, v);
   try {
-    localStorage.setItem(VOL_KEY + floorNow, String(v));
+    preferences.setItem(VOL_KEY + floorNow, String(v));
   } catch {
     // storage may be unavailable; the level just won't be remembered
   }
@@ -170,7 +171,7 @@ function toggleStation() {
   const station: Station = stationFor(floor) === 'focus' ? 'all' : 'focus';
   stations.set(floor, station);
   try {
-    localStorage.setItem(STATION_KEY + floor, station);
+    preferences.setItem(STATION_KEY + floor, station);
   } catch {
     // storage may be unavailable; the station just won't be remembered
   }
@@ -202,7 +203,7 @@ export function jukeboxAction(op: JukeboxOp) {
     on = true;
   } else on = !on;
   try {
-    localStorage.setItem(ON_KEY, on ? 'on' : 'off');
+    preferences.setItem(ON_KEY, on ? 'on' : 'off');
   } catch {
     // storage may be unavailable; the choice just won't be remembered
   }

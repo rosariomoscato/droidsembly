@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BoxMachines } from './boxMachines.ts';
 import { boxLabels } from './cloud.ts';
+import { setupScript, sq } from './boxScripts.ts';
 import type { BoxApi, BoxInfo } from './box.ts';
 import type { AgentCli, CloudMachineState } from '../shared/types.ts';
 
@@ -79,6 +80,103 @@ function machines(api: BoxApi, states: [string, CloudMachineState][] = [], profi
 }
 
 describe('BoxMachines', () => {
+  it('runs the unchanged setup in a quoted child shell with the original deadline', async () => {
+    const { api, calls } = fakeAccount();
+    const run = api.run;
+    let timeout: number | undefined;
+    api.run = async (id, script, options) => { timeout = options?.timeoutMs; return run(id, script, options); };
+    await machines(api, [], { cli: () => 'opencode', browser: () => false }).ensure('a1b2c3d4');
+    expect(calls.find(c => c.op === 'run')?.script).toBe(`sh -c ${sq(setupScript({
+      versions: { claude: '2.1.283', playwrightMcp: '0.0.83', codex: '0.163.0', opencode: '2.2.6' },
+      rev: 4, gitName: 'Ada', gitEmail: 'ada@example.com', cli: 'opencode', browser: false,
+    }))}`);
+    expect(timeout).toBe(20 * 60_000);
+  });
+
+  it.each([
+    [1, 'CUBEFARM_SETUP_OK', 'exit 1; setup marker present'],
+    [4, 'installation failed gho_token', 'exit 4; setup marker missing'],
+    [0, 'unexpected output', 'exit 0; setup marker missing'],
+  ])('reports setup exit %s and marker state without accepting stdout as success', async (code, output, diagnostic) => {
+    const { api, files } = fakeAccount();
+    let runs = 0;
+    api.run = async () => { runs++; return { code, output }; };
+    const m = machines(api);
+    const error = await m.ensure('a1b2c3d4').catch((err: Error) => err);
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain(diagnostic);
+    expect(String(error)).not.toContain('gho_token');
+    expect(runs).toBe(1);
+    expect(files.size).toBe(0);
+    expect(m.stateOf('a1b2c3d4')).toBe('error');
+  });
+
+  it('checks that the agent is still idle after the async status lookup', async () => {
+    const { api, calls } = fakeAccount();
+    const m = machines(api);
+    await m.ensure('a1b2c3d4');
+    let resolve!: (info: BoxInfo | null) => void;
+    const get = api.get;
+    api.get = () => new Promise(r => { resolve = r; });
+    let idle = true;
+    const paused = m.pause('a1b2c3d4', () => idle);
+    idle = false;
+    resolve(await get((await m.boxId('a1b2c3d4'))!));
+    await paused;
+    expect(calls.filter(c => c.op === 'pause')).toEqual([]);
+  });
+
+  it('coalesces pauses and makes the next task wait, then resume the same Box', async () => {
+    const { api, calls, boxes } = fakeAccount();
+    const m = machines(api);
+    const id = await m.ensure('a1b2c3d4');
+    let finish!: () => void;
+    const entered = new Promise<void>(resolve => {
+      api.pause = async pausedId => {
+        calls.push({ op: 'pause', id: pausedId });
+        resolve();
+        await new Promise<void>(r => { finish = r; });
+        boxes.find(b => b.id === pausedId)!.status = 'paused';
+      };
+    });
+    const paused = m.pause('a1b2c3d4');
+    expect(m.pause('a1b2c3d4')).toBe(paused);
+    await entered;
+    let woke = false;
+    const next = m.ensure('a1b2c3d4').then(box => { woke = true; return box; });
+    await Promise.resolve();
+    expect(woke).toBe(false);
+    finish();
+    await paused;
+    expect(await next).toBe(id);
+    expect(calls.filter(c => ['create', 'pause', 'resume'].includes(c.op)).map(c => c.op)).toEqual(['create', 'pause', 'resume']);
+  });
+
+  it('does not leave new tasks blocked after a failed pause', async () => {
+    const { api } = fakeAccount();
+    const m = machines(api);
+    const id = await m.ensure('a1b2c3d4');
+    api.pause = async () => { throw new Error('synthetic pause failure'); };
+    const paused = m.pause('a1b2c3d4');
+    const failed = expect(paused).rejects.toThrow('synthetic pause failure');
+    const next = m.ensure('a1b2c3d4');
+    await failed;
+    expect(await next).toBe(id);
+  });
+
+  it('retains the machine and Box ID when a delete is accepted but absence is not verified', async () => {
+    const { api, boxes } = fakeAccount();
+    const m = machines(api);const id = await m.ensure('a1b2c3d4');
+    api.remove = async () => {};
+    expect(await m.remove('a1b2c3d4')).toEqual({ removed: false, patches: [] });
+    expect(await m.boxId('a1b2c3d4')).toBe(id);
+    expect(boxes).toHaveLength(1);
+    expect(m.stateOf('a1b2c3d4')).toBe('ready');
+  });
+  it('does not report removal when discovery fails and the resource outcome is unknown', async () => {
+    const { api } = fakeAccount();api.list = async () => { throw new Error('synthetic discovery failure'); };
+    await expect(machines(api).remove('a1b2c3d4')).rejects.toThrow('synthetic discovery failure');
+  });
   it('does not collapse a failed post-login metadata query into signed-out',async()=>{
     const {api}=fakeAccount([],()=>({code:2,output:'CUBEFARM_OPENCODE_QUERY_FAILED'}));
     const m=machines(api);await m.ensure('a1b2c3d4');
@@ -172,12 +270,18 @@ describe('BoxMachines', () => {
     expect(m.stateOf('a1b2c3d4')).toBe('ready');
   });
 
-  it("finds a machine's Box on the account after a restart, and wakes it when paused", async () => {
-    const { api, calls } = fakeAccount([{ id: 'old', name: 'cubefarm-k3f9qa-a1b2c3d4', labels: boxLabels('k3f9qa', 'a1b2c3d4'), status: 'paused' }]);
+  it.each([
+    ['cubefarm', 'cf:k3f9qa', 'm:a1b2c3d4'],
+    ['droidsembly', 'ds:k3f9qa', 'm:a1b2c3d4'],
+    boxLabels('k3f9qa', 'a1b2c3d4'),
+  ])("finds a machine's Box after restart without recreation or retagging (%j)", async (...labels) => {
+    const { api, calls, boxes } = fakeAccount([{ id: 'old', name: 'cubefarm-k3f9qa-a1b2c3d4', labels, status: 'paused' }]);
     const m = machines(api);
     expect(await m.ensure('a1b2c3d4')).toBe('old');
     expect(calls.map((c) => c.op)).toContain('resume');
     expect(calls.some((c) => c.op === 'create')).toBe(false);
+    expect(boxes[0].name).toBe('cubefarm-k3f9qa-a1b2c3d4');
+    expect(boxes[0].labels).toEqual(labels);
   });
 
   it("prepares the desk with GitHub's token in that command's environment only", async () => {

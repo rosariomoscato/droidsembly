@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { api } from '../api';
+import { CodingAgentTestNotice } from './CodingAgentTestNotice';
+import { DEFAULT_CEO_CLI } from '../../../shared/agentDefaults';
 import { isBusy, useStore, type Agent } from '../store';
 import type { AgentCli, AgentPromptView, CliView, CloudMachineState, EffortLevel, MachineHost } from '../../../shared/types';
 import { BUILDS, GLASSES, HEADWEAR, OUTFITS, type AgentStyle } from '../../../shared/looks';
@@ -74,7 +76,7 @@ export function CliSelect({ agent, id, style }: FieldProps) {
   const ceo = agent.role === 'ceo';
   return (
     <select id={id} value={agent.cli} title={t('Their coding agent')} aria-label={id ? undefined : t('Coding agent')} style={style} onChange={(e) => void save(agent.id, { cli: e.target.value as AgentCli | '' })}>
-      <option value="">{cliName(clis, ceo ? 'claude' : settings.defaultCli)} {t('(default)')}</option>
+      <option value="">{cliName(clis, ceo ? DEFAULT_CEO_CLI : settings.defaultCli)} {t('(default)')}</option>
       <CliOptions clis={ceo ? clis.filter((c) => c.id === 'claude' || c.id === 'opencode') : clis} cloud={!ceo && agent.host === 'box'} />
     </select>
   );
@@ -369,7 +371,9 @@ export function AgentSetup({ agent }: { agent: Agent }) {
           <EffortSelect agent={agent} id={`${id}-effort`} />
         </label>
       </div>
-      {(agent.cli || (ceo ? 'claude' : defaultCli)) === 'opencode' && <OpenCodeConnections agent={agent} />}
+      {(terminal || agent.host === 'box') && <CodingAgentTestNotice />}
+      {(agent.cli || (ceo ? DEFAULT_CEO_CLI : defaultCli)) === 'opencode' && <OpenCodeConnections agent={agent} />}
+      {agent.host === 'box' && <p className="muted small"><T>A ready Box describes its machine, not provider authentication or quota. Finish Sign in in this agent’s terminal and check its model before assigning work.</T></p>}
       <LookEditor agent={agent} />
       <PromptPreview agent={agent} />
       <p className="muted small"><T>Name and model save when you leave them; the rest, and looks, as you pick them. Running sessions aren’t restarted.</T></p>

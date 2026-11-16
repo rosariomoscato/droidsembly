@@ -4,7 +4,7 @@ import net from 'node:net';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import * as nodePty from '@lydell/node-pty';
-import { encode, PTY_PROTOCOL, readMessages, type FromHost, type HeldPty, type ToHost } from './ptyProtocol.ts';
+import { encode, PTY_PROTOCOL, ptyExitCode, readMessages, type FromHost, type HeldPty, type ToHost } from './ptyProtocol.ts';
 
 // The office's terminal keeper: a small process of its own that runs the agents' CLIs in pseudo-terminals, so they
 // keep working while the office restarts (an update, a crash, a code change in development). The office connects over
@@ -97,9 +97,10 @@ function start(m: Extract<ToHost, { op: 'spawn' }>) {
     while (h.bytes > BACKLOG_BYTES && h.backlog.length > 1) h.bytes -= h.backlog.shift()!.length;
   });
   proc.onExit(({ exitCode }) => {
-    h.exit = exitCode;
+    h.exit = ptyExitCode(exitCode);
+    if (h.exit !== exitCode) note('terminal exit status unavailable; reporting unknown failure (-1)');
     quietly(() => proc.kill()); // on Windows the terminal's console host (conhost.exe) outlives the CLI until then
-    if (h.attached && office) send({ op: 'exit', id: m.id, code: exitCode });
+    if (h.attached && office) send({ op: 'exit', id: m.id, code: h.exit });
     if ((h.attached && office) || h.killed) held.delete(m.id);
   });
 }

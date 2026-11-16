@@ -7,16 +7,23 @@ import { createRequire } from 'node:module';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { officeOverrides } from '../bin/environment.js';
 
 const root = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 assert.equal(pkg.name, 'droidsembly');
-assert.deepEqual(pkg.bin, { droidsembly: 'bin/cubefarm.js' });
+assert.deepEqual(pkg.bin, { droidsembly: 'bin/droidsembly.js' });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'droidsembly-package-'));
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-const env = { ...process.env, CI: '1', SWARM_HOME: path.join(tmp, 'home'), SWARM_HOST: '127.0.0.1', SWARM_DEMO: '1' };
+const dataHome = path.join(tmp, 'home');
+const env = { ...officeOverrides(process.env, { SWARM_HOME: dataHome, SWARM_HOST: '127.0.0.1', SWARM_DEMO: '1' }), CI: '1' };
+// Deliberately disagree with the canonical aliases: no legacy home may be touched.
+env.SWARM_HOME = path.join(tmp, 'legacy-unselected');
+env.SWARM_DEMO = '0';
 delete env.SWARM_DEMO_FLOORS;
 delete env.SWARM_DEMO_AGENTS;
+delete env.DROIDSEMBLY_DEMO_FLOORS;
+delete env.DROIDSEMBLY_DEMO_AGENTS;
 const sh = (cmd, cwd) => {
   const res = spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env });
   if (res.status !== 0) throw new Error(`${cmd} failed:\n${res.stdout}\n${res.stderr}`);
@@ -24,6 +31,7 @@ const sh = (cmd, cwd) => {
 };
 
 let server;
+let verified = false;
 try {
   // Optional retained tarball: validate exactly the artifact that was reviewed.
   let tarball = process.argv[2] && path.resolve(process.argv[2]);
@@ -40,13 +48,15 @@ try {
   const help = sh(`"${cli}" --help`, tmp);
   assert.ok(help.includes(`Droidsembly ${pkg.version}`));
   assert.ok(help.includes(`npx droidsembly@${pkg.publishConfig.tag}`));
-  assert.ok(help.includes('~/.cubefarm'), 'legacy default data directory is preserved');
+  assert.ok(help.includes('~/.cubefarm') && help.includes('~/.droidsembly') && help.includes('DROIDSEMBLY_HOME'), 'home selection compatibility is documented');
   console.log(`droidsembly --version/--help: ${pkg.version}`);
 
   const installed = path.join(tmp, 'node_modules', pkg.name);
-  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
+  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
     assert.ok(fs.existsSync(path.join(installed, file)), `missing package file: ${file}`);
   }
+  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
+  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
   const licenses = JSON.parse(fs.readFileSync(path.join(installed, 'dist/third-party-licenses.json'), 'utf8'));
   const notices = fs.readFileSync(path.join(installed, 'dist/THIRD_PARTY_LICENSES.txt'), 'utf8');
   assert.ok(licenses.length > 0, 'empty client license inventory');
@@ -70,7 +80,7 @@ try {
   const port = socket.address().port;
   await new Promise((resolve, reject) => socket.close((error) => error ? reject(error) : resolve()));
   server = spawn(process.execPath, [path.join(installed, pkg.bin.droidsembly), '--demo', '--no-open', '--port', String(port)], {
-    env: { ...env, SWARM_PORT: String(port) }, stdio: ['ignore', 'inherit', 'inherit'],
+    env: officeOverrides(env, { SWARM_PORT: String(port) }), stdio: ['ignore', 'inherit', 'inherit'],
   });
   let startupError;
   server.on('error', (error) => { startupError = error; });
@@ -91,7 +101,7 @@ try {
   for (let i = 0; i < 100 && !saved; i++) {
     if (server.exitCode !== null) throw new Error(`the office exited before saving state: ${server.exitCode}`);
     try {
-      saved = JSON.parse(fs.readFileSync(path.join(env.SWARM_HOME, 'demo-state.json'), 'utf8'));
+      saved = JSON.parse(fs.readFileSync(path.join(dataHome, 'demo-state.json'), 'utf8'));
     } catch (error) {
       if (error.code !== 'ENOENT') throw error;
     }
@@ -99,13 +109,16 @@ try {
   }
   assert.ok(saved && Array.isArray(saved.repos) && Array.isArray(saved.agents), 'demo state not saved in the isolated home');
   assert.deepEqual(saved.repos.map((r) => r.id).sort(), state.repos.map((r) => r.id).sort(), 'persisted state must belong to this demo');
-  assert.ok(!fs.existsSync(path.join(env.SWARM_HOME, 'state.json')), 'real state must not be created');
+  assert.ok(!fs.existsSync(path.join(dataHome, 'state.json')), 'real state must not be created');
+  assert.ok(!fs.existsSync(env.SWARM_HOME), 'shadowed legacy home must not be created');
   console.log(`demo office up: ${state.repos.length} floors, ${state.agents.length} agents; isolated data and client verified`);
+  verified = true;
 } finally {
   if (server?.pid && server.exitCode === null && server.signalCode === null) {
     const closed = once(server, 'close');
     server.kill();
     await closed;
   }
-  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
+  if (verified) fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5 });
+  else console.error(`Package smoke failed; isolated fixture retained for diagnosis: ${tmp}`);
 }

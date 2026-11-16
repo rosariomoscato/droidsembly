@@ -1,7 +1,6 @@
 // The launcher's decisions, kept pure so Vitest can cover them: its arguments, where last-update.json goes, whether
 // an update may run, what a set of changed files needs, and what to undo when a step fails. Used by office.mjs.
-import os from 'node:os';
-import path from 'node:path';
+import { officeEnv, officeHome } from '../bin/environment.js';
 import { parseArgs } from 'node:util';
 
 /** `--dev` (server + Vite, restarts on code changes), `--demo` (passed to the server), `--no-open` (start mode). */
@@ -19,13 +18,11 @@ export function parseOfficeArgs(argv) {
 }
 
 /** The office's state folder, resolved like server/config.ts. */
-export function swarmHome(env = process.env, home = os.homedir()) {
-  return env.SWARM_HOME ?? path.join(home, '.cubefarm');
-}
+export const swarmHome = officeHome;
 
 /** Vite's port: SWARM_CLIENT_PORT, else 5317 (the same default as vite.config.ts). */
 export function clientPort(env = process.env) {
-  return Number(env.SWARM_CLIENT_PORT || 5317);
+  return Number(officeEnv(env, 'SWARM_CLIENT_PORT') || 5317);
 }
 
 /** The default branch from `git ls-remote --symref origin HEAD` ("ref: refs/heads/main\tHEAD"), or null. */

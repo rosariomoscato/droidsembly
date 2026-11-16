@@ -1,10 +1,11 @@
 // Which office this device gets: the 3D one, or pocket mode (2D, for phones and touch screens; docs/pocket.md).
 // ?pocket=1 / ?pocket=0 decide for one visit; a choice made in the app is remembered on this device.
 import { create } from 'zustand';
+import { preferences } from '../preferences';
 
 export type ViewMode = 'pocket' | 'office';
 
-const KEY = 'cubefarm:mode';
+const KEY = 'droidsembly:mode';
 
 /** The mode to start in: the URL's say, then this device's last choice, then pocket on narrow or touch-only screens. */
 export function pickMode(x: { param: string | null; saved: string | null; narrow: boolean; touch: boolean }): ViewMode {
@@ -16,7 +17,7 @@ export function pickMode(x: { param: string | null; saved: string | null; narrow
 function startMode(): ViewMode {
   let saved: string | null = null;
   try {
-    saved = localStorage.getItem(KEY);
+    saved = preferences.getItem(KEY);
   } catch {
     // no storage: decide from the screen
   }
@@ -33,7 +34,7 @@ export const useMode = create<{ mode: ViewMode }>(() => ({ mode: typeof window =
 /** Switches this device to `mode` and remembers it. */
 export function setMode(mode: ViewMode) {
   try {
-    localStorage.setItem(KEY, mode);
+    preferences.setItem(KEY, mode);
   } catch {
     // remembered for this visit only
   }

@@ -2,7 +2,7 @@
 
 **English** · [Italiano](CONTRIBUTING.it.md)
 
-How to develop Droidsembly, the fork of [leonvanzyl/cubefarm](https://github.com/leonvanzyl/cubefarm). The published package/CLI is `droidsembly`; the internal entry file remains `bin/cubefarm.js` for checkout compatibility. Agent sessions working on this repo also follow [CLAUDE.md](CLAUDE.md), whose historical npm examples refer to the upstream package.
+How to develop Droidsembly, the fork of [leonvanzyl/cubefarm](https://github.com/leonvanzyl/cubefarm). The published package/CLI is `droidsembly`; its canonical entry is `bin/droidsembly.js`, with `bin/cubefarm.js` retained as a compatibility wrapper for older checkout launchers. Agent sessions working on this repo also follow [CLAUDE.md](CLAUDE.md), whose historical npm examples refer to the upstream package.
 
 ## Ways to contribute
 
@@ -29,7 +29,7 @@ Open http://localhost:5317 (`SWARM_CLIENT_PORT` moves Vite, `SWARM_PORT` the ser
 
 For the build that gets published: `npm run build && npm start`.
 
-All three run `scripts/office.mjs`, the launcher: `--dev` runs the server from source plus Vite, and without it (`npm start`) it runs `bin/cubefarm.js` on the build. It also keeps the checkout up to date: when the office has finished its work and a new commit is on `origin`, or when you type `u` + Enter in its terminal, it stops the office, fast-forwards, installs and builds as needed, and starts it again. See [Updating the office](docs/how-it-works.md#updating-the-office).
+All three run `scripts/office.mjs`, the launcher: `--dev` runs the server from source plus Vite, and without it (`npm start`) it runs `bin/droidsembly.js` on the build. It also keeps the checkout up to date: when the office has finished its work and a new commit is on `origin`, or when you type `u` + Enter in its terminal, it stops the office, fast-forwards, installs and builds as needed, and starts it again. See [Updating the office](docs/how-it-works.md#updating-the-office).
 
 ## Testing
 
@@ -67,7 +67,8 @@ client/  Vite + React + react-three-fiber (toon materials, canvas textures)
   src/world/   the 3D building: floors, desks, characters, laptops, whiteboard, elevator, player
   src/ui/      HUD and panels: terminal, Kanban, elevator, manager's console
   src/photo/   photo mode: a free camera over a frozen office, filters, shots, clips and instant replay
-bin/cubefarm.js  the `droidsembly` command: checks the machine, starts the server, opens the browser
+bin/droidsembly.js  the `droidsembly` command: checks the machine, starts the server, opens the browser
+bin/cubefarm.js     compatibility wrapper for older checkout launchers
 scripts/office.mjs  the launcher for a checkout (npm run dev / demo / start): runs the office and updates it
 server/  Node + Express + ws
   swarm.ts        orchestrator: floors, agents, scheduling, persistence, websocket fan-out
@@ -91,7 +92,7 @@ The server streams everything to the browser over one websocket (`/ws`); an open
 
 **Fork status:** [`droidsembly@0.4.0-beta.1`](https://www.npmjs.com/package/droidsembly) is published; use the explicit `next` channel. See the [GitHub prerelease](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.1) for release notes and known validation limits. The sole public command is `droidsembly`. See [the release guide](docs/NPM_RELEASE.md) for validation and the manual release process. Publication, tags and remote workflow execution require explicit maintainer authorization.
 
-The npm package holds `bin/cubefarm.js` (the command), `dist/` (the built client) and `dist-server/` (the server, bundled into plain JavaScript by `scripts/build-server.mjs`, because Node won't run TypeScript from inside `node_modules`). The client's libraries are bundled into `dist/`, so users only install the server's dependencies.
+The npm package holds `bin/droidsembly.js` (the command), `bin/cubefarm.js` (the legacy wrapper), `dist/` (the built client) and `dist-server/` (the server, bundled into plain JavaScript by `scripts/build-server.mjs`, because Node won't run TypeScript from inside `node_modules`). The client's libraries are bundled into `dist/`, so users only install the server's dependencies.
 
 The prepared workflow `.github/workflows/release.yml` is manual-only on the fork's `main`. It accepts an existing `droidsembly-v<version>` tag, requires matching package/lock metadata and a commit belonging to main's history, and verifies typecheck, tests, build and installed-package demo on Windows, macOS and Linux before the publish job. It does not bump versions, push main, create Git tags or run on a tag push. Version changes are reviewed through PRs.
 

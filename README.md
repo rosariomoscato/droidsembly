@@ -12,7 +12,7 @@ A visual workspace for AI-assisted software development: connect your GitHub rep
 
 [Website](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Releases](https://github.com/rosariomoscato/droidsembly/releases) · [Report an issue](https://github.com/rosariomoscato/droidsembly/issues) · [Contributing](CONTRIBUTING.md) · [Documentation](#documentation) · [Support the project](#support-the-project)
 
-**Public beta:** [0.4.0-beta.1 release notes](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.1). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
+**Published beta:** [0.4.0-beta.4 release notes](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 is integrated into dev with independent QA and green multiplatform CI, but is not yet published:** see [validation scope and remaining release gates](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
 
 **Free and open source, under the MIT license.** No paid activation or commercial agent unlocks. Voluntary support helps development; your AI subscriptions, API usage and optional cloud services have their own costs and limits.
 
@@ -41,7 +41,7 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 
 ## What you can do
 
-- **Coordinate coding agents:** Claude Code, Codex and OpenCode V2, with model selection and supported reasoning variants. Provider availability depends on the runtime; the Agent SDK runtime is Claude-only, and OpenCode is currently local-only.
+- **Coordinate coding agents:** Claude Code, Codex and OpenCode V2, with model selection and supported reasoning variants. Provider availability depends on the runtime; the Agent SDK runtime is Claude-only. OpenCode supports local terminals and Upstash Box workers; the office and CEO remain local. See [Box validation limits](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Follow the full workflow:** issue → development and initial checks → pull request → separate QA session → corrections → merge when the configured conditions pass.
 - **Keep control:** manual or automatic assignment, optional CEO onboarding, team-change approvals and a separate auto-merge switch.
 - **Watch real work:** live terminals, project floors, a Kanban board and the manager console. Local clones and worktrees separate agents' working copies; they are not security sandboxes.
@@ -52,7 +52,7 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 
 ## Install this fork
 
-**The first public beta is available:** [droidsembly@0.4.0-beta.1 on npm](https://www.npmjs.com/package/droidsembly). Run `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), or build from source below. To select this exact release, use `npx droidsembly@0.4.0-beta.1`. There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
+**Published package:** [droidsembly@0.4.0-beta.4 on npm](https://www.npmjs.com/package/droidsembly). Run `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), or build from source below. To select the published beta.4 exactly, use `npx droidsembly@0.4.0-beta.4`; building this checkout instead uses its local candidate version. There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
 
 **This is a beta, not a stable release.** Use the explicit `next` channel: npm currently also points `latest` at this first beta, so an unqualified install selects it too. A future stable release will take over `latest`; beta versions check `next` for updates. The package exposes no global `cubefarm` alias. The internal entry file `bin/cubefarm.js`, existing checkout launchers and default data directory remain compatible. For side-by-side use, select a separate `SWARM_HOME` and free ports as described below.
 
@@ -62,6 +62,8 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 - For real work: [GitHub CLI](https://cli.github.com/), authenticated with `gh auth login`, and a supported coding agent signed in to its provider.
 - Claude Code is bundled through the Agent SDK. OpenCode **2.x** and Codex are installed separately when selected. OpenCode-only terminal sessions do not require a Claude subscription.
 - Google Chrome for agents that test projects in a browser.
+
+**Recommended office browser:** up-to-date Google Chrome is our reference browser for the isolated desktop checks. Other modern browsers may work, but were not validated in this test cycle; this is not a Chrome-only support policy. Native notification clicks and window focus remain unverified. See [candidate validation scope and limits](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md).
 
 The project targets Windows, macOS and Linux. The no-AI demo below does not require provider credentials or a GitHub login.
 
@@ -131,7 +133,7 @@ node dist-server/index.js
 SWARM_HOME="$HOME/.droidsembly" SWARM_PORT=4419 SWARM_HOST=127.0.0.1 SWARM_PREVIEW_PORT=9600 SWARM_DEMO=0 node dist-server/index.js
 ```
 
-Open **http://127.0.0.1:4419/**. These example folders are an explicit choice for a new installation, not a migration: existing data paths and launchers remain valid. Without `SWARM_HOME`, the application's default remains `~/.cubefarm`.
+Open **http://127.0.0.1:4419/**. These example folders are an explicit choice for a new installation, not a migration: existing data paths and launchers remain valid. `DROIDSEMBLY_HOME` is the canonical alias for `SWARM_HOME`. With neither set, existing `~/.cubefarm` data stays in place; new offices use `~/.droidsembly`. If both default folders exist, startup requires an explicit choice, without merging/moving data. Canonical `DROIDSEMBLY_*` settings take precedence over the legacy equivalents. See [environment/home compatibility and rollback](docs/ENV_HOME_MIGRATION.md).
 
 Before connecting a project, select the CEO's coding agent if you do not want the default Claude Code. To skip the initial AI analysis, turn off **Let the CEO study this repository and plan from the brief**. Auto-assignment, auto-merge and periodic CEO reviews are separate settings. See [Agents](https://github.com/rosariomoscato/droidsembly/blob/main/docs/agents.md) for provider setup and runtime limitations.
 

@@ -44,7 +44,7 @@ export interface BoxFile {
 }
 
 export interface BoxApi {
-  /** Every Box on the account (they all count towards the plan's limit); the office's carry the `cubefarm` label. */
+  /** Every Box counts towards the plan limit. Ownership uses complete Droidsembly or legacy cubefarm labels. */
   list(): Promise<BoxInfo[]>;
   create(o: { name: string; labels: string[]; size: BoxSize; browser?: boolean }): Promise<BoxInfo>;
   /** null: there's no such Box any more. */

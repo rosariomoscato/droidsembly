@@ -3,6 +3,7 @@
 // Nothing 3D loads here until "Open the 3D office".
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { LanguageSelect, T, useT } from '../i18n';
+import { LEGACY_OFFICE_OPEN_EVENT, OFFICE_OPEN_EVENT } from '../../../shared/browserProtocol';
 import { agentsOnRepo, kanbanFor, unreadMessages, useStore } from '../store';
 import { CEO_ID } from '../../../shared/types';
 import { officeUpdateChip } from '../officeUpdate';
@@ -249,8 +250,12 @@ export default function Pocket() {
       const t = tabFrom((e as CustomEvent<string>).detail);
       if (t) setTab(t);
     };
-    window.addEventListener('cubefarm:open', onOpen);
-    return () => window.removeEventListener('cubefarm:open', onOpen);
+    window.addEventListener(OFFICE_OPEN_EVENT, onOpen);
+    window.addEventListener(LEGACY_OFFICE_OPEN_EVENT, onOpen);
+    return () => {
+      window.removeEventListener(OFFICE_OPEN_EVENT, onOpen);
+      window.removeEventListener(LEGACY_OFFICE_OPEN_EVENT, onOpen);
+    };
   }, []);
   // While the chat is on screen, new CEO messages don't toast (the store reads this as the phone's chat being open).
   useEffect(() => {

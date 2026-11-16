@@ -24,6 +24,11 @@ describe('defaultProjectsDir', () => {
 });
 
 describe('preview settings from the environment', () => {
+  it('uses canonical demo aliases while explicit arguments still win', () => {
+    const env = { DROIDSEMBLY_DEMO_FLOORS: '3', SWARM_DEMO_FLOORS: '2', DROIDSEMBLY_DEMO_AGENTS: '4' };
+    expect(demoScale([], env)).toEqual({ floors: 3, agents: 4 });
+    expect(demoScale(['--floors', '5'], env)).toEqual({ floors: 5, agents: 4 });
+  });
   it('takes a usable port and falls back otherwise', () => {
     expect(envPort('7300', 6300)).toBe(7300);
     for (const bad of [undefined, '', 'abc', '80', '70000', '6300.5']) expect(envPort(bad, 6300)).toBe(6300);

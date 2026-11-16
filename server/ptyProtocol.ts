@@ -47,6 +47,14 @@ export function hostSocket(home: string, platform = process.platform): string {
 
 export const encode = (m: ToHost | FromHost) => `${JSON.stringify(m)}\n`;
 
+/** A missing native/legacy exit status must never disappear from JSON or be
+ * mistaken for success. -1 already represents an unverified/failed terminal.
+ * Do not invent a successful code or guess the CLI's intended status.
+ */
+export function ptyExitCode(value: unknown): number {
+  return typeof value === 'number' && Number.isSafeInteger(value) ? value : -1;
+}
+
 /** Calls back with each message a socket sends (newline-delimited JSON); a line that isn't JSON is skipped. */
 export function readMessages<T>(sock: Socket, onMessage: (m: T) => void) {
   let buf = '';

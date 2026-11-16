@@ -47,7 +47,25 @@ describe('BoxPty callbacks that close the CLI', () => {
     sessions.find(s => s.cmd.includes('tail -c'))!.onData(line({ hook_event_name: 'TurnError', signed_out: true }) + line({ hook_event_name: 'TurnComplete' }) + line({ hook_event_name: 'CubefarmExit', code: 0 }));
     expect(received).toEqual(['TurnError']);
     expect(save).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(0);
     expect(gone).toHaveBeenCalledTimes(action === 'kill' ? 1 : 0);
+  });
+
+  it('does not allow pausing until remote kill cleanup has completed', async () => {
+    let finish!: () => void;
+    const cleanup = new Promise<{ code: number; output: string }>(resolve => { finish = () => resolve({ code: 0, output: '' }); });
+    const run = vi.fn(() => cleanup);
+    const gone = vi.fn();
+    const pty = new BoxPty({ api: { run } as unknown as BoxApi, boxId: 'fake', token: 'fake', cols: 80, rows: 24, offset: 0, event: vi.fn(), save: vi.fn(), gone }, '/fake');
+    pty.kill();
+    expect(run).toHaveBeenCalledOnce();
+    expect(gone).not.toHaveBeenCalled();
+    finish();
+    await cleanup;
+    await Promise.resolve();
+    expect(gone).toHaveBeenCalledOnce();
+    pty.kill();
+    expect(gone).toHaveBeenCalledOnce();
   });
 
   it('still replays and saves a normal completed turn, then reports its exit once', async () => {

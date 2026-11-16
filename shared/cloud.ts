@@ -16,7 +16,7 @@ export const BOX_SIZE_INFO: Record<BoxSize, { usdPerCpuHour: number; spec: strin
 export const FREE_BOX_LIMIT = 10;
 export const MAX_BOX_LIMIT = 1000;
 
-export const DEFAULT_CLOUD: CloudSettings = { machineKind: 'local', boxSize: 'small', boxLimit: FREE_BOX_LIMIT };
+export const DEFAULT_CLOUD: CloudSettings = { machineKind: 'local', boxSize: 'small', boxLimit: FREE_BOX_LIMIT, pauseNewWork: false };
 
 /** Before the server says otherwise: no account connected, nothing to sign in with. */
 const NONE = { ready: false, source: null, hint: '' } as const;
@@ -30,6 +30,7 @@ export function cloudSettings(base: CloudSettings, raw: unknown): CloudSettings 
     machineKind: r.machineKind === 'box' || r.machineKind === 'local' ? r.machineKind : base.machineKind,
     boxSize: BOX_SIZES.includes(r.boxSize as BoxSize) ? (r.boxSize as BoxSize) : base.boxSize,
     boxLimit: Number.isFinite(limit) && limit >= 1 ? Math.min(MAX_BOX_LIMIT, limit) : base.boxLimit,
+    pauseNewWork: typeof r.pauseNewWork === 'boolean' ? r.pauseNewWork : base.pauseNewWork ?? false,
   };
 }
 

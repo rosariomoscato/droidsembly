@@ -1,6 +1,6 @@
 // The cloud account (docs/cloud.md): the Upstash Box API key, and what cloud agents sign in with. Keys and tokens the
 // manager pastes live in secrets.json (never in the state, the snapshot, events, logs or a Box's files). The Claude
-// subscription token is read from the office's environment (CUBEFARM_CLAUDE_TOKEN) and never written down: Anthropic's
+// subscription token is read from DROIDSEMBLY_CLAUDE_TOKEN (legacy CUBEFARM_CLAUDE_TOKEN) and never written down: Anthropic's
 // terms bar apps like this one from storing Claude.ai tokens. A Box gets each credential only as the environment of
 // the one command that needs it. Without one for its CLI, a cloud agent's CLI uses its own login in their Box, which
 // the manager signs in once in the agent's terminal (Swarm's sign-in): the office never sees that login.
@@ -8,10 +8,12 @@
 import { HttpError } from './httpError.ts';
 import { mergeSecrets, readSecrets } from './secrets.ts';
 import { CloudError, type BoxApi, type BoxInfo } from './box.ts';
+import { removeBoxVerified } from './boxRemoval.ts';
 import type { AgentCli, CloudCredentialView, CloudView } from '../shared/types.ts';
+import { officeEnv } from '../bin/environment.js';
 
 /** The environment variable the manager keeps their `claude setup-token` token in. */
-export const CLAUDE_TOKEN_ENV = 'CUBEFARM_CLAUDE_TOKEN';
+export const CLAUDE_TOKEN_ENV = 'DROIDSEMBLY_CLAUDE_TOKEN';
 /** Where a Box session keeps the Anthropic API key for Claude Code's apiKeyHelper (not ANTHROPIC_API_KEY, which asks first). */
 export const ANTHROPIC_KEY_ENV = 'CUBEFARM_ANTHROPIC_KEY';
 
@@ -31,16 +33,28 @@ const TOKEN_FIELD: Record<CloudTokenKind, keyof CloudSecrets> = { github: 'cloud
 export const officeId = () => Math.random().toString(36).slice(2, 8).padEnd(6, '0');
 
 /**
- * A cloud agent's Box: `cubefarm-<office>-<machine>`, so it stands out among Boxes the account has for other apps,
+ * A cloud agent's Box: `droidsembly-<office>-<machine>`, so it stands out among Boxes the account has for other apps,
  * and labels Upstash accepts (≤ 20 characters each, ≤ 5).
  */
-export const boxName = (office: string, machine: string) => `cubefarm-${office}-${machine}`;
-export const boxLabels = (office: string, machine: string) => ['cubefarm', `cf:${office}`, `m:${machine}`];
+export const boxName = (office: string, machine: string) => `droidsembly-${office}-${machine}`;
+// Dual-write within Upstash's five-label limit: older offices can still find
+// newly created Boxes after rollback. Existing Boxes need no rename or retag.
+export const boxLabels = (office: string, machine: string) => ['droidsembly', `ds:${office}`, 'cubefarm', `cf:${office}`, `m:${machine}`];
 
 /** The machine a Box is for when it's this office's, else null. */
 export function machineOfBox(box: Pick<BoxInfo, 'labels'>, office: string): string | null {
-  if (!box.labels.includes(`cf:${office}`)) return null;
-  return box.labels.find((l) => l.startsWith('m:'))?.slice(2) || null;
+  const labels = box.labels;
+  const legacy = labels.includes('cubefarm');
+  const current = labels.includes('droidsembly');
+  const cf = labels.filter((l) => l.startsWith('cf:'));
+  const ds = labels.filter((l) => l.startsWith('ds:'));
+  const machines = labels.filter((l) => l.startsWith('m:'));
+  // Accept complete legacy/current/dual schemas only. Conflicting office or
+  // machine claims are never ownership evidence, especially for orphan removal.
+  if ((!legacy && !current) || legacy !== (cf.length === 1) || current !== (ds.length === 1)) return null;
+  if (cf.length > 1 || ds.length > 1 || (legacy && cf[0] !== `cf:${office}`) || (current && ds[0] !== `ds:${office}`)) return null;
+  if (machines.length !== 1 || !/^m:[A-Za-z0-9._-]{1,18}$/.test(machines[0])) return null;
+  return machines[0].slice(2);
 }
 
 // ---------- credentials ----------
@@ -163,7 +177,7 @@ export class Cloud {
     return this.api;
   }
 
-  private claudeToken = () => (this.deps.env[CLAUDE_TOKEN_ENV] ?? '').trim();
+  private claudeToken = () => (officeEnv(this.deps.env, 'CUBEFARM_CLAUDE_TOKEN') ?? '').trim();
 
   /** The gh login token, re-read at most once a minute (the manager may sign in or out meanwhile). */
   private async refreshGh(force = false) {
@@ -190,7 +204,7 @@ export class Cloud {
 
   /** Every saved key and token, so they're scrubbed from anything the office writes or shows. */
   secretValues(): string[] {
-    return [...Object.values(this.secrets), this.claudeToken(), this.gh].filter((s): s is string => !!s);
+    return [...Object.values(this.secrets), this.claudeToken(), this.deps.env.CUBEFARM_CLAUDE_TOKEN, this.deps.env.DROIDSEMBLY_CLAUDE_TOKEN, this.gh].filter((s): s is string => !!s);
   }
 
   /** What a CLI runs with in a Box. */
@@ -260,7 +274,7 @@ export class Cloud {
       const all = await this.api.list();
       const office = this.deps.office();
       const machines = this.deps.machines();
-      const ours = all.filter((b) => b.labels.includes(`cf:${office}`));
+      const ours = all.filter((b) => b.status !== 'deleted' && machineOfBox(b, office) !== null);
       this.boxes = {
         total: all.filter((b) => b.status !== 'deleted').length,
         running: ours.filter((b) => b.status === 'running' || b.status === 'idle' || b.status === 'creating').length,
@@ -279,20 +293,26 @@ export class Cloud {
   }
 
   /** POST /api/cloud/orphans: delete this office's Boxes whose agent is gone. */
-  async deleteOrphans(): Promise<{ deleted: number }> {
+  async deleteOrphans(): Promise<{ deleted: number; unconfirmed: number }> {
     if (!this.api) throw new HttpError(400, 'Save your Upstash Box API key first.');
     const office = this.deps.office();
     const machines = this.deps.machines();
-    const doomed = (await this.count()).filter((b) => b.labels.includes(`cf:${office}`) && !machines.has(machineOfBox(b, office) ?? ''));
-    let deleted = 0;
+    const doomed = (await this.count()).filter((b) => {
+      const machine = machineOfBox(b, office);
+      return b.status !== 'deleted' && machine !== null && !machines.has(machine);
+    });
+    let deleted = 0, unconfirmed = 0;
     for (const b of doomed) {
-      await this.api
-        .remove(b.id)
-        .then(() => deleted++)
-        .catch((err) => this.deps.log(`could not delete the orphan Box ${b.name}: ${(err as Error).message}`));
+      const machine = machineOfBox(b, this.deps.office());
+      if (machine === null || this.deps.office() !== office || this.deps.machines().has(machine)) continue;
+      try {
+        if (await removeBoxVerified(this.api, b.id)) deleted++;
+        else unconfirmed++;
+      } catch { unconfirmed++; }
     }
+    if (unconfirmed) this.deps.log(`${unconfirmed} orphan Box removal(s) could not be confirmed; check the Upstash console. No automatic retry.`);
     await this.count().catch(() => undefined);
-    return { deleted };
+    return { deleted, unconfirmed };
   }
 
   private emit(): CloudView {

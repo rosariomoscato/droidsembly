@@ -8,9 +8,15 @@ describe('cloudSettings', () => {
   });
 
   it('takes what is valid and keeps the rest', () => {
-    expect(cloudSettings(DEFAULT_CLOUD, { machineKind: 'box', boxSize: 'large', boxLimit: 25.4 })).toEqual({ machineKind: 'box', boxSize: 'large', boxLimit: 25 });
+    expect(cloudSettings(DEFAULT_CLOUD, { machineKind: 'box', boxSize: 'large', boxLimit: 25.4 })).toEqual({ machineKind: 'box', boxSize: 'large', boxLimit: 25, pauseNewWork: false });
     expect(cloudSettings(DEFAULT_CLOUD, { machineKind: 'mars', boxSize: 'huge', boxLimit: -3 })).toEqual(DEFAULT_CLOUD);
     expect(cloudSettings(DEFAULT_CLOUD, { boxLimit: 1e9 }).boxLimit).toBe(MAX_BOX_LIMIT);
+  });
+  it('keeps an explicit work pause and rejects non-boolean pause changes', () => {
+    const paused = cloudSettings(DEFAULT_CLOUD, { pauseNewWork: true });
+    expect(paused.pauseNewWork).toBe(true);
+    expect(cloudSettings(paused, { pauseNewWork: 'false' }).pauseNewWork).toBe(true);
+    expect(cloudSettings(paused, { pauseNewWork: false }).pauseNewWork).toBe(false);
   });
 });
 

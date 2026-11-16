@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { preferences } from '../../preferences';
 import { hitchNote } from '../../hitches';
 import { DEFAULT_PRESET, effectNames, GRAPHICS_PRESETS, governorSample, governorSettle, newGovernor, normalizePreset, type GovernorChange, type GraphicsPreset, type Tier } from './quality';
 
@@ -7,11 +8,11 @@ import { DEFAULT_PRESET, effectNames, GRAPHICS_PRESETS, governorSample, governor
 // post-processing is on screen, or that it couldn't start (then the office draws as on Low for the rest of the session).
 // window.__swarmGfx reports the tier, Auto's decisions and the active effects, for QA.
 
-const KEY = 'cubefarm:graphics';
+const KEY = 'droidsembly:graphics';
 
 function loadPreset(): GraphicsPreset {
   try {
-    return normalizePreset(localStorage.getItem(KEY));
+    return normalizePreset(preferences.getItem(KEY));
   } catch {
     return DEFAULT_PRESET;
   }
@@ -46,7 +47,7 @@ export const effectiveTier = (s: GfxState): Tier => (s.blocked ? 'low' : s.tier)
 export function setGraphicsPreset(raw: GraphicsPreset) {
   const preset = normalizePreset(raw);
   try {
-    localStorage.setItem(KEY, preset);
+    preferences.setItem(KEY, preset);
   } catch {
     // storage may be unavailable (private mode); the setting just won't be remembered
   }

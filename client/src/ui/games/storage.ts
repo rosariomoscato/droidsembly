@@ -1,9 +1,10 @@
 // What the phone games keep in this browser: best scores and the desk pet. Storage can throw (private windows,
 // blocked site data), and then the games simply don't remember.
+import { preferences } from '../../preferences';
 
 export function readJson(key: string): unknown {
   try {
-    return JSON.parse(localStorage.getItem(key) ?? 'null');
+    return JSON.parse(preferences.getItem(key) ?? 'null');
   } catch {
     return null;
   }
@@ -11,14 +12,14 @@ export function readJson(key: string): unknown {
 
 export function writeJson(key: string, value: unknown) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    preferences.setItem(key, JSON.stringify(value));
   } catch {
     // storage unavailable: nothing is remembered
   }
 }
 
 export type ScoredGame = 'tetris' | 'snake';
-const BEST_KEY = 'cubefarm:games:best';
+const BEST_KEY = 'droidsembly:games:best';
 
 export function bestScore(game: ScoredGame): number {
   const raw = readJson(BEST_KEY) as Partial<Record<ScoredGame, unknown>> | null;
