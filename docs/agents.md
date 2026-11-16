@@ -44,6 +44,27 @@ After completion, the agent remains reserved for manual analysis follow-ups; **S
 
 When connecting a project, turn off **Let the CEO study this repository and plan from the brief** to skip both onboarding and the initial planning request. The brief field is then disabled. This does not disable the CEO's periodic reviews; set their interval to zero separately if desired. Automatic issue assignment and automatic merge can both be disabled before connection. Existing callers retain onboarding and automatic merge unless they explicitly send `onboardCeo: false` and `autoMerge: false`.
 
+## Resume an issue interrupted before its session
+
+In the manager's console → **Issues**, an issue whose agent stopped or failed
+before creating a coding session can show **Resume task** beside its assignee.
+Confirming restarts preparation for the same agent, issue and saved branch; it
+may start AI work and consume quota, even with automatic assignment disabled.
+Cancel does nothing. This is not **Clear desk**, a new assignment, or a message
+to an existing session.
+
+The server refuses stale targets, busy agents, existing sessions, QA/fix tasks,
+closed issues and a previous preparation that is still settling. Existing usage
+and capacity gates still apply. Recovery preserves an existing worktree's commits,
+index, tracked changes, untracked and ignored files. A different/detached branch,
+foreign checkout or non-worktree folder is refused, not reset or rebuilt. If no
+desk was created yet, its existing branch is reused or a new branch is created
+without force. Legacy local desks stay in their original clone for this recovery.
+
+The local recovery path has synthetic lifecycle and real throwaway-Git coverage.
+Cloud recovery uses a separately generated non-destructive preparation script;
+script checks are not a new real Box/provider validation claim.
+
 ## Manager refinements after QA passed
 
 In Kanban → **Ready to merge**, choose **Request changes** to send an open, QA-passed PR back to its author or a free agent. A nonblank note (at most 1,000 characters) is required. Confirming starts agent work and may consume AI quota, even when automatic issue assignment is off. It updates the same PR; it does not enable automatic merge.

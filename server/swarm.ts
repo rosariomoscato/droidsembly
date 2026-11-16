@@ -588,6 +588,7 @@ export class Swarm {
   private deskAlerts = new Map<string, string>(); // agent id -> the desk setup error the manager was last told about
   private prepStrikes = new Map<string, PrepStrikes>(); // `${repoId}#${pr}:${task}` -> its desks that couldn't be set up
   private dropping = new Map<string, string>(); // agent id -> why their task's issue or PR closed: the desk clears once the session ends
+  private issuePreparations = new Set<string>(); // a stopped setup must settle before a manual resume can start another
   // Everything sent to the tabs on /ws: agent and floor changes batched as patches, terminal lines only where shown.
   private outbox = new Outbox({
     agents: () => this.state.agents.map((a) => ({ id: a.id, floor: this.floorOf(a) })),
@@ -1133,6 +1134,7 @@ export class Swarm {
       prNumber: a.prNumber,
       prUrl: a.prUrl,
       currentTool: rt.currentTool,
+      canResumeIssue: this.canResumeIssue(a),
       startedAt: a.startedAt,
       endedAt: a.endedAt,
       costUsd: a.costUsd,
@@ -2925,10 +2927,30 @@ export class Swarm {
 
   /** `waitForDeps`: refuse an issue that still waits for open ones (a sticky carried to a desk; the console may override). */
   async assign(agentId: string, issueNumber: number, note?: string, waitForDeps = false) {
+    return this.assignIssue(agentId, issueNumber, note, waitForDeps);
+  }
+
+  private canResumeIssue(a: PersistedAgent): boolean {
+    const rt = this.agentRt.get(a.id);
+    return a.role !== 'ceo' && a.task === 'issue' && (a.status === 'stopped' || a.status === 'error')
+      && a.issueNumber !== null && !!a.branch && !a.prNumber && !a.prUrl && !a.sessionId
+      && !!rt && !rt.session && !rt.terminal?.live && !a.needsSignIn
+      && !this.issuePreparations.has(a.id) && !this.dropping.has(a.id);
+  }
+
+  /** Manager-confirmed recovery only; stale UI state cannot restart another task. */
+  async resumeIssue(agentId: string, repoId: string, issueNumber: number) {
+    const a = this.agent(agentId);
+    if (a.repoId !== repoId || a.issueNumber !== issueNumber || !this.canResumeIssue(a)) throw new HttpError(409, 'This interrupted issue can no longer be resumed. Refresh the office and check the agent.');
+    return this.assignIssue(agentId, issueNumber, undefined, false, a.branch!);
+  }
+
+  private async assignIssue(agentId: string, issueNumber: number, note?: string, waitForDeps = false, resumeBranch?: string) {
     const a = this.agent(agentId);
     const repo = this.repo(a.repoId);
     if (a.role === 'ceo') throw new HttpError(400, `${a.name} runs the company; give issues to the agents on the floors.`);
     if (BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is busy: ${this.agentDoing(a)}`);
+    if (this.issuePreparations.has(a.id)) throw new HttpError(409, `${a.name}'s previous setup is still finishing. Try again in a moment.`);
     this.ensureUsage(a, 'issue');
     this.ensureSlot();
     const issues = this.repoRt.get(repo.id)?.issues ?? [];
@@ -2943,7 +2965,7 @@ export class Swarm {
       this.state.held = this.state.held.filter((h) => !(h.repoId === repo.id && h.issue === issueNumber));
       this.emitRepo(repo);
     }
-    void this.runTask(a, repo, issue, note);
+    void this.runTask(a, repo, issue, note, resumeBranch);
     return this.agentView(a, false);
   }
 
@@ -3089,13 +3111,16 @@ export class Swarm {
   }
 
   /** job: the PR fix or QA run this desk is for; if the desk can't be set up, the PR pays for it, not the agent. */
-  private async prepare(a: PersistedAgent, repo: PersistedRepo, base: { pr?: number }, branch: string, job?: PrepJob): Promise<{ cwd: string; deps: DepsOutcome } | null> {
+  private async prepare(a: PersistedAgent, repo: PersistedRepo, base: { pr?: number; preserve?: boolean }, branch: string, job?: PrepJob): Promise<{ cwd: string; deps: DepsOutcome } | null> {
     try {
       if (this.repoRt.get(repo.id)?.cloneStatus !== 'ready') await this.cloneRepo(repo.id);
       const note = (text: string) => this.appendLog(a, [{ kind: 'system', text }]);
       const cwd = await setUpDesk(this.agentRt.get(a.id)?.terminal, {
         release: () => this.releaseDesk(a, repo),
-        prepare: () => this.machinesFor(a).prepareDesk(this.machineOf(a), repo.fullName, { defaultBranch: repo.defaultBranch, pr: base.pr }, branch, note),
+        prepare: () => base.preserve && !a.machine && a.host !== 'box'
+          // An interrupted legacy desk must not migrate to a different clone.
+          ? this.backend.prepareDesk(repo.fullName, { defaultBranch: repo.defaultBranch, preserve: true }, this.agentSlug(a), branch, note)
+          : this.machinesFor(a).prepareDesk(this.machineOf(a), repo.fullName, { defaultBranch: repo.defaultBranch, pr: base.pr, ...(base.preserve ? { preserve: true } : {}) }, branch, note),
       });
       this.deskAlerts.delete(a.id);
       if (job) this.prepStrikes.delete(prepKey(repo.id, job.rec.prNumber, job.task));
@@ -3193,9 +3218,17 @@ export class Swarm {
     }
   }
 
-  private async runTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string) {
+  private runTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string, resumeBranch?: string): Promise<void> {
+    this.issuePreparations.add(a.id);
+    return this.runIssueTask(a, repo, issue, note, resumeBranch).finally(() => {
+      this.issuePreparations.delete(a.id);
+      if (this.state.agents.includes(a)) this.emitAgent(a);
+    });
+  }
+
+  private async runIssueTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string, resumeBranch?: string) {
     if (this.cloudWorkPaused(a)) return;
-    const branch = devBranch(issue.number, slugify(a.name));
+    const branch = resumeBranch ?? devBranch(issue.number, slugify(a.name));
     this.beginTask(
       a,
       { task: 'issue', issueNumber: issue.number, issueTitle: issue.title, branch, prNumber: null, prUrl: null, sessionId: null },
@@ -3212,7 +3245,7 @@ export class Swarm {
       this.learnIssueClosed(repo, issue.number);
       return;
     }
-    const desk = await this.prepare(a, repo, {}, branch);
+    const desk = await this.prepare(a, repo, resumeBranch ? { preserve: true } : {}, branch);
     if (!desk) return;
     const { cwd } = desk;
 

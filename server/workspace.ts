@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { HOME_DIR, WORKSPACE_ROOT } from './config.ts';
 import { type CommandError, gh, git, run } from './exec.ts';
+import { resumeDesk } from './resumeDesk.ts';
 
 // Layout on disk:
 //   <your projects folder>/<repo>                    the floor's main checkout: your own folder, only fetched and fast-forwarded (syncMain)
@@ -288,6 +289,8 @@ export async function createProject(root: string, name: string, opts: { visibili
 
 export interface DeskBase {
   defaultBranch: string;
+  /** Resume an interrupted issue without resetting or cleaning its worktree. */
+  preserve?: boolean;
   /** Start from a pull request's head instead of the default branch (QA testing, fixes after QA). */
   pr?: number;
 }
@@ -344,6 +347,10 @@ export function prepareDesk(fullName: string, base: DeskBase, agentSlug: string,
  * it in place when it's there. Callers hold the clone's lock.
  */
 async function setUpWorktree(main: string, wt: string, fullName: string, base: DeskBase, branch: string, note?: (text: string) => void): Promise<string> {
+  if (base.preserve) {
+    if (base.pr) throw new Error('Preserving an interrupted desk is only supported for issues.');
+    return resumeDesk(main, wt, branch, `origin/${base.defaultBranch}`);
+  }
   await git(['fetch', 'origin', '--prune'], { cwd: main, timeoutMs: 180_000 });
   let ref = `origin/${base.defaultBranch}`;
   if (base.pr) {
