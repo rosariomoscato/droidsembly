@@ -123,13 +123,17 @@ describe('review P2: renamed legacy worktree recovery (real throwaway Git only)'
     f.swarm.backend.deskDir = workspace.deskDir;
     f.a.status = 'preparing';
     const prepare = (Swarm.prototype as any).prepare;
-    expect(await prepare.call(f.swarm, f.a, f.repo, { preserve: true }, f.a.branch)).toMatchObject({ cwd: f.desk });
+    const prepared = await prepare.call(f.swarm, f.a, f.repo, { preserve: true }, f.a.branch);
+    expect(prepared).toMatchObject({ deps: 'none' });
+    // Windows runners may expose TEMP through its short 8.3 alias while Git
+    // reports the long path. Compare filesystem identity, not alias spelling.
+    expect(await fs.realpath(prepared.cwd)).toBe(await fs.realpath(f.desk));
     expect(f.a.legacyDeskSlug).toBe(f.originalSlug); expect(f.a.machine).toBeUndefined();
     f.swarm.updateAgent(f.a.id, { name: 'Clara' });
     expect(f.swarm.agentSlug(f.a)).toBe(f.originalSlug); expect(f.swarm.deskOf(f.a, f.repo)).toBe(f.desk);
     expect(await f.snapshot()).toEqual(before);
     expect(await fs.readdir(path.dirname(f.desk))).toEqual([f.originalSlug]);
-    expect(f.swarm.installDeps).toHaveBeenCalledWith(f.a, f.desk, f.repo);
+    expect(f.swarm.installDeps).toHaveBeenCalledWith(f.a, prepared.cwd, f.repo);
   });
   it.each(['other-agent', 'outside-desks'] as const)('refuses a saved branch held by %s instead of adopting its folder', { timeout: 15_000 }, async holder => {
     const f = await legacyFixture();

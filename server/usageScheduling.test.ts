@@ -78,10 +78,13 @@ describe('AI quota scheduling integration', () => {
   it('cancels a deferred launch when its task is cleared', () => {
     const s = office();
     const launch = vi.fn();
+    const runtime = { session: null, sessionStart: Symbol('pending launch') as symbol | undefined };
+    s.agentRt = new Map([['a', runtime]]);
     s.quotaWaiting.set('a', launch);
     s.clearTask(s.agent('a'));
     expect(s.quotaWaiting.has('a')).toBe(false);
     expect(launch).not.toHaveBeenCalled();
+    expect(runtime.sessionStart).toBeUndefined();
   });
   it('starts queued QA only on an eligible resource and holds an author’s fix instead of changing provider', () => {
     const s = office();
