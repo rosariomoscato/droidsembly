@@ -1,6 +1,54 @@
-# Droidsembly 0.4.0-beta.5 — release candidate / candidata al rilascio
+# Droidsembly 0.4.0-beta.5 — published on next / pubblicata su next
 
-**Not published. Integrated into dev with independent QA and green CI. / Non pubblicata. Integrata in dev con QA indipendente e CI verde.**
+## Published status / Stato pubblicato — November 16, 2026
+
+**IT:** Beta.5 è pubblicata su **`next`**; `latest` resta `0.4.0-beta.1`.
+[Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5).
+Tag immutabile `droidsembly-v0.4.0-beta.5` sul commit
+`8e887aa63cc4eac22b791aab48c47882b01fe1ec`. Il tarball pubblico è stato confrontato
+byte per byte con l'artefatto prepublish e ha superato lo smoke installato.
+
+**EN:** Beta.5 is published on **`next`**, with `latest` unchanged at beta.1.
+The immutable tag/commit above identifies the published source. Canonical public
+bytes match the retained prepublish artifact and passed installed-package smoke.
+
+- Artefatto pubblico / Public artifact: **102 files, 3303274 bytes**;
+  SHA256 `a91432f04baab35efcef349bc781959a5935276372ade44fa6185f92d79052f2`.
+- [PR #78](https://github.com/rosariomoscato/droidsembly/pull/78) promoted `dev`
+  to `main`; postmerge [CI 43839844303](https://github.com/rosariomoscato/droidsembly/actions/runs/43839844303)
+  passed all five OS/runtime jobs. The owner explicitly accepted the unresolved
+  intermittent PowerShell timeout risk; this is not a causal-resolution claim.
+- [Release 43843088684](https://github.com/rosariomoscato/droidsembly/actions/runs/43843088684)
+  passed Ubuntu/Windows/macOS Intel verification, prepublish tests/build/exact
+  smoke and OIDC npm publication. **The workflow remains failed:** its original
+  five-minute availability bound expired before the version was visible.
+  Public smoke and GitHub prerelease creation were skipped in that run.
+- Later read-only checks first retained a canonical-tarball 404, then verified
+  public availability, commit, integrity, unchanged `latest`, and identical
+  canonical bytes. Installed public-tarball smoke **PASS**: version/help,
+  93 license texts, browser-tool CLI, client/API and isolated demo persistence
+  (2 floors/11 agents). Only the skipped GitHub prerelease step was completed.
+  No republish, tag move, Release rerun or availability-budget increase occurred.
+- Un aggiornamento PC Windows, autorizzato separatamente, ha poi superato demo
+  isolata, arresto normale, backup del profilo fermo verificato tramite hash e
+  avvio reale beta.5 sullo stesso profilo, preservando identità, impostazioni e
+  byte delle credenziali. L'installazione precedente e il rollback sono conservati.
+  / A separately authorized Windows PC update passed within that limited scope;
+  publication itself never automatically updates existing installations.
+
+**Limiti / Limits:** historical negative evidence remains retained. The native
+PTY callback-loss cause, other historical timing failures, issues #39/#42 and
+native notification focus are not declared resolved. PTY boundary injection used
+native dependency stubs; no new real-provider/SDK/cloud-login or full Box-lifecycle
+certification is implied. See [controlled PC updates](QUICKSTART_PC.md).
+
+## Retained preparation history / Storico di preparazione conservato
+
+The pending/blocked/unpublished statements below describe their original phase,
+not current npm availability or PC installation. Earlier local tarball hashes
+identify earlier artifacts, not the canonical public package above. No negative
+result is erased or retroactively made green. / Gli stati pendenti seguenti sono
+storici: non descrivono la disponibilità attuale né annullano i fallimenti.
 
 **Promotion blocked / Promozione bloccata:** the subsequent dev-to-main
 [PR #78](https://github.com/rosariomoscato/droidsembly/pull/78) CI
@@ -17,7 +65,7 @@ changes frozen in commit `0763672` and subsequent review corrections documented
 in [the blocker worklog](BETA5_BLOCKERS_WORKLOG.md).
 This is not the old PR #67 candidate and does not supersede its failed gates.
 
-## Current status / Stato attuale — November 16, 2026
+## Integration-phase record / Stato alla fase di integrazione
 
 - [PR #76](https://github.com/rosariomoscato/droidsembly/pull/76) merged into
   `dev` as `1352bf6bb21eb2ae0f908db34bcf388aaf0558ba`. Tested/reviewed head:
