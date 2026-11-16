@@ -12,7 +12,7 @@ Uno spazio visuale per lo sviluppo software assistito dall'AI: collega i tuoi re
 
 [Sito](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Release](https://github.com/rosariomoscato/droidsembly/releases) · [Segnala un problema](https://github.com/rosariomoscato/droidsembly/issues) · [Contribuire](CONTRIBUTING.it.md) · [Documentazione](#documentazione) · [Sostieni il progetto](#sostieni-il-progetto)
 
-**Beta pubblicata:** [note della release 0.4.0-beta.4](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 è una candidata locale, non ancora pubblicata né completamente validata:** vedi [note e verifiche ancora aperte](https://github.com/rosariomoscato/droidsembly/blob/fix/beta5-validation-blockers/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione e le istruzioni demo; questo repository contiene i sorgenti e la documentazione tecnica.
+**Beta pubblicata:** [note della release 0.4.0-beta.4](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 è integrata in dev con QA indipendente e CI multipiattaforma verde, ma non è ancora pubblicata:** vedi [ambito della validazione e gate di rilascio ancora aperti](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione e le istruzioni demo; questo repository contiene i sorgenti e la documentazione tecnica.
 
 **Gratuito e open source, con licenza MIT.** Nessuna attivazione a pagamento o sblocco commerciale degli agenti. Il sostegno volontario aiuta lo sviluppo; abbonamenti AI, consumi API e servizi cloud opzionali hanno costi e limiti propri.
 
@@ -63,7 +63,7 @@ Il piano di progetto e il Kanban sono catture reali della beta 0.4.0-beta.1 in u
 - Claude Code è incluso tramite Agent SDK. OpenCode **2.x** e Codex si installano separatamente quando selezionati. Le sessioni terminale esclusivamente OpenCode non richiedono un abbonamento Claude.
 - Google Chrome per gli agenti che verificano i progetti nel browser.
 
-**Browser consigliato per l'ufficio:** Google Chrome aggiornato è il nostro browser di riferimento per i collaudi desktop isolati. Altri browser moderni potrebbero funzionare, ma non sono stati validati in questo ciclo di test; non è una politica di supporto esclusivo a Chrome. Clic sulle notifiche native e focus delle finestre restano non verificati. Vedi [ambito e limiti del collaudo della candidata](https://github.com/rosariomoscato/droidsembly/blob/fix/beta5-validation-blockers/docs/RELEASE_NOTES_0.4.0-beta.5.md).
+**Browser consigliato per l'ufficio:** Google Chrome aggiornato è il nostro browser di riferimento per i collaudi desktop isolati. Altri browser moderni potrebbero funzionare, ma non sono stati validati in questo ciclo di test; non è una politica di supporto esclusivo a Chrome. Clic sulle notifiche native e focus delle finestre restano non verificati. Vedi [ambito e limiti del collaudo della candidata](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md).
 
 Il progetto è destinato a Windows, macOS e Linux. La demo senza AI descritta sotto non richiede credenziali dei provider o login GitHub.
 
