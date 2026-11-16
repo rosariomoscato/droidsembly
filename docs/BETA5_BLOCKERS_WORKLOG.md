@@ -1,5 +1,30 @@
 # Beta.5 blockers — autonomous local follow-up
 
+## Current integration status — November 16, 2026
+
+Historical sections below retain their then-current pending/negative states.
+Current result: PR76 merged into dev at1352bf6bb21eb2ae0f908db34bcf388aaf0558ba,
+reviewed head8df6429a1caa8ce4f94221a5a30bca02cc43e806. Independent static review
+and functional QA PASS for scanner,cleanup,PTY boundaries. Original QA harness
+FAIL/inconclusive attempts remain retained; the distinct corrected native
+detached-child experiment observed stdout/stderr after root exit,600ms command
+deadline unchanged,zero stale taskkill requests,ETIMEDOUT plus explicit unknown
+descendant error,and acknowledged owned-child stop/absence. PTY boundary tests
+stub native dependency and do not prove native race recovery; no UI focus claim.
+
+Premerge CI43825433481 and postmerge CI43829688789 PASS on all five platform/
+runtime jobs,including install/typecheck/full tests/build/installed demo smoke.
+Initial premerge monitor network failure was retained; the same CI run continued,
+not rerun. Evidence roots b5review-20261116 and b5qa-independent-20261116 retain
+logs,JSON,artifact hashes and negative attempts. Old draft67 closed as superseded
+with original head/failures/branch preserved. Issue39/42 remain open.
+
+Owner authorized closing67,updating docs,and opening dev-to-main promotion PR
+with CI. No main merge,tag/npm publication,channel change,installed-PC update
+or new real-provider/Box action authorized or performed. README changes here
+mean old local tarball hashes are historical exact-artifact evidence,not hashes
+of a future canonical publication artifact.
+
 Branch `fix/beta5-validation-blockers`, base dev93fdcc3. Dedicated checkout
 `ds-b5fix-20261116`; the locally verified fixture-exit patch/tests/docs are copied
 from their separate worktree, not committed or promoted. User asked to resolve
