@@ -60,6 +60,13 @@ index, tracked changes, untracked and ignored files. A different/detached branch
 foreign checkout or non-worktree folder is refused, not reset or rebuilt. If no
 desk was created yet, its existing branch is reused or a new branch is created
 without force. Legacy local desks stay in their original clone for this recovery.
+If a legacy agent was renamed, recovery resolves their saved branch within that
+clone's legacy desks using the stable agent-id suffix and remembers the original
+desk identity. It will not adopt another agent's or an external worktree.
+
+Stopping also invalidates pending session-start callbacks. Recovery remains
+unavailable until an earlier Box target/linked-repository preparation settles;
+that cancelled attempt cannot later launch or finish a replacement task.
 
 The local recovery path has synthetic lifecycle and real throwaway-Git coverage.
 Cloud recovery uses a separately generated non-destructive preparation script;

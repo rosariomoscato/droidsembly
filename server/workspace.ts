@@ -339,7 +339,32 @@ async function clearDeskFolder(wt: string) {
 
 /** `note` hears why the desk couldn't be reused in place, when it has to be rebuilt. */
 export function prepareDesk(fullName: string, base: DeskBase, agentSlug: string, branch: string, note?: (text: string) => void): Promise<string> {
-  return withRepoLock(fullName, () => setUpWorktree(mainDir(fullName), deskDir(fullName, agentSlug), fullName, base, branch, note));
+  return withRepoLock(fullName, async () => {
+    const main = mainDir(fullName);
+    let desk = deskDir(fullName, agentSlug);
+    // A pre-machine agent can have been renamed since the interrupted setup.
+    // Resolve only their saved branch in this clone's legacy desks and retain
+    // the stable agent-id suffix. Never adopt another agent's/foreign worktree.
+    if (base.preserve && !base.pr) {
+      const entries = await fs.readdir(desk).catch((err: NodeJS.ErrnoException): string[] => {
+        if (err.code === 'ENOENT') return [];
+        throw err;
+      });
+      const suffix = agentSlug.match(/-([a-z0-9]{4})$/)?.[0];
+      if (!entries.length && suffix) {
+        const root = await fs.realpath(path.dirname(desk)).catch(() => null);
+        const worktrees = parseWorktrees(await git(['-c', 'core.quotePath=false', 'worktree', 'list', '--porcelain'], { cwd: main }));
+        const candidates: string[] = [];
+        for (const wt of worktrees) {
+          if (wt.branch !== branch || !path.basename(wt.path).endsWith(suffix)) continue;
+          if (root && await fs.realpath(path.dirname(wt.path)).catch(() => null) === root) candidates.push(wt.path);
+        }
+        if (candidates.length > 1) throw new Error('Multiple legacy desks match the interrupted branch; files were left untouched.');
+        if (candidates.length === 1) desk = candidates[0];
+      }
+    }
+    return setUpWorktree(main, desk, fullName, base, branch, note);
+  });
 }
 
 /**
