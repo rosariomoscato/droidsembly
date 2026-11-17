@@ -14,6 +14,8 @@ Uno spazio visuale per lo sviluppo software assistito dall'AI: collega i tuoi re
 
 **Beta pubblicata:** [0.4.0-beta.5](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5), disponibile su npm `next`; `latest` resta beta.1. Vedi [storico delle verifiche e limiti accettati](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione e le istruzioni demo; questo repository contiene i sorgenti e la documentazione tecnica.
 
+**Candidata sorgente, non pubblicata:** questo branch prepara `0.4.0-beta.6` per `next`, con ripresa delle issue interrotte e correzione degli exit status Box. [Note della candidata e limiti di validazione](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.6.md). Compilare questi sorgenti non installa i byte pubblici della beta.5 né aggiorna un ufficio esistente.
+
 **Gratuito e open source, con licenza MIT.** Nessuna attivazione a pagamento o sblocco commerciale degli agenti. Il sostegno volontario aiuta lo sviluppo; abbonamenti AI, consumi API e servizi cloud opzionali hanno costi e limiti propri.
 
 ## A chi è destinato
