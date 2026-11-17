@@ -6,11 +6,22 @@ export interface FixtureProcessResult {
   status: number | null;
   signal: NodeJS.Signals | null;
   error?: Error;
+  observation: {
+    spawnMs: number | null;
+    firstStdoutMs: number | null;
+    firstStderrMs: number | null;
+    exitMs: number | null;
+    closeMs: number | null;
+  };
 }
 
 /** Test-only: terminate an owned process tree before its root disappears on timeout. */
 export function runFixtureProcess(file: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv; timeout: number }): Promise<FixtureProcessResult> {
   return new Promise((resolve) => {
+    const started = performance.now();
+    const elapsed = () => Math.min(999999999, Math.floor(performance.now() - started));
+    const timeoutFailure = () => Object.assign(new Error(`Fixture command timed out after ${opts.timeout} ms`), { code: 'ETIMEDOUT' });
+    const observation: FixtureProcessResult['observation'] = { spawnMs: null, firstStdoutMs: null, firstStderrMs: null, exitMs: null, closeMs: null };
     const child = spawn(file, args, { cwd: opts.cwd, env: opts.env, windowsHide: true,
       detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = '', primary: Error | undefined;
@@ -30,7 +41,7 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
       const error = secondary.length && primary
         ? new AggregateError([primary, ...secondary], 'Fixture command and tree cleanup failed', { cause: primary })
         : primary;
-      resolve({ stdout, stderr, status: status ?? child.exitCode, signal: signal ?? child.signalCode, ...(error ? { error } : {}) });
+      resolve({ stdout, stderr, status: status ?? child.exitCode, signal: signal ?? child.signalCode, observation: { ...observation }, ...(error ? { error } : {}) });
     };
     const failClosed = (reason: Error) => {
       if (settled) return;
@@ -91,9 +102,11 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
     };
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
-    child.stdout.on('data', (text: string) => { stdout += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
-    child.stderr.on('data', (text: string) => { stderr += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
-    timer = setTimeout(() => stop(Object.assign(new Error(`Fixture command timed out after ${opts.timeout} ms`), { code: 'ETIMEDOUT' })), opts.timeout);
+    child.once('spawn', () => { observation.spawnMs = elapsed(); });
+    child.stdout.on('data', (text: string) => { observation.firstStdoutMs ??= elapsed(); stdout += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
+    child.stderr.on('data', (text: string) => { observation.firstStderrMs ??= elapsed(); stderr += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
+    // Include synchronous spawn setup in the existing command deadline as well.
+    timer = setTimeout(() => stop(timeoutFailure()), Math.max(0, opts.timeout - (performance.now() - started)));
     child.once('error', (err) => {
       if (settled) return;
       if (!primary) primary = err;
@@ -104,11 +117,16 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
       } else failClosed(new Error('Fixture process errored; descendant shutdown remains unverified'));
     });
     child.once('exit', (code, exitSignal) => {
+      observation.exitMs = elapsed();
       exited = true; status = code; signal = exitSignal;
     });
     child.once('close', (code, closeSignal) => {
+      observation.closeMs = elapsed();
       closed = true; status = code; signal = closeSignal;
       if (releasing || settled) return;
+      // Timer delivery can lag behind I/O callbacks. A late close must not turn
+      // an expired command into success, nor trigger PID-based cleanup after exit.
+      if (!primary && performance.now() - started >= opts.timeout) primary = timeoutFailure();
       clearTimeout(timer);
       if (!terminationPending) finish();
     });

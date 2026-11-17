@@ -56,11 +56,38 @@ it('also refuses exitCode already set before the exit listener is delivered', as
 
 it('preserves normal output and nonzero exit after complete stream close', async () => {
   const pending = run();
+  root.emit('spawn');
   root.stdout.emit('data', 'out'); root.stderr.emit('data', 'err');
   exit(73); close(73);
-  expect(await pending).toEqual({ stdout: 'out', stderr: 'err', status: 73, signal: null });
+  expect(await pending).toEqual({ stdout: 'out', stderr: 'err', status: 73, signal: null,
+    observation: { spawnMs: expect.any(Number), firstStdoutMs: expect.any(Number), firstStderrMs: expect.any(Number), exitMs: expect.any(Number), closeMs: expect.any(Number) } });
   await vi.advanceTimersByTimeAsync(11000);
   expect(spawn).toHaveBeenCalledTimes(1); expect(groupKill).not.toHaveBeenCalled();
+});
+
+it('does not turn a late close into success when timer delivery is delayed', async () => {
+  const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+  const pending = run();
+  clock.mockReturnValue(10001);
+  exit(0); close(0);
+  const result = await pending;
+  expect(result.status).toBe(0);
+  expect(result.error).toMatchObject({ code: 'ETIMEDOUT' });
+  expect(spawn).toHaveBeenCalledTimes(1);
+  expect(root.kill).not.toHaveBeenCalled(); expect(groupKill).not.toHaveBeenCalled();
+});
+
+it('counts synchronous process creation against the original command deadline', async () => {
+  const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+  vi.mocked(spawn).mockReset().mockImplementationOnce(() => {
+    clock.mockReturnValue(3000);
+    return root as unknown as ReturnType<typeof spawn>;
+  }).mockReturnValueOnce(killer as unknown as ReturnType<typeof spawn>);
+  const pending = run();
+  await vi.advanceTimersByTimeAsync(7000);
+  if (process.platform === 'win32') killFinished();
+  exit(1); close(1);
+  expect((await pending).error).toMatchObject({ code: 'ETIMEDOUT' });
 });
 
 it('retains the original timeout when live tree termination and close succeed', async () => {

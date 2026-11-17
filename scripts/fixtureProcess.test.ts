@@ -11,6 +11,12 @@ it('preserves stdout, stderr and a verified nonzero exit', async () => {
   expect(r.status).toBe(73);
   expect(r.stdout.trim()).toBe('fixture out');
   expect(r.stderr.trim()).toBe('fixture err');
+  expect(r.observation.spawnMs).toEqual(expect.any(Number));
+  expect(r.observation.firstStdoutMs).toEqual(expect.any(Number));
+  expect(r.observation.firstStderrMs).toEqual(expect.any(Number));
+  expect(r.observation.exitMs).toEqual(expect.any(Number));
+  expect(r.observation.closeMs).toEqual(expect.any(Number));
+  expect(r.observation.closeMs!).toBeGreaterThanOrEqual(r.observation.spawnMs!);
 });
 
 it('retains timeout failure and stops the owned child before its held directory is removed', async () => {
@@ -24,6 +30,11 @@ it('retains timeout failure and stops the owned child before its held directory 
     fs.writeFileSync(parentScript, `require('node:child_process').spawn(process.execPath,[${JSON.stringify(childScript)}],{cwd:${JSON.stringify(held)},stdio:'ignore'});setTimeout(()=>process.exit(3),20000);`);
     const r = await runFixtureProcess(process.execPath, [parentScript], { cwd: root, env: process.env, timeout: 10000 });
     expect(r.error).toMatchObject({ code: 'ETIMEDOUT' });
+    expect(r.observation.spawnMs).toEqual(expect.any(Number));
+    expect(r.observation.firstStdoutMs).toBeNull();
+    expect(r.observation.firstStderrMs).toBeNull();
+    expect(r.observation.exitMs).toEqual(expect.any(Number));
+    expect(r.observation.closeMs).toEqual(expect.any(Number));
     const child = JSON.parse(fs.readFileSync(marker, 'utf8')) as { pid: number };
     await vi.waitFor(() => {
       try {
@@ -47,4 +58,13 @@ it('preserves primary and cleanup failures across an async boundary', async () =
   const primary = new Error('primary'), secondary = new Error('cleanup');
   const result = withFixtureCleanup(async () => { throw primary; }, async () => { throw secondary; });
   await expect(result).rejects.toMatchObject({ errors: [primary, secondary], cause: primary });
+});
+
+it('distinguishes an executable that never spawned from a spawned process with no output', async () => {
+  const r = await runFixtureProcess(path.join(process.cwd(), 'missing-launcher-probe-executable'), [], { cwd: process.cwd(), env: process.env, timeout: 4000 });
+  expect(r.error).toMatchObject({ code: 'ENOENT' });
+  expect(r.observation.spawnMs).toBeNull();
+  expect(r.observation.firstStdoutMs).toBeNull();
+  expect(r.observation.firstStderrMs).toBeNull();
+  expect(r.status).not.toBe(0);
 });

@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync, type SpawnSyncReturns } from 'node:child_process';
+import type { SpawnSyncReturns } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
+import { runFixtureProcess, type FixtureProcessResult } from './fixtureProcess.ts';
 
 let dir='';
+let pendingProbe: Promise<FixtureProcessResult> | undefined;
 type LauncherResult = Pick<SpawnSyncReturns<string>, 'error' | 'status' | 'signal'> & { stdout: string | null; stderr: string | null };
 // Fixed protocol only: never include raw subprocess streams, errors, paths or environment in CI diagnostics.
 function launcherDiagnostics(result: Omit<LauncherResult, 'stdout'>) {
@@ -23,7 +25,11 @@ function launcherProbeDiagnostics(result: LauncherResult) {
       : /CommandNotFoundException|command was not found|not recognized as the name/.test(stderr) ? 'command-not-found'
         : /PSSecurityException|UnauthorizedAccessException/.test(stderr) ? 'access' : 'unclassified'};
 }
-afterEach((context)=>{
+afterEach(async(context)=>{
+  // Vitest's unchanged case deadline may expire during tree termination. Never
+  // remove a directory still owned by that asynchronous fixture process.
+  await pendingProbe;
+  pendingProbe=undefined;
   if(dir && context.task.result?.state==='fail') {
     console.error('launcher-fixture-retained', JSON.stringify({synthetic:true}));
     return;
@@ -63,7 +69,7 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     expect(diagnostics.milestones).toHaveLength(16);
     expect(diagnostics.milestones[0]).toEqual({stage:'child-wait',ms:14});
   });
-  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',()=>{
+  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',async()=>{
     dir=path.join(process.env.SWARM_HOME!,'launcher-local-probe');fs.mkdirSync(dir,{recursive:true});
     const probe=path.join(dir,'probe.mjs');
     fs.writeFileSync(probe,"process.exit(process.argv.includes('--check')?0:1);\n");
@@ -98,13 +104,23 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     const keep=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','LOCALAPPDATA','APPDATA','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','HOMEDRIVE','HOMEPATH','USERNAME','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS']);
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const spawnAt=performance.now();
-    const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{env,encoding:'utf8',timeout:4000,windowsHide:true});
+    pendingProbe=runFixtureProcess('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{cwd:process.cwd(),env,timeout:4000});
+    const result=await pendingProbe;
     const spawnMs=Math.min(999999999,Math.floor(performance.now()-spawnAt));
     const diagnostics=launcherProbeDiagnostics(result);
+    const safeDiagnostics={...diagnostics,spawnMs,observation:result.observation,
+      executionMode:'owned-async',commandDeadlineMs:4000,
+      hasPath:Object.keys(env).some((key)=>key.toUpperCase()==='PATH'),hasSystemRoot:Object.keys(env).some((key)=>key.toUpperCase()==='SYSTEMROOT')};
+    // CI uploads only this fixed-schema file, never the raw synthetic result or
+    // a whole SWARM_HOME. Its location is explicit: RUNNER_TEMP != os.tmpdir().
+    if(process.env.DS_LAUNCHER_DIAGNOSTICS_DIR){
+      fs.mkdirSync(process.env.DS_LAUNCHER_DIAGNOSTICS_DIR,{recursive:true});
+      fs.writeFileSync(path.join(process.env.DS_LAUNCHER_DIAGNOSTICS_DIR,'safe-diagnostics.json'),JSON.stringify(safeDiagnostics,null,2));
+    }
     // Reporters can omit assertion-message stderr; emit only bounded safe protocol data on failure.
     if(result.error || result.status!==1 || result.signal || !diagnostics.failureVisible || !diagnostics.disposed) {
-      console.error('launcher-probe-diagnostics',JSON.stringify({...diagnostics,spawnMs,
-        hasPath:Object.keys(env).some((key)=>key.toUpperCase()==='PATH'),hasSystemRoot:Object.keys(env).some((key)=>key.toUpperCase()==='SYSTEMROOT')}));
+      console.error('launcher-probe-diagnostics',JSON.stringify(safeDiagnostics));
+      fs.writeFileSync(path.join(dir,'safe-diagnostics.json'),JSON.stringify(safeDiagnostics,null,2));
       // This fixture has only fixed synthetic inputs. Keep its local raw result
       // for diagnosis, but never emit arbitrary streams/paths to the CI log.
       fs.writeFileSync(path.join(dir,'synthetic-result.json'),JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr},null,2));
