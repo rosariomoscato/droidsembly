@@ -7,15 +7,22 @@
 **IT:** Preparazione di `0.4.0-beta.6` per `next`: [note IT/EN e limiti](RELEASE_NOTES_0.4.0-beta.6.md).
 La beta pubblicata resta beta.5, `latest` beta.1 (controllo registry del 17 novembre 2026).
 Il cambio versione non certifica la candidata: verifiche locali, CI propria e review
-vanno registrate separatamente. Full locale NON-PASS e ARM64 non eseguito restano
-gap; i consensi per dev/main non autorizzano la pubblicazione. Nessun tag,
+vanno registrate separatamente. La candidata è aggiornata sul dev e56a572 dopo
+#87, con propria base CI cinque ambienti PASS incluso ARM64 nativo; non è una
+certificazione della nuova candidata. Restano full locale NON-PASS e FAIL reale
+PowerShell WindowsNode24 del vecchio head eea21c2; il suo ARM64 non eseguito
+resta evidenza storica distinta. I consensi per dev/main non autorizzano la pubblicazione. Nessun tag,
 dispatch Release, publish o aggiornamento PC autorizzato da questa preparazione.
 Release verifica tre OS e poi pubblica automaticamente: non è una prova verify-only.
 
 **EN:** Preparing `0.4.0-beta.6` for `next`: [IT/EN notes and limits](RELEASE_NOTES_0.4.0-beta.6.md).
 Published beta.5 and `latest=beta.1` remain unchanged (registry checked November 17, 2026).
 The version bump does not certify this candidate; record its own checks, CI and review
-separately. The local full-suite NON-PASS and unexecuted ARM64 check remain gaps.
+separately. The candidate refresh uses dev e56a572 after PR87, whose own base CI
+passed five environments including executed native ARM64; this does not certify
+the refreshed candidate. The local full-suite NON-PASS and old candidate
+eea21c2's real WindowsNode24 PowerShell failure remain; its unexecuted ARM64
+check is a separate preserved historical gap.
 Dev/main merge consent is not publication consent. Preparation authorizes no tag,
 Release dispatch, publish or PC update. Release verifies three OSes and then
 automatically publishes; it is not a verify-only workflow.

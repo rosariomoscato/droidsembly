@@ -8,8 +8,12 @@
 Al controllo del 17 novembre 2026 npm pubblica beta.5 su `next` e beta.1 su
 `latest`; beta.6 e il suo tag non esistono ancora. Beta.5 resta immutabile sul tag
 `droidsembly-v0.4.0-beta.5`, commit `8e887aa63cc4eac22b791aab48c47882b01fe1ec`.
-Base funzionale: dev `7af230b05544ecf89b7ff737f1fe4c29070f5810`, già promossa
-in main come `bebdfc78f8955b7ec93d437c01878f7cf60dcd0f` con tree identico.
+Base aggiornata: dev `e56a5728d4f5a1f923c5a1ed6cb6d8649c14d1c9`, che include
+la diagnostica timeout #87. Le funzionalità precedenti erano già promosse in
+main `bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`; la diagnostica #87 non è ancora
+in main. Il vecchio head candidato `eea21c2e2de296f8d51849741b627d92a4b97094`
+e le sue prove restano conservati. L'aggiornamento incorpora dev senza riscrivere
+la storia; non è un retry invariato o una correzione causale di PowerShell.
 Il delta di preparazione cambia solo versione coerente package/lock e documenti:
 nessuna dipendenza, runtime, soglia, assertion, worker o workflow modificato.
 
@@ -33,6 +37,18 @@ script cloud non costituiscono una nuova validazione su Box/provider reali.
 
 ### Evidenze e limiti da conservare
 
+- CI della **nuova base dev** post-merge #87:
+  [44196557526](https://github.com/rosariomoscato/droidsembly/actions/runs/44196557526),
+  attempt1 **SUCCESS sui cinque ambienti**, incluso ARM64 nativo realmente
+  eseguito con typecheck, suite, build e smoke. Windows:3479/3479 test PASS
+  in312 file; ARM64:3476 PASS/3 skip previsti. Non è la CI della candidata aggiornata.
+- CI del **vecchio head candidato** eea21c2, PR86:
+  [44180780366](https://github.com/rosariomoscato/droidsembly/actions/runs/44180780366),
+  attempt1 FAILURE:WindowsNode24 ha realmente fallito il test PowerShell
+  ETIMEDOUT4000ms,3467/3468 test PASS;ARM64 senza runner/zero step.
+  Quel FAIL non è annullato dai verdi della diagnostica né dallo smoke locale.
+  La nuova diagnostica distingue timer/late-close per eventuali nuovi errori,
+  non classifica retroattivamente il vecchio caso e non ne dimostra la causa.
 - CI della base main post-merge #85:
   [44096757487](https://github.com/rosariomoscato/droidsembly/actions/runs/44096757487),
   attempt1: Ubuntu, macOS Intel, Windows Node22/24 PASS con typecheck, suite,
@@ -57,6 +73,9 @@ script cloud non costituiscono una nuova validazione su Box/provider reali.
 
 La candidata richiede **propri esiti** di metadati, typecheck, build, tarball
 esatto/smoke, CI e review: queste note non li anticipano come PASS.
+Gli esiti e il tarball del vecchio head sono fotografie precedenti, non
+certificazione dei nuovi byte. Il consenso attuale copre aggiornamento e una
+sola CI propria della nuova candidata, non merge o pubblicazione.
 Non viene ripetuta la full locale invariata né avviato un retry ARM64 automatico.
 I due gap sono stati accettati separatamente per dev e main, **non ancora per
 pubblicare questa release**. Anche il consenso ai rischi beta.5 non si trasferisce.
@@ -83,8 +102,12 @@ Vedi [pubblicazione](NPM_RELEASE.md), [PC](QUICKSTART_PC.md) e
 npm still serves beta.5 on `next` and beta.1 on `latest`; beta.6 and its tag do
 not yet exist. Beta.5's tag and artifact remain immutable at commit
 `8e887aa63cc4eac22b791aab48c47882b01fe1ec`.
-Functional base: dev `7af230b05544ecf89b7ff737f1fe4c29070f5810`, promoted to main
-as `bebdfc78f8955b7ec93d437c01878f7cf60dcd0f` with an identical tree.
+Updated base: dev `e56a5728d4f5a1f923c5a1ed6cb6d8649c14d1c9`, including PR87's
+timeout-provenance diagnostics. Earlier functional changes are already in main
+`bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`, but PR87 is not yet in main.
+Old candidate head `eea21c2e2de296f8d51849741b627d92a4b97094` and its evidence
+are retained. Refresh merges dev without rewriting history; it is neither an
+unchanged retry nor a demonstrated causal PowerShell fix.
 Preparation changes only consistent package/lock versions and documentation,
 not dependencies, runtime, thresholds, assertions, workers or workflows.
 
@@ -106,6 +129,17 @@ cloud script checks are not new real Box/provider validation.
 
 ### Evidence, gaps and delivery boundaries
 
+New base dev post-merge87 CI44196557526 attempt1 **passed all five environments**,
+including actually executed native ARM64 typecheck/tests/build/smoke.
+Windows passed3479/3479tests in312files;ARM64 passed3476 with3expected platform
+skips. This is base validation,not the refreshed candidate's own CI.
+
+Old candidate eea21c2 PR86 CI44180780366 attempt1 remains FAILURE:a real Windows
+Node24 PowerShell ETIMEDOUT4000ms,3467/3468testsPASS,plus ARM64 no runner/zero
+steps. Diagnostic greens and the local smoke do not erase it. The new schema can
+distinguish timer/late-close on future failures,not classify that old case or
+prove its cause. Previous tarballs/checks certify only their old snapshots.
+
 Main post-merge #85 CI44096757487 attempt1 passed Ubuntu, macOS Intel and Windows
 Node22/24 typecheck/full tests/build/smoke, but concluded **FAILURE** overall:
 ARM64 was cancelled with no runner and zero steps; hosted capacity annotations
@@ -126,6 +160,8 @@ CI and review results. None is predeclared PASS here. No unchanged local full
 rerun or automatic ARM64 retry is part of preparation. Dev/main gap acceptance
 does not authorize publication; beta.5 risk acceptance does not transfer either.
 New executed candidate failures require separate assessment.
+Current consent covers the refresh and one own CI of the updated candidate,
+not merge or publication.
 
 Preparation is not merge, tagging, publication or installation. Publication needs
 exact-candidate review, release-specific gap/risk decisions, approved main integration,
