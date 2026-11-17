@@ -75,3 +75,38 @@ No third local full-suite attempt or budget/worker adjustment is planned.
 Focused validation passed42/42cases across six files; ordinary typecheck and
 build passed. A separate ordinary branch CI run is the next independent
 environment check, not a claim that either incomplete local run passed.
+
+## Subsequent observed diagnosis and delivery boundary
+
+The branch CI `44072727543`, attempt1, passed all five environments on
+`b366dba`: ordinary typecheck, complete tests, build and installed-package demo
+smoke. Windows Node24 and Node22 each passed3468/3468tests across311files.
+This is separate evidence, not a retroactive local full-suite PASS.
+
+Two subsequent authorized full-suite diagnoses kept all311modules, existing
+concurrency and deadlines, and the same external240s bound. Neither completed.
+Immediate reporter diagnostics identified the existing15000ms case timeout in
+resumeDesk's branch-held case. The main coordinator remained responsive;
+workspace tests were still progressing in the functional phase when stopped.
+The timing-sensitive phase, including the launcher, had not yet started.
+
+The final full diagnosis additionally traced only Git calls in synthetic
+resume-desk repositories, without recording argv, refs, streams or full paths.
+In the failed case, fixture/holder setup and the initial snapshot used about
+10.7s. resumeDesk then issued its expected worktree refusal (exit128) at14.18s.
+The deadline was crossed by the final preservation snapshot's status command,
+which ran from14.743s to15.522s. A subsequent diff began after the deadline;
+its completion was not observed. Final preservation assertions were therefore
+not completed or certified. No completed individual Git command took2s: the
+budget was consumed by an accumulated sequence, not one15s stalled command.
+
+The seven unchanged cases passed in a separate isolated diagnosis, but that
+does not substitute for full-load verification. These observations locate the
+local failure boundary; they do not identify an OS/I/O cause or cure the old
+PowerShell empty-startup failure. No further unchanged retry, timeout increase,
+worker reduction or removal of assertions is part of this delivery.
+
+The owner explicitly authorized opening a **draft PR only**, with a documented
+exception to the local full-suite PASS prerequisite. That exception does not
+declare the local suite passed, accept all remaining risks, or authorize merge,
+release, tag/npm changes or a PC update. The original failures remain retained.
