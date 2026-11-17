@@ -90,6 +90,16 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+        env:
+          DS_LAUNCHER_DIAGNOSTICS_DIR: ${{ github.workspace }}/.ci-launcher-diagnostics
+      - name: Retain safe launcher diagnostics on failure
+        if: failure() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-diagnostics-${{ github.job }}-${{ github.run_attempt }}
+          path: .ci-launcher-diagnostics/safe-diagnostics.json
+          if-no-files-found: ignore
+          retention-days: 14
       - run: npm run build
       # The npm package as users get it: packed, installed into an empty folder and booted in demo mode.
       - run: node scripts/smoke-package.mjs
@@ -142,5 +152,15 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+        env:
+          DS_LAUNCHER_DIAGNOSTICS_DIR: ${{ github.workspace }}/.ci-launcher-diagnostics
+      - name: Retain safe launcher diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-diagnostics-${{ github.job }}-${{ github.run_attempt }}
+          path: .ci-launcher-diagnostics/safe-diagnostics.json
+          if-no-files-found: ignore
+          retention-days: 14
       - run: npm run build
       - run: node scripts/smoke-package.mjs

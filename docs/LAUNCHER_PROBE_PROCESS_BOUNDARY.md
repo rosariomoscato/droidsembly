@@ -1,0 +1,77 @@
+# Protected launcher probe: process ownership and diagnostic boundary
+
+The post-merge CI for PR #81 (`44068325618`, main `668d25b`) failed on
+Windows Node24: 3464 tests passed and one failed. The protected launcher probe
+reported `ETIMEDOUT` after4008ms with no output or recognized milestone.
+Windows Node22 passed the same scenario in2669ms on a different runner. The
+merge tree matched reviewed dev exactly; neither result establishes a Node,
+OS, scanner, PowerShell parser or launcher root cause.
+
+## Test-only correction
+
+The protected PowerShell probe now awaits the existing owned-process fixture
+helper instead of `spawnSync`. This closes a separate concrete gap: stopping
+only the PowerShell root does not establish that its local Node descendants
+have stopped. The helper retains a deadline failure, attempts bounded tree
+termination, and reports cleanup uncertainty as failure rather than success.
+The fixture's teardown awaits that boundary before removing its directory,
+including when Vitest's unchanged case deadline expires during termination.
+
+The command deadline remains **4000ms**, including spawn setup. Process-tree
+termination and stream drain use the helper's existing separate bounds, only
+after a command has already failed; they are not extra execution time in which
+the test can pass. No retry, shell warm-up, extra startup allowance, scheduling
+change or assertion reduction is introduced.
+
+The helper also rejects a close observed after the command deadline even when
+the timer callback has not yet been delivered. That path preserves the observed
+exit status for diagnosis but returns ETIMEDOUT and never issues a PID-based
+kill against the already exited root. Two deterministic clock/event regressions
+fail against the original helper and pass against the corrected boundary:
+late close before timer delivery, and spawn setup counted within the deadline.
+
+The actual launcher, local child and loader, synthetic protected input,
+preflight, failure exit1, disposal milestone, acknowledgement and secret-output
+checks are preserved. There are no production launcher/runtime changes and no
+real provider, credentials, Box or office involved.
+
+## Observability
+
+The fixture helper records bounded monotonic offsets for the Node child
+`spawn` event, first stdout/stderr chunks, exit and close. A null spawn offset
+distinguishes a child that never emitted that event from one that spawned but
+produced no output. This does **not** measure when PowerShell finished loading
+or prove that an unobserved script instruction did not execute.
+The legacy outer `spawnMs` diagnostic remains end-to-end elapsed time and may
+include failed-command cleanup; `observation.spawnMs` is the spawn-event offset.
+Cleanup time never converts an expired command into a passing scenario.
+
+On CI, an explicit diagnostic directory receives only `safe-diagnostics.json`:
+fixed labels, safe error categories, booleans, counts and bounded durations.
+Failure-only artifact steps for Windows Node24 and Node22 upload that exact
+file for14days. They never upload raw streams, scripts, synthetic-result.json,
+credentials, arbitrary environment values or an entire SWARM_HOME. An explicit
+workspace location avoids assuming RUNNER_TEMP equals Node's os.tmpdir().
+
+## Interpretation
+
+An original local probe passed on its first run; there was no local reproduction
+of the historical empty-startup failure. A green run of this candidate can
+validate this process boundary and scenario on that runner, not prove that all
+historical PowerShell startup timeouts have been cured. The original negative
+CI, its4000ms limit and the unresolved root-cause boundary remain evidence.
+
+Initial local full-suite validation of the first diagnostic candidate did not
+complete within its external240s command bound and reported one stale exact
+result-shape assertion. The additive observation fields are now expected
+explicitly without dropping any previous output/status/error verification.
+That incomplete run remains negative evidence, not a completed suite result.
+
+A second full local suite on the corrected source also reached the unchanged
+external240s bound. It showed a failure in the unmodified resumeDesk branch-held
+case (15738ms, existing15000ms case limit) before the suite's final diagnostics
+could be emitted. That duration alone does not establish its failure cause.
+No third local full-suite attempt or budget/worker adjustment is planned.
+Focused validation passed42/42cases across six files; ordinary typecheck and
+build passed. A separate ordinary branch CI run is the next independent
+environment check, not a claim that either incomplete local run passed.
