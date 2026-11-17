@@ -24,6 +24,7 @@ import type { OfficeUpdateView } from '../../shared/types';
 import type { Agent } from './store';
 
 const surfaces = [
+  'ui/ResumeIssueButton.tsx',
   'ui/CodingAgentTestNotice.tsx',
   'ui/signInText.ts',
   'ui/OpenCodeConnections.tsx',

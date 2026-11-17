@@ -28,6 +28,7 @@ import { VoiceSettings } from './VoiceSettings';
 import { CloudSettings } from './CloudSettings';
 import { AccessibilitySettings } from './AccessibilitySettings';
 import { OutsideSettings } from './OutsideSettings';
+import { ResumeIssueButton } from './ResumeIssueButton';
 
 async function attempt<T>(fn: () => Promise<T>): Promise<T | undefined> {
   try {
@@ -604,6 +605,7 @@ function IssuesTab({ initialRepo }: { initialRepo?: string }) {
                         ))}
                     </select>
                   )}
+                  {holder && <ResumeIssueButton agent={holder} repoId={repoId} issueNumber={i.number} />}
                   <button
                     className="btn btn-small btn-ghost"
                     title={t('Close it on GitHub as not planned')}

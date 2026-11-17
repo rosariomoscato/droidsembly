@@ -12,7 +12,7 @@ A visual workspace for AI-assisted software development: connect your GitHub rep
 
 [Website](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Releases](https://github.com/rosariomoscato/droidsembly/releases) · [Report an issue](https://github.com/rosariomoscato/droidsembly/issues) · [Contributing](CONTRIBUTING.md) · [Documentation](#documentation) · [Support the project](#support-the-project)
 
-**Published beta:** [0.4.0-beta.4 release notes](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.4.md). **Beta.5 is integrated into dev with independent QA and green multiplatform CI, but is not yet published:** see [validation scope and remaining release gates](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
+**Published beta:** [0.4.0-beta.5](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5), available on npm `next`; `latest` remains beta.1. See [verification history and accepted limits](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction and demo instructions; this repository contains the source and technical documentation.
 
 **Free and open source, under the MIT license.** No paid activation or commercial agent unlocks. Voluntary support helps development; your AI subscriptions, API usage and optional cloud services have their own costs and limits.
 
@@ -52,9 +52,9 @@ The project floor and Kanban are actual captures of beta 0.4.0-beta.1 in an isol
 
 ## Install this fork
 
-**Published package:** [droidsembly@0.4.0-beta.4 on npm](https://www.npmjs.com/package/droidsembly). Run `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), or build from source below. To select the published beta.4 exactly, use `npx droidsembly@0.4.0-beta.4`; building this checkout instead uses its local candidate version. There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
+**Published package:** [droidsembly@0.4.0-beta.5 on npm](https://www.npmjs.com/package/droidsembly). Run `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), or build from source below. To select beta.5 exactly, use `npx droidsembly@0.4.0-beta.5`; building a checkout uses that checkout's version, not necessarily the published bytes. These are launch instructions, not an automatic update of an existing office: first follow the [controlled update guidance](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/QUICKSTART_PC.md). There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
 
-**This is a beta, not a stable release.** Use the explicit `next` channel: npm currently also points `latest` at this first beta, so an unqualified install selects it too. A future stable release will take over `latest`; beta versions check `next` for updates. The package exposes no global `cubefarm` alias. The internal entry file `bin/cubefarm.js`, existing checkout launchers and default data directory remain compatible. For side-by-side use, select a separate `SWARM_HOME` and free ports as described below.
+**This is a beta, not a stable release.** Use the explicit `next` channel: `latest` still selects beta.1, not beta.5. A future stable release will take over `latest`; beta versions check `next` for updates. The package exposes no global `cubefarm` alias. The internal entry file `bin/cubefarm.js` and existing checkout launchers remain compatible. Existing legacy homes are adopted; `DROIDSEMBLY_HOME` takes precedence over `SWARM_HOME`, and ambiguous dual homes require an explicit choice. For side-by-side use, select a separate home and free ports as described below.
 
 ### Requirements
 

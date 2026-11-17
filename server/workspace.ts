@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { HOME_DIR, WORKSPACE_ROOT } from './config.ts';
 import { type CommandError, gh, git, run } from './exec.ts';
+import { resumeDesk } from './resumeDesk.ts';
 
 // Layout on disk:
 //   <your projects folder>/<repo>                    the floor's main checkout: your own folder, only fetched and fast-forwarded (syncMain)
@@ -288,6 +289,8 @@ export async function createProject(root: string, name: string, opts: { visibili
 
 export interface DeskBase {
   defaultBranch: string;
+  /** Resume an interrupted issue without resetting or cleaning its worktree. */
+  preserve?: boolean;
   /** Start from a pull request's head instead of the default branch (QA testing, fixes after QA). */
   pr?: number;
 }
@@ -336,7 +339,32 @@ async function clearDeskFolder(wt: string) {
 
 /** `note` hears why the desk couldn't be reused in place, when it has to be rebuilt. */
 export function prepareDesk(fullName: string, base: DeskBase, agentSlug: string, branch: string, note?: (text: string) => void): Promise<string> {
-  return withRepoLock(fullName, () => setUpWorktree(mainDir(fullName), deskDir(fullName, agentSlug), fullName, base, branch, note));
+  return withRepoLock(fullName, async () => {
+    const main = mainDir(fullName);
+    let desk = deskDir(fullName, agentSlug);
+    // A pre-machine agent can have been renamed since the interrupted setup.
+    // Resolve only their saved branch in this clone's legacy desks and retain
+    // the stable agent-id suffix. Never adopt another agent's/foreign worktree.
+    if (base.preserve && !base.pr) {
+      const entries = await fs.readdir(desk).catch((err: NodeJS.ErrnoException): string[] => {
+        if (err.code === 'ENOENT') return [];
+        throw err;
+      });
+      const suffix = agentSlug.match(/-([a-z0-9]{4})$/)?.[0];
+      if (!entries.length && suffix) {
+        const root = await fs.realpath(path.dirname(desk)).catch(() => null);
+        const worktrees = parseWorktrees(await git(['-c', 'core.quotePath=false', 'worktree', 'list', '--porcelain'], { cwd: main }));
+        const candidates: string[] = [];
+        for (const wt of worktrees) {
+          if (wt.branch !== branch || !path.basename(wt.path).endsWith(suffix)) continue;
+          if (root && await fs.realpath(path.dirname(wt.path)).catch(() => null) === root) candidates.push(wt.path);
+        }
+        if (candidates.length > 1) throw new Error('Multiple legacy desks match the interrupted branch; files were left untouched.');
+        if (candidates.length === 1) desk = candidates[0];
+      }
+    }
+    return setUpWorktree(main, desk, fullName, base, branch, note);
+  });
 }
 
 /**
@@ -344,6 +372,10 @@ export function prepareDesk(fullName: string, base: DeskBase, agentSlug: string,
  * it in place when it's there. Callers hold the clone's lock.
  */
 async function setUpWorktree(main: string, wt: string, fullName: string, base: DeskBase, branch: string, note?: (text: string) => void): Promise<string> {
+  if (base.preserve) {
+    if (base.pr) throw new Error('Preserving an interrupted desk is only supported for issues.');
+    return resumeDesk(main, wt, branch, `origin/${base.defaultBranch}`);
+  }
   await git(['fetch', 'origin', '--prune'], { cwd: main, timeoutMs: 180_000 });
   let ref = `origin/${base.defaultBranch}`;
   if (base.pr) {

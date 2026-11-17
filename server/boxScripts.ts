@@ -121,6 +121,36 @@ export function prepareDeskScript(fullName: string, base: DeskBase, branch: stri
   const repo = boxRepoDir(fullName);
   const desk = boxDeskDir(fullName);
   const ref = base.pr ? `origin/pr/${base.pr}` : `origin/${base.defaultBranch}`;
+  if (base.preserve) {
+    if (base.pr) throw new Error('Preserving an interrupted desk is only supported for issues.');
+    return [
+      '(', 'set -e', `R=${sq(repo)}`, `W=${sq(desk)}`, `B=${sq(branch)}`, `REF=${sq(ref)}`,
+      'git check-ref-format --branch "$B" >/dev/null',
+      'if [ -e "$W/.git" ]; then',
+      '  test -d "$R/.git" || { echo "The desk clone is missing; files left untouched." >&2; exit 2; }',
+      '  ROOT="$(git -C "$W" rev-parse --show-toplevel)"',
+      '  test "$(cd "$ROOT" && pwd -P)" = "$(cd "$W" && pwd -P)" || exit 2',
+      '  C="$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)"',
+      '  E="$(git -C "$R" rev-parse --path-format=absolute --git-common-dir)"',
+      '  test "$(cd "$C" && pwd -P)" = "$(cd "$E" && pwd -P)" || { echo "The desk belongs to another checkout; files left untouched." >&2; exit 2; }',
+      '  test "$(git -C "$W" symbolic-ref --short -q HEAD)" = "$B" || { echo "The desk is not on the interrupted branch; files left untouched." >&2; exit 2; }',
+      '  echo "$W"; exit 0',
+      'fi',
+      'if [ -e "$W" ]; then test -d "$W" && test -z "$(ls -A "$W")" || { echo "The desk folder is not empty; files left untouched." >&2; exit 2; }; fi',
+      'if [ ! -d "$R/.git" ]; then',
+      '  mkdir -p "$(dirname "$R")"',
+      `  git clone -q --no-checkout ${sq(`https://github.com/${fullName}.git`)} "$R"`,
+      'fi',
+      'git -C "$R" fetch -q origin --prune',
+      'mkdir -p "$(dirname "$W")"',
+      'if git -C "$R" show-ref --verify --quiet "refs/heads/$B"; then',
+      '  git -C "$R" worktree add -q "$W" "$B"',
+      'else',
+      '  if git -C "$R" show-ref --verify --quiet "refs/remotes/origin/$B"; then REF="origin/$B"; fi',
+      '  git -C "$R" worktree add -q -b "$B" "$W" "$REF"',
+      'fi', 'echo "$W"', ')',
+    ].join('\n');
+  }
   // Keep errexit and early exits inside this operation, not the SDK's command shell.
   // The subshell's actual exit status remains the result; stdout is never proof of success.
   return [

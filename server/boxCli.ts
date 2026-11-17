@@ -9,6 +9,7 @@ import { BOX_ENV } from './cloud.ts';
 import { sq, tmuxAlive, tmuxAttach, tmuxKill, tmuxList, tmuxSocket, tmuxStart } from './boxScripts.ts';
 import type { BoxApi, BoxSession } from './box.ts';
 import type { Pty } from './ptyClient.ts';
+import { ptyExitCode } from './ptyProtocol.ts';
 import type { AgentCli } from '../shared/types.ts';
 
 /** What the office keeps about a cloud agent's live CLI, with the agent (state.json), so it can pick it up again. */
@@ -93,10 +94,10 @@ export function finishedTurn(events: Record<string, unknown>[]): boolean {
   return events.slice(last + 1).some((e) => TURN_ENDS.includes(String(e.hook_event_name)) || e.hook_event_name === 'CubefarmExit');
 }
 
-/** The CLI's exit code, when the events hold its exit. */
+/** No exit event is distinct from an exit with an unavailable/invalid status (-1). */
 export function exitCode(events: Record<string, unknown>[]): number | null {
   const exit = events.filter((e) => e.hook_event_name === 'CubefarmExit').pop();
-  return exit ? Number(exit.code) || 0 : null;
+  return exit ? ptyExitCode(exit.code) : null;
 }
 
 /** Waits after a dropped connection: 1, 2, 4… seconds, at most 30. */
@@ -253,7 +254,7 @@ export class BoxPty implements Pty {
     let exit: number | null = null;
     for (const e of this.lines.push(text)) {
       if (this.stopped || this.exited) return;
-      if (e.hook_event_name === 'CubefarmExit') exit = Number(e.code) || 0;
+      if (e.hook_event_name === 'CubefarmExit') exit = ptyExitCode(e.code);
       else this.o.event(e);
     }
     if (this.stopped || this.exited) return;

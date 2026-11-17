@@ -263,6 +263,7 @@ export interface AgentView {
   prNumber: number | null; // the PR they opened, are testing or are fixing
   prUrl: string | null;
   currentTool: string | null; // while preparing: the setup step (INSTALL_STEP), null for the worktree
+  canResumeIssue?: boolean; // server capability: interrupted issue before a session; never inferred from status alone
   startedAt: number | null;
   endedAt: number | null;
   costUsd: number;

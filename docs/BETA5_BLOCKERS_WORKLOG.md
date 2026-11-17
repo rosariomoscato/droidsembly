@@ -1,5 +1,37 @@
 # Beta.5 blockers — autonomous local follow-up
 
+## Published and installed status — supersedes historical pending phases
+
+Owner explicitly accepted the unresolved intermittent PowerShell timeout risk,
+then authorized PR #78 main promotion, publication, and later PC update separately.
+Main/tagged commit 8e887aa63cc4eac22b791aab48c47882b01fe1ec; main postmerge
+CI 43839844303 PASS, five OS/runtime jobs. Tag droidsembly-v0.4.0-beta.5 is immutable.
+
+Release 43843088684: three-OS verification and publish-side tests/build/exact smoke/OIDC
+publish PASS, but original five-minute public-availability verification FAILED.
+Ten version-not-visible observations retained; public smoke/GitHub creation skipped.
+Later read-only checks observed metadata availability then canonical tarball 404;
+the owner-requested subsequent check verified canonical bytes/channels and public
+installed smoke PASS. GitHub prerelease created only after that verification.
+No republish, tag move, Release rerun, budget increase or retroactive workflow PASS.
+
+Canonical 102-file, 3303274-byte public SHA256:
+`a91432f04baab35efcef349bc781959a5935276372ade44fa6185f92d79052f2`.
+next=beta.5,latest=beta.1. Evidence retained externally in b5publish-20261116.
+
+Separately authorized PC update: pinned parallel npm installation, demo PASS,
+normal console Ctrl+C after verifying no active work, stopped-profile backup: 70 files,
+1186209 bytes with per-file hashes, real beta.5 restart on the same legacy home.
+Repository/agent identities, existing settings and credential bytes preserved;
+only new setting cloud.pauseNewWork=false added. Old source checkout plus three local
+changes untouched, previous install/profile rollback retained. This is not new
+provider/Box/native-focus certification. Detailed private evidence outside repo.
+
+All pending/blocked/no-commit/no-publication/no-PC-update statements below retain
+their phase-specific meaning,not current status. Issues39/42 and historical native/
+timing causes remain open. Postpublication documentation changes do not alter the
+immutable public artifact; no new version or publication is requested.
+
 ## Promotion blocker after documentation integration
 
 PR77 documentation merged devacd0fbcb61559f3b129dc6e8480da6b46bd02e47.

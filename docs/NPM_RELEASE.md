@@ -2,6 +2,34 @@
 
 ## Stato / Status
 
+### Beta.5 pubblicata e verificata / Beta.5 published and verified
+
+**IT:** Dal 16 novembre 2026 `droidsembly@0.4.0-beta.5` è pubblicata su **`next`**;
+`latest` resta `0.4.0-beta.1`. [Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5),
+[note IT/EN e storico](RELEASE_NOTES_0.4.0-beta.5.md). Tag immutabile
+`droidsembly-v0.4.0-beta.5` sul commit `8e887aa63cc4eac22b791aab48c47882b01fe1ec`.
+Tarball pubblico: 102 file, 3303274 byte, SHA256
+`a91432f04baab35efcef349bc781959a5935276372ade44fa6185f92d79052f2`.
+
+**EN:** Since November 16, 2026 beta.5 is published on **`next`**, with `latest`
+unchanged at beta.1. Canonical source identity/integrity/channels and public bytes
+were verified against the exact prepublish artifact; installed public smoke passed
+(93 client license texts, browser-tool CLI, client/API, isolated demo persistence).
+
+**Failure retained / Fallimento conservato:** [Release 43843088684](https://github.com/rosariomoscato/droidsembly/actions/runs/43843088684)
+passed three-OS verification and OIDC publish but **failed** its original five-minute
+public-availability bound. A later read-only check retained a tarball404; a further
+owner-requested check verified availability and byte-for-byte equivalence, then
+public smoke passed. Only skipped GitHub prerelease creation was completed.
+No Release rerun, republish, tag move or limit increase. The owner accepted the
+unresolved intermittent PowerShell timeout risk for beta.5; it is not declared fixed.
+
+Publication does not update PCs automatically. One separately authorized Windows
+installation update passed with isolated demo, graceful stop, hash-verified stopped
+profile backup and same-profile real restart; see [PC guidance](QUICKSTART_PC.md).
+Earlier beta.4/beta.3/beta.2 states below are retained historical records,not
+current channel values. Do not republish beta.5 or rerun Release for this version.
+
 ### Beta.4 pubblicata e verificata / Beta.4 published and verified
 
 **IT:** Dal 14 novembre 2026 `droidsembly@0.4.0-beta.4` è pubblicata su **`next`**; `latest` resta `0.4.0-beta.1`. La [Release 43610301565](https://github.com/rosariomoscato/droidsembly/actions/runs/43610301565) ha superato verifica Ubuntu/Windows/macOS Intel, pubblicazione OIDC, confronto del tarball canonico e dei canali e smoke del pacchetto pubblico. [Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.4). Questa disponibilità non aggiorna le installazioni esistenti né autorizza lavori AI.

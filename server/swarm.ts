@@ -148,6 +148,7 @@ interface PersistedAgent {
   effort: EffortLevel | '';
   cli: AgentCli | ''; // '' = the office's default CLI
   machine: string | null; // their machine (machines.ts); null for an agent from before machines, until their next task
+  legacyDeskSlug?: string; // verified original legacy worktree; independent of display-name changes
   host?: MachineHost; // 'box': their machine is an Upstash Box (docs/cloud.md); absent: a folder on this computer
   boxCli?: BoxCliRecord | null; // a cloud agent's live CLI in their Box, to pick up again after a restart
   needsSignIn?: boolean; // a cloud agent whose CLI waits for the manager to sign it in, in their terminal (docs/cloud.md)
@@ -252,6 +253,8 @@ interface Shot {
 interface AgentRuntime {
   log: LogLine[];
   session: SessionHandle | null;
+  sessionStart?: symbol; // invalidates deferred startup callbacks on Stop/task replacement
+  pendingBoxStart?: symbol; // remains held until target/link preparation settles, even after Stop
   currentTool: string | null;
   browserUrl: string | null;
   screenshot: { data: Buffer; mime: string; at: number } | null;
@@ -588,6 +591,7 @@ export class Swarm {
   private deskAlerts = new Map<string, string>(); // agent id -> the desk setup error the manager was last told about
   private prepStrikes = new Map<string, PrepStrikes>(); // `${repoId}#${pr}:${task}` -> its desks that couldn't be set up
   private dropping = new Map<string, string>(); // agent id -> why their task's issue or PR closed: the desk clears once the session ends
+  private issuePreparations = new Set<string>(); // a stopped setup must settle before a manual resume can start another
   // Everything sent to the tabs on /ws: agent and floor changes batched as patches, terminal lines only where shown.
   private outbox = new Outbox({
     agents: () => this.state.agents.map((a) => ({ id: a.id, floor: this.floorOf(a) })),
@@ -740,6 +744,7 @@ export class Swarm {
         agents: (loaded.agents ?? []).map((raw) => legacyAgent<PersistedAgent>(raw)).map((a) => ({
           ...a,
           machine: a.machine ?? null,
+          legacyDeskSlug: typeof a.legacyDeskSlug === 'string' && /^[a-z0-9-]+$/.test(a.legacyDeskSlug) && a.legacyDeskSlug.endsWith(`-${a.id.slice(0, 4)}`) ? a.legacyDeskSlug : undefined,
           boxCli: a.host === 'box' ? (a.boxCli ?? null) : null,
           effort: a.effort ?? '',
           look: a.look ?? lookFor(a.name),
@@ -1133,6 +1138,7 @@ export class Swarm {
       prNumber: a.prNumber,
       prUrl: a.prUrl,
       currentTool: rt.currentTool,
+      canResumeIssue: this.canResumeIssue(a),
       startedAt: a.startedAt,
       endedAt: a.endedAt,
       costUsd: a.costUsd,
@@ -1386,7 +1392,7 @@ export class Swarm {
   }
 
   private agentSlug(a: PersistedAgent) {
-    return `${slugify(a.name)}-${a.id.slice(0, 4)}`;
+    return a.legacyDeskSlug ?? `${slugify(a.name)}-${a.id.slice(0, 4)}`;
   }
 
   /** The machines an agent's machine is one of: folders on this computer, or Upstash Boxes (docs/cloud.md). */
@@ -1447,6 +1453,7 @@ export class Swarm {
   }
 
   private clearTask(a: PersistedAgent) {
+    this.cancelSessionStart(a);
     this.quotaWaiting.delete(a.id);
     Object.assign(a, { status: 'idle', task: null, issueNumber: null, issueTitle: null, branch: null, prNumber: null, prUrl: null, lastError: null });
     this.emitAgent(a);
@@ -2229,6 +2236,7 @@ export class Swarm {
 
   /** End a session whose issue or PR closed, as ■ Stop does. Its desk is cleared once the session has ended. */
   private stopForClosure(a: PersistedAgent, why: string) {
+    this.cancelSessionStart(a);
     a.status = 'stopped';
     a.lastError = `Stopped: ${why}`;
     this.dropping.set(a.id, why);
@@ -2836,6 +2844,7 @@ export class Swarm {
   stopAgent(id: string) {
     this.quotaWaiting.delete(id);
     const a = this.agent(id);
+    this.cancelSessionStart(a);
     if (!BUSY.includes(a.status)) return;
     a.status = 'stopped';
     a.lastError = 'Stopped by manager';
@@ -2857,6 +2866,7 @@ export class Swarm {
 
   /** The manager pressed Esc in the agent's terminal and the CLI stopped its turn: a Stop that leaves the CLI to them. */
   private interrupted(a: PersistedAgent) {
+    this.cancelSessionStart(a);
     if (!BUSY.includes(a.status)) return;
     a.status = 'stopped';
     a.lastError = 'Interrupted in the terminal';
@@ -2925,10 +2935,31 @@ export class Swarm {
 
   /** `waitForDeps`: refuse an issue that still waits for open ones (a sticky carried to a desk; the console may override). */
   async assign(agentId: string, issueNumber: number, note?: string, waitForDeps = false) {
+    return this.assignIssue(agentId, issueNumber, note, waitForDeps);
+  }
+
+  private canResumeIssue(a: PersistedAgent): boolean {
+    const rt = this.agentRt.get(a.id);
+    return a.role !== 'ceo' && a.task === 'issue' && (a.status === 'stopped' || a.status === 'error')
+      && a.issueNumber !== null && !!a.branch && !a.prNumber && !a.prUrl && !a.sessionId
+      && !!rt && !rt.session && !rt.pendingBoxStart && !rt.terminal?.live && !a.needsSignIn
+      && !this.issuePreparations.has(a.id) && !this.dropping.has(a.id);
+  }
+
+  /** Manager-confirmed recovery only; stale UI state cannot restart another task. */
+  async resumeIssue(agentId: string, repoId: string, issueNumber: number) {
+    const a = this.agent(agentId);
+    if (a.repoId !== repoId || a.issueNumber !== issueNumber || !this.canResumeIssue(a)) throw new HttpError(409, 'This interrupted issue can no longer be resumed. Refresh the office and check the agent.');
+    return this.assignIssue(agentId, issueNumber, undefined, false, a.branch!);
+  }
+
+  private async assignIssue(agentId: string, issueNumber: number, note?: string, waitForDeps = false, resumeBranch?: string) {
     const a = this.agent(agentId);
     const repo = this.repo(a.repoId);
     if (a.role === 'ceo') throw new HttpError(400, `${a.name} runs the company; give issues to the agents on the floors.`);
     if (BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is busy: ${this.agentDoing(a)}`);
+    if (this.issuePreparations.has(a.id)) throw new HttpError(409, `${a.name}'s previous setup is still finishing. Try again in a moment.`);
+    if (this.agentRt.get(a.id)?.pendingBoxStart) throw new HttpError(409, `${a.name}'s previous session startup is still finishing. Try again in a moment.`);
     this.ensureUsage(a, 'issue');
     this.ensureSlot();
     const issues = this.repoRt.get(repo.id)?.issues ?? [];
@@ -2943,7 +2974,7 @@ export class Swarm {
       this.state.held = this.state.held.filter((h) => !(h.repoId === repo.id && h.issue === issueNumber));
       this.emitRepo(repo);
     }
-    void this.runTask(a, repo, issue, note);
+    void this.runTask(a, repo, issue, note, resumeBranch);
     return this.agentView(a, false);
   }
 
@@ -3064,6 +3095,7 @@ export class Swarm {
   }
 
   private beginTask(a: PersistedAgent, patch: Partial<PersistedAgent>, banner: string, preparing: string) {
+    this.cancelSessionStart(a);
     const rt = this.agentRt.get(a.id)!;
     this.dropping.delete(a.id);
     Object.assign(a, {
@@ -3089,14 +3121,18 @@ export class Swarm {
   }
 
   /** job: the PR fix or QA run this desk is for; if the desk can't be set up, the PR pays for it, not the agent. */
-  private async prepare(a: PersistedAgent, repo: PersistedRepo, base: { pr?: number }, branch: string, job?: PrepJob): Promise<{ cwd: string; deps: DepsOutcome } | null> {
+  private async prepare(a: PersistedAgent, repo: PersistedRepo, base: { pr?: number; preserve?: boolean }, branch: string, job?: PrepJob): Promise<{ cwd: string; deps: DepsOutcome } | null> {
     try {
       if (this.repoRt.get(repo.id)?.cloneStatus !== 'ready') await this.cloneRepo(repo.id);
       const note = (text: string) => this.appendLog(a, [{ kind: 'system', text }]);
       const cwd = await setUpDesk(this.agentRt.get(a.id)?.terminal, {
         release: () => this.releaseDesk(a, repo),
-        prepare: () => this.machinesFor(a).prepareDesk(this.machineOf(a), repo.fullName, { defaultBranch: repo.defaultBranch, pr: base.pr }, branch, note),
+        prepare: () => base.preserve && !a.machine && a.host !== 'box'
+          // An interrupted legacy desk must not migrate to a different clone.
+          ? this.backend.prepareDesk(repo.fullName, { defaultBranch: repo.defaultBranch, preserve: true }, this.agentSlug(a), branch, note)
+          : this.machinesFor(a).prepareDesk(this.machineOf(a), repo.fullName, { defaultBranch: repo.defaultBranch, pr: base.pr, ...(base.preserve ? { preserve: true } : {}) }, branch, note),
       });
+      if (base.preserve && !a.machine && a.host !== 'box') a.legacyDeskSlug = path.basename(cwd);
       this.deskAlerts.delete(a.id);
       if (job) this.prepStrikes.delete(prepKey(repo.id, job.rec.prNumber, job.task));
       if (a.status !== 'preparing') return this.abandoned(a); // stopped or fired while preparing, or its issue or PR closed
@@ -3193,9 +3229,17 @@ export class Swarm {
     }
   }
 
-  private async runTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string) {
+  private runTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string, resumeBranch?: string): Promise<void> {
+    this.issuePreparations.add(a.id);
+    return this.runIssueTask(a, repo, issue, note, resumeBranch).finally(() => {
+      this.issuePreparations.delete(a.id);
+      if (this.state.agents.includes(a)) this.emitAgent(a);
+    });
+  }
+
+  private async runIssueTask(a: PersistedAgent, repo: PersistedRepo, issue: IssueInfo, note?: string, resumeBranch?: string) {
     if (this.cloudWorkPaused(a)) return;
-    const branch = devBranch(issue.number, slugify(a.name));
+    const branch = resumeBranch ?? devBranch(issue.number, slugify(a.name));
     this.beginTask(
       a,
       { task: 'issue', issueNumber: issue.number, issueTitle: issue.title, branch, prNumber: null, prUrl: null, sessionId: null },
@@ -3212,7 +3256,7 @@ export class Swarm {
       this.learnIssueClosed(repo, issue.number);
       return;
     }
-    const desk = await this.prepare(a, repo, {}, branch);
+    const desk = await this.prepare(a, repo, resumeBranch ? { preserve: true } : {}, branch);
     if (!desk) return;
     const { cwd } = desk;
 
@@ -3227,7 +3271,16 @@ export class Swarm {
       .filter(Boolean)
       .join('\n');
 
-    this.startAgentSession(a, repo, cwd, prompt, this.buildSystemAppend(a, repo, cwd, branch, undefined, desk.deps));
+    await this.startAgentSession(a, repo, cwd, prompt, this.buildSystemAppend(a, repo, cwd, branch, undefined, desk.deps));
+  }
+
+  private cancelSessionStart(a: PersistedAgent) {
+    const rt = this.agentRt.get(a.id);
+    if (rt) rt.sessionStart = undefined;
+  }
+
+  private currentSessionStart(a: PersistedAgent, attempt: symbol | undefined) {
+    return !this.stopping && this.state.agents.includes(a) && this.agentRt.get(a.id)?.sessionStart === attempt;
   }
 
   private startAgentSession(
@@ -3243,8 +3296,10 @@ export class Swarm {
   ) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // let go meanwhile
+    const attempt = Symbol('session startup');
+    rt.sessionStart = attempt;
     if (!mode && this.cloudWorkPaused(a)) {
-      this.waitForCloudResume(a, () => this.startAgentSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode));
+      this.waitForCloudResume(a, () => this.currentSessionStart(a, attempt) && this.startAgentSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode));
       return;
     }
     // A cloud agent's session runs in their Box: it's awake and set up, their linked repos fetched there, and their
@@ -3252,20 +3307,30 @@ export class Swarm {
     if (a.host === 'box' && mode !== 'reattach') {
       const cli = this.sessionRuntime(a, resumeSessionId).cli ?? 'claude';
       const note = (text: string) => this.appendLog(a, [{ kind: 'system', text }]);
-      void this.boxTarget(a, cli, repo.browserTesting, mode !== 'typed')
+      rt.pendingBoxStart = attempt;
+      return this.boxTarget(a, cli, repo.browserTesting, mode !== 'typed')
         .then(async (box) => {
+          if (!this.currentSessionStart(a, attempt)) return;
           const linked = await this.boxMachines.linkRepos(this.machineOf(a), this.linkedRepos(repo).map((r) => r.fullName), note).catch(() => []);
-          this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked);
+          if (!this.currentSessionStart(a, attempt)) return;
+          this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked, attempt);
         })
         .catch((err) => {
-          if (err instanceof SignInNeeded) return this.holdForSignIn(a, err.cli, () => this.startAgentSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode));
+          if (!this.currentSessionStart(a, attempt)) return;
+          if (err instanceof SignInNeeded) return this.holdForSignIn(a, err.cli, () => this.currentSessionStart(a, attempt) && this.startAgentSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode));
           const why = redact(oneLine(err), this.secrets());
           this.appendLog(a, [{ kind: 'error', text: `✗ ${why}` }]);
           void this.onFinished(a, repo, { ok: false, text: '', costUsd: 0, turns: 0, errors: [why] });
+        }).finally(() => {
+          if (rt.pendingBoxStart === attempt) rt.pendingBoxStart = undefined;
+          if (this.state.agents.includes(a)) {
+            if (this.dropping.has(a.id) && !rt.session) this.abandoned(a);
+            this.emitAgent(a);
+          }
         });
       return;
     }
-    this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode);
+    this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, undefined, undefined, attempt);
   }
 
   private launchSession(
@@ -3279,11 +3344,13 @@ export class Swarm {
     mode: 'typed' | 'reattach' | null,
     box?: BoxTarget,
     linked?: string[],
+    attempt?: symbol,
   ) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // let go meanwhile
+    if (!this.currentSessionStart(a, attempt)) return;
     if (!mode && this.cloudWorkPaused(a)) {
-      this.waitForCloudResume(a, () => this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked));
+      this.waitForCloudResume(a, () => this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked, attempt));
       return;
     }
     // A session started in a folder that's gone dies at once (Windows exit 267): set the desk up again first. (A Box's
@@ -3297,12 +3364,14 @@ export class Swarm {
       }
       const machine = a.machine;
       // An agent who moved to their machine meanwhile can't resume a session from their old desk (machineOf).
-      void this.restoreDesk(a, repo).then((dir) => dir && this.startAgentSession(a, repo, dir, prompt, systemAppend, a.machine === machine ? resumeSessionId : undefined, outputSchema, mode));
+      void this.restoreDesk(a, repo).then((dir) => {
+        if (dir && this.currentSessionStart(a, attempt)) return this.startAgentSession(a, repo, dir, prompt, systemAppend, a.machine === machine ? resumeSessionId : undefined, outputSchema, mode);
+      });
       return;
     }
     const how = this.sessionRuntime(a, resumeSessionId);
     if (!mode && !this.quotaGate().allows(this.gateKey(a, this.resourceFor(a, how.cli ?? 'claude')), 'ceo', Date.now(), 0, 1)) {
-      this.quotaWaiting.set(a.id, () => this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked));
+      this.quotaWaiting.set(a.id, () => this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked, attempt));
       a.status = 'stopped';
       a.lastError = 'Waiting for AI quota reset';
       this.emitAgent(a);
