@@ -110,3 +110,57 @@ The owner explicitly authorized opening a **draft PR only**, with a documented
 exception to the local full-suite PASS prerequisite. That exception does not
 declare the local suite passed, accept all remaining risks, or authorize merge,
 release, tag/npm changes or a PC update. The original failures remain retained.
+
+## Subsequent PR86 recurrence and diagnostic-only follow-up
+
+The preceding authorization describes the original draft milestone, not a
+standing approval. #84 was later integrated into dev and promoted by #85 under
+separate, explicit owner decisions. Those decisions did not authorize publication.
+
+Beta.6 candidate PR86 CI44180780366 attempt1 failed a real Windows Node24
+launcher test:3467/3468tests passed,one ETIMEDOUT at the unchanged4000ms command
+deadline. Ubuntu,macOS Intel and WindowsNode22 passed;ARM64 never acquired a
+runner,zero steps. These are distinct outcomes,not four passes plus a capacity gap.
+The safe failure artifact recorded spawn callback6ms,exit/close callbacks4098ms,
+outer wait4099ms,status1,no output and no milestones. This does not prove script
+entry,a native startup cause,successful disposal or natural root exit.
+The candidate's local exact-tarball smoke PASS does not erase that test failure.
+
+The helper can create ETIMEDOUT either from its command timer or from its
+late-close guard when callback delivery is delayed. The old artifact cannot
+distinguish them. The diagnostic-only follow-up adds fixed fields inside
+`observation`,automatically retained by the existing safe artifact:
+
+| Field | Meaning |
+| --- | --- |
+| timeoutSource | `timer`,`late-close`,or null;records which path classified timeout |
+| timerExpectedMs | Original command deadline relative to helper start,not a new budget |
+| timerFiredMs / timerDelayMs | Observed callback time and nonnegative lateness relative to the original deadline |
+| stopRequestedMs | First accepted stop request;can also come from non-timeout failures |
+| taskkillRequestedMs | Windows taskkill invocation attempted;does not prove the killer started |
+| taskkillCloseMs | Killer close callback observed before result settlement |
+| taskkillOutcome | `success`(code0),`nonzero`,`signal`(null close code),`spawn-error`,or null if not observed |
+
+For the existing finite-timeout callers,times are integer-clamped to0..999999999;
+this does not introduce a new policy for invalid/NaN caller timeouts.
+The fields contain no PID,paths,
+arguments,environment,streams or raw errors. POSIX termination does not populate
+the Windows-specific taskkill fields. Null does not certify absence of processes.
+An observed taskkill success is not proof that root exit was natural or that all
+descendant races are solved. A late timer callback is not a child CPU measurement.
+Status1 can be the result of forced termination;the test still requires all its
+original functional assertions,not merely the expected nonzero status.
+
+The command deadline,cleanup bounds,scenario,worker count,suite assertions and
+production PowerShell launcher remain unchanged. Deterministic mocked-process
+regressions distinguish the two paths without starting PowerShell. This patch
+does not establish the cause of PR86 or authorize a new full run,retry,merge,
+release,tag/npm publication or PC update. Any new observation needs its own
+scope;no warm-up or minimal probe may silently replace the protected scenario.
+
+Local follow-up validation:23/23mocked-process tests passed across
+fixtureProcessExit.test.ts and fixtureProcessProvenance.test.ts (11new cases);
+ordinary typecheck passed. A fresh independent static review found no blocking
+finding. No protected PowerShell test,full suite,new CI run or retry was executed
+for this follow-up. These results validate the diagnostic branches,not a cause
+or reproduction of the historical failure.

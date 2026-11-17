@@ -60,7 +60,9 @@ it('preserves normal output and nonzero exit after complete stream close', async
   root.stdout.emit('data', 'out'); root.stderr.emit('data', 'err');
   exit(73); close(73);
   expect(await pending).toEqual({ stdout: 'out', stderr: 'err', status: 73, signal: null,
-    observation: { spawnMs: expect.any(Number), firstStdoutMs: expect.any(Number), firstStderrMs: expect.any(Number), exitMs: expect.any(Number), closeMs: expect.any(Number) } });
+    observation: { spawnMs: expect.any(Number), firstStdoutMs: expect.any(Number), firstStderrMs: expect.any(Number), exitMs: expect.any(Number), closeMs: expect.any(Number),
+      timeoutSource: null, timerExpectedMs: 10000, timerFiredMs: null, timerDelayMs: null,
+      stopRequestedMs: null, taskkillRequestedMs: null, taskkillCloseMs: null, taskkillOutcome: null } });
   await vi.advanceTimersByTimeAsync(11000);
   expect(spawn).toHaveBeenCalledTimes(1); expect(groupKill).not.toHaveBeenCalled();
 });
