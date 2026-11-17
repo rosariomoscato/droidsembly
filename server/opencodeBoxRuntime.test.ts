@@ -1,7 +1,8 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { BoxApi, BoxSessionOptions } from './box.ts';
 import type { BoxCliRecord } from './boxCli.ts';
 import { AgentTerminal } from './terminal.ts';
+import * as initialRunner from './cliRunner.ts';
 
 const localSpawn = vi.hoisted(() => vi.fn(() => { throw new Error('Local fallback forbidden'); }));
 vi.mock('./ptyClient.ts', async (original) => ({ ...await original<typeof import('./ptyClient.ts')>(), spawnPty: localSpawn, hooksReady: () => undefined }));
@@ -39,9 +40,9 @@ function remote() {
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe('OpenCode cloud terminal (fake Box, no provider calls)', () => {
-  let initialRunner: typeof import('./cliRunner.ts');
-  // Load the module with real timers; cold transforms are not part of the simulated login.
-  beforeAll(async () => { initialRunner = await import('./cliRunner.ts'); });
+  // Load the actual runtime during collection, before simulated session clocks.
+  // The former beforeAll inherited Vitest's generic hook timeout; it was not
+  // an application startup SLO. Import/collection errors still fail the suite.
   it('never uploads OpenCode worker session files through the SDK and never starts a terminal after a shell write failure',async()=>{
     vi.resetModules();vi.useFakeTimers();const runner=await import('./cliRunner.ts');runner.hooksReady();
     const box=remote(),term=new AgentTerminal(),finished=vi.fn();const write=box.api.write=vi.fn(async()=>{throw new Error('SDK session upload forbidden');});
@@ -87,6 +88,39 @@ describe('OpenCode cloud terminal (fake Box, no provider calls)', () => {
       tail.onData([{ hook_event_name: 'UserPromptSubmit', prompt: 'One task' }, { hook_event_name: 'TurnError', error: 'Synthetic provider error' }, { hook_event_name: 'CubefarmExit', code: 0 }].map(e => JSON.stringify(e)).join('\n') + '\n');
       expect(finished).toHaveBeenCalledOnce();
       expect(finished.mock.calls[0][0]).toMatchObject({ ok: false, errors: ['OpenCode: Synthetic provider error'] });
+      await vi.advanceTimersByTimeAsync(6000);
+      expect(finished).toHaveBeenCalledOnce();
+      expect(localSpawn).not.toHaveBeenCalled();
+    } finally { handle.stop(); term.dispose(); }
+  });
+
+  it.each([
+    { name: 'valid success', code: 0, expectedCode: 0 },
+    { name: 'valid failure', code: 3, expectedCode: 3 },
+    { name: 'missing', code: undefined, expectedCode: -1 },
+    { name: 'null', code: null, expectedCode: -1 },
+    { name: 'nonnumeric string', code: 'invalid', expectedCode: -1 },
+    { name: 'numeric success string', code: '0', expectedCode: -1 },
+    { name: 'fraction', code: 0.5, expectedCode: -1 },
+  ])('delivers $name exit through the live Box CLI to the final session result', async ({ code, expectedCode }) => {
+    vi.resetModules();
+    vi.useFakeTimers();
+    const runner = await import('./cliRunner.ts');
+    runner.hooksReady();
+    const box = remote(), term = new AgentTerminal(), finished = vi.fn();
+    const handle = runner.startCliSession({ cwd: '/remote/work', prompt: 'One task', systemAppend: '', cli: 'opencode', model: 'openai/fake', effort: 'medium', role: 'agent', terminal: term, browserTesting: false, additionalDirectories: [], box: box.target },
+      { log: () => undefined, tool: () => undefined, sessionId: () => undefined, browserUrl: () => undefined, screenshot: () => undefined, finished });
+    try {
+      // A process that ran this long can otherwise be considered successful on
+      // exit0 even without assistant text. No TurnError masks a malformed exit.
+      await vi.advanceTimersByTimeAsync(21_000);
+      const tail = box.sessions.find(s => s.cmd.includes('tail -c'))!;
+      expect(tail).toBeDefined();
+      tail.onData(JSON.stringify({ hook_event_name: 'CubefarmExit', ...(code === undefined ? {} : { code }) }) + '\n');
+      expect(finished).toHaveBeenCalledOnce();
+      expect(finished.mock.calls[0][0]).toMatchObject({ ok: expectedCode === 0 });
+      if (expectedCode !== 0) expect(finished.mock.calls[0][0].errors).toContain(`OpenCode exited with code ${expectedCode} before finishing.`);
+      tail.onData(JSON.stringify({ hook_event_name: 'CubefarmExit', code: 0 }) + '\n');
       await vi.advanceTimersByTimeAsync(6000);
       expect(finished).toHaveBeenCalledOnce();
       expect(localSpawn).not.toHaveBeenCalled();
