@@ -5,15 +5,18 @@
 ### Stato e identità
 
 **Non pubblicata.** Preparazione per il canale `next`, non una stabile.
-Al controllo del 17 novembre 2026 npm pubblica beta.5 su `next` e beta.1 su
+Al controllo del 18 novembre 2026 npm pubblica beta.5 su `next` e beta.1 su
 `latest`; beta.6 e il suo tag non esistono ancora. Beta.5 resta immutabile sul tag
 `droidsembly-v0.4.0-beta.5`, commit `8e887aa63cc4eac22b791aab48c47882b01fe1ec`.
-Base aggiornata: dev `e56a5728d4f5a1f923c5a1ed6cb6d8649c14d1c9`, che include
-la diagnostica timeout #87. Le funzionalità precedenti erano già promosse in
-main `bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`; la diagnostica #87 non è ancora
-in main. Il vecchio head candidato `eea21c2e2de296f8d51849741b627d92a4b97094`
-e le sue prove restano conservati. L'aggiornamento incorpora dev senza riscrivere
-la storia; non è un retry invariato o una correzione causale di PowerShell.
+Base aggiornata: dev `5d47c5029e31d73788fed271bf035ceea08467c1`, che include
+diagnostica timeout #87, ownership/isolation della fixture CEO #88 e checkpoint
+diagnostici startup della fixture launcher #89. Non sono fix runtime.
+Le funzionalità precedenti erano già promosse in main
+`bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`; #87–#89 non sono ancora in main.
+I vecchi head candidati `eea21c2e2de296f8d51849741b627d92a4b97094` e
+`dc9442ed1cdf020b18691bae0feb70f447b75102` e le loro prove restano conservati.
+L'aggiornamento incorpora dev senza riscrivere la storia; non è un retry invariato
+o una correzione causale dimostrata dei timeout PowerShell o CEO.
 Il delta di preparazione cambia solo versione coerente package/lock e documenti:
 nessuna dipendenza, runtime, soglia, assertion, worker o workflow modificato.
 
@@ -29,6 +32,10 @@ nessuna dipendenza, runtime, soglia, assertion, worker o workflow modificato.
   espliciti, deadline originale comprensiva dello spawn e gestione del late close;
   diagnostica safe caricata in CI solo in caso di errore. Non è un fix dimostrato
   della causa storica degli avvii PowerShell lenti o senza output.
+- Fixture CEO con home dedicata e drain/shutdown dei figli; checkpoint test-only
+  su file prima/dopo la prima Console del launcher, con lettura bounded dopo il
+  settlement verificato. Assenza dei checkpoint inconclusiva: l'I/O aggiunto
+  perturba il cold path e non misura l'istante rispetto al timer.
 
 **Attenzione:** confermare la ripresa può avviare AI e consumare quota anche con
 assegnazione automatica disabilitata. Non equivale a una demo o a un test gratuito.
@@ -37,7 +44,31 @@ script cloud non costituiscono una nuova validazione su Box/provider reali.
 
 ### Evidenze e limiti da conservare
 
-- CI della **nuova base dev** post-merge #87:
+- CI della **nuova base dev** post-merge #89:
+  [44261916727](https://github.com/rosariomoscato/droidsembly/actions/runs/44261916727),
+  attempt1 SUCCESS cinque ambienti, incluso ARM64 nativo. Windows:3502/3502 PASS;
+  Ubuntu/macOS Intel/ARM64:3499 PASS/3 skip;314 file PASS ovunque.
+  Npm ci, typecheck, test, build e smoke PASS; CEO8/8 e observer15/15 PASS.
+  PowerShell reale PASS2649ms(Node24)/2084ms(Node22), skip fuori Windows.
+  Nessun artifact diagnostico failure-only caricato. Non è la CI di questa
+  candidata aggiornata né una diagnosi causale.
+- **FAIL della precedente candidata dc9442e**:
+  [44199616743](https://github.com/rosariomoscato/droidsembly/actions/runs/44199616743),
+  WindowsNode24 CEO «files work the manager asked for» timeout5000ms,
+  3478 PASS/1 FAIL;altri quattro ambienti PASS,ARM64 nativo. PowerShell PASS3220ms.
+  Il difetto ownership della fixture è corretto separatamente, ma la causa
+  dei5000ms non è dimostrata. Quel FAIL resta valido.
+- **FAIL dev post-merge #88**:
+  [44253504265](https://github.com/rosariomoscato/droidsembly/actions/runs/44253504265),
+  WindowsNode24 launcher ETIMEDOUT4000ms,3486 PASS/1 FAIL;quattro ambienti PASS.
+  Timer4009ms,stop/taskkill4009ms,exit/close4349ms,nessun output.
+  La diagnostica distingue timer→terminazione per quel run,non la causa startup.
+- Limiti delle nuove patch test: review #89 dello stesso assistente,non
+  indipendente;errore scrittura checkpoint senza integrazione negativa diretta;
+  archive/quarantine CEO senza regressioni dirette. Installazione locale #89
+  NON-PASS per wrapper120s,poi mirati46PASS/typecheckPASS con dipendenze già
+  validate e lock identico. Non confondere l'installazione CI PASS con quella prova.
+- CI della **precedente base dev** post-merge #87:
   [44196557526](https://github.com/rosariomoscato/droidsembly/actions/runs/44196557526),
   attempt1 **SUCCESS sui cinque ambienti**, incluso ARM64 nativo realmente
   eseguito con typecheck, suite, build e smoke. Windows:3479/3479 test PASS
@@ -98,16 +129,18 @@ Vedi [pubblicazione](NPM_RELEASE.md), [PC](QUICKSTART_PC.md) e
 
 ### Status and identity
 
-**Not published.** Candidate for `next`, not a stable release. On November 17, 2026,
+**Not published.** Candidate for `next`, not a stable release. On November 18, 2026,
 npm still serves beta.5 on `next` and beta.1 on `latest`; beta.6 and its tag do
 not yet exist. Beta.5's tag and artifact remain immutable at commit
 `8e887aa63cc4eac22b791aab48c47882b01fe1ec`.
-Updated base: dev `e56a5728d4f5a1f923c5a1ed6cb6d8649c14d1c9`, including PR87's
-timeout-provenance diagnostics. Earlier functional changes are already in main
-`bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`, but PR87 is not yet in main.
-Old candidate head `eea21c2e2de296f8d51849741b627d92a4b97094` and its evidence
-are retained. Refresh merges dev without rewriting history; it is neither an
-unchanged retry nor a demonstrated causal PowerShell fix.
+Updated base: dev `5d47c5029e31d73788fed271bf035ceea08467c1`, including PR87
+timeout provenance,PR88 CEO fixture ownership/isolation and PR89 launcher startup
+checkpoints. These are not runtime fixes. Earlier functional changes are in main
+`bebdfc78f8955b7ec93d437c01878f7cf60dcd0f`, but PR87–PR89 are not yet in main.
+Old candidate heads `eea21c2e2de296f8d51849741b627d92a4b97094` and
+`dc9442ed1cdf020b18691bae0feb70f447b75102` and their evidence are retained.
+Refresh merges dev without rewriting history;it is neither an unchanged retry
+nor a demonstrated causal PowerShell/CEO timeout fix.
 Preparation changes only consistent package/lock versions and documentation,
 not dependencies, runtime, thresholds, assertions, workers or workflows.
 
@@ -122,6 +155,10 @@ not dependencies, runtime, thresholds, assertions, workers or workflows.
 - Launcher **test** hardening: owned asynchronous processes, awaited cleanup,
   original deadline including spawn and late-close handling, and safe failure-only
   CI diagnostics. This is not a demonstrated cure for historical PowerShell startup.
+- CEO fixtures now own a dedicated home and drain/shutdown their children.
+  Test-only file checkpoints surround the launcher's first Console call,read
+  boundedly after verified settlement. Missing checkpoints are inconclusive;
+  added I/O perturbs the cold path and does not timestamp entry against the timer.
 
 Confirming resume may start AI work and consume quota even with automatic
 assignment disabled. Local recovery has synthetic and real throwaway-Git coverage;
@@ -129,7 +166,28 @@ cloud script checks are not new real Box/provider validation.
 
 ### Evidence, gaps and delivery boundaries
 
-New base dev post-merge87 CI44196557526 attempt1 **passed all five environments**,
+New base dev post-merge89 CI44261916727 attempt1 **passed all five environments**,
+including native ARM64:npmci/typecheck/test/build/smoke PASS. Windows3502/3502,
+Ubuntu/macOSIntel/ARM3499PASS/3skip,314filesPASS everywhere. CEO8/8 and
+observer15/15 PASS;real PowerShell2649ms(Node24)/2084ms(Node22),skipped outside
+Windows. No failure-only diagnostic artifact. Base validation,not this candidate.
+
+Old candidate dc9442e CI44199616743 remains FAILURE:WindowsNode24 CEO
+`files work the manager asked for` timeout5000ms,3478PASS/1FAIL;four other
+environments including native ARM PASS. PowerShell passed3220ms. Fixture ownership
+was fixed separately,not a demonstrated cause of those5000ms.
+Dev postmerge88 CI44253504265 also remains FAILURE:WindowsNode24 launcher
+ETIMEDOUT4000ms,3486PASS/1FAIL,four environmentsPASS. Timer/stop/taskkill4009ms,
+exit/close4349ms,no output. It establishes timer-driven termination for that run,
+not the startup root cause.
+
+New test-patch limits remain declared:PR89 review was same-assistant,not independent;
+checkpoint-write error lacks direct failing PowerShell integration;CEO archive/
+quarantine lacks direct regressions. PR89 local installation NON-PASS120s preceded
+46focusedPASS/typecheckPASS using validated dependencies and an identical lock.
+Clean CI installations do not erase that distinct local negative.
+
+Previous dev base post-merge87 CI44196557526 attempt1 **passed all five environments**,
 including actually executed native ARM64 typecheck/tests/build/smoke.
 Windows passed3479/3479tests in312files;ARM64 passed3476 with3expected platform
 skips. This is base validation,not the refreshed candidate's own CI.
