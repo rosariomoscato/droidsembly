@@ -4,6 +4,16 @@
 
 ### Beta.6 candidata — non pubblicata / Beta.6 candidate — not published
 
+**Aggiornamento 20 novembre / November 20 refresh:** base `dev` ora `58e4045`,
+inclusi CEO starter e fix OpenCode/QA della PR #91. La feature ha suite locale
+3595/3595 e CI propria su cinque ambienti PASS; **la candidata aggiornata deve
+avere esiti propri**, non eredita una certificazione di release. / The candidate
+now includes PR #91's CEO starter and OpenCode/QA fixes. Feature passes do not
+certify this candidate. Vedi / See [note aggiornate](RELEASE_NOTES_0.4.0-beta.6.md).
+Nessun tag/publish/aggiornamento PC / No tag, publication or PC update.
+
+#### Checkpoint precedente del 18 novembre / Previous November 18 checkpoint
+
 **IT:** Preparazione di `0.4.0-beta.6` per `next`: [note IT/EN e limiti](RELEASE_NOTES_0.4.0-beta.6.md).
 La beta pubblicata resta beta.5, `latest` beta.1 (controllo registry del 18 novembre 2026).
 Il cambio versione non certifica la candidata: verifiche locali, CI propria e review

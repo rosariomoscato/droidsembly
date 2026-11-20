@@ -1,5 +1,59 @@
 # Droidsembly 0.4.0-beta.6 — candidata / candidate
 
+## Aggiornamento del 20 novembre / November 20 refresh
+
+**IT — Non pubblicata.** La candidata incorpora ora `dev`
+`58e40455adbb487f6d5a1503faf7cb50203ddc4a` dopo la PR #91, senza riscrivere
+la cronologia. Il precedente head `8e7e16f` e la sua CI fallita restano conservati
+in un riferimento di backup e in un bundle completo verificato.
+
+Novità aggiuntive:
+
+- **CEO starter per nuove app:** intervista persistente per progetto, revisione
+  del piano, approvazione esplicita della versione esatta e pubblicazione dei task
+  con dipendenze e riconciliazione degli esiti GitHub ambigui.
+- Creazione progetto con avanzamento visibile, conversazione corretta aperta
+  automaticamente, domanda/compositore visibili e storico comprimibile.
+- Correzione della risposta modello predefinito OpenCode V2 e della QA duplicata
+  durante la pubblicazione del rapporto.
+- Ottimizzazione dei controlli di collisione campionati, mantenendo tutti i campioni,
+  diagnostica smoke e separazione esplicitamente approvata nei test tra avvio
+  PowerShell (10 secondi) e verifiche funzionali (4 secondi). Non è una diagnosi
+  risolutiva della causa storica degli avvii lenti.
+
+La prova reale isolata ha verificato creazione repo, intervista, modifica/approvazione
+del piano, task con dipendenze e primo task fino a PR/QA/merge; non certifica
+un'app completa, database, Box o deploy. Vedi
+[rapporto e limiti](CEO_STARTER_REAL_VALIDATION_20261120.md).
+La feature ha superato 3595 test locali, typecheck/build e CI propria sui cinque
+ambienti. **Non sono gli esiti della candidata beta.6 aggiornata:** metadati,
+build, tarball esatto/smoke e CI di questa candidata vanno verificati separatamente.
+La preparazione resta limitata a versione/documentazione rispetto al nuovo `dev`;
+dipendenze e risoluzioni non cambiano. Nessun tag, publish, modifica di `latest`
+o aggiornamento PC è incluso. I fallimenti e rischi storici sotto restano validi.
+
+**EN — Not published.** The candidate now incorporates `dev`
+`58e40455adbb487f6d5a1503faf7cb50203ddc4a` after PR #91, without rewriting
+history. Previous head `8e7e16f` and its failed CI are retained by a backup ref
+and verified complete-history bundle.
+
+Additional changes include the project-scoped CEO interview, editable exact-plan
+approval and recoverable dependency-linked task publication; persistent creation
+feedback and collapsible history; OpenCode V2 default-model and duplicate-QA fixes;
+sample-preserving collision optimization and smoke diagnostics. The approved
+synthetic PowerShell test contract now separates 10-second startup from the
+existing 4-second functional budget, without claiming to cure historical causes.
+
+The real isolated test covered repository creation through the first task's
+PR/QA/merge, not full app delivery, databases, Boxes or deployment. See
+[validation and limits](CEO_STARTER_REAL_VALIDATION_20261120.md). Feature validation
+passed 3595 local tests, typecheck/build and its own five-environment CI.
+**The refreshed beta.6 candidate requires its own results.** Its version/docs-only
+delta from new dev changes no dependency resolutions. No tag, publication,
+`latest` change or PC update is included. Earlier failures and risks remain below.
+
+## Storico del 18 novembre / November 18 historical checkpoint
+
 ## Italiano
 
 ### Stato e identità
