@@ -38,6 +38,43 @@ duplicate requests, without changing server approval/publication gates.
   bibliography project state preserved through the owned demo's time-limit
   restart; no second real GitHub creation was performed.
 
+## Guided interview scroll follow-up
+
+After finishing the guided library-plan approval, the manager requested the
+previously deferred transcript usability fix. A readonly API check confirmed
+`biblioteca-test` **ready**,2issues,autoAssign=false; its1worker was **idle**,
+task/issueNumber null (not executing either issue).
+
+The current question (or explicit plan-amendment prompt) now occupies a
+non-scrolling section directly above the composer. Earlier turns and accumulated
+decisions are closed native disclosures with bounded inner scrolling. Every old
+turn remains accessible. The full proposed plan, all tasks and revision-bound
+confirmation/approval controls are **not** collapsed or weakened.
+
+An isolated demo4438 was seeded through API plus websocket notifications, no
+polling or real services:17turns,5129transcript characters,4606decision characters,
+on the9thquestion. At377×933, opening both disclosures still kept the entire
+question and composer visible and adjacent; inner history was bounded at200px.
+The plan then retained both tasks outside disclosures, approval disabled before
+confirmations. Modify plan removed the stale approval action and showed explicit
+amendment instructions above the still-visible composer.
+
+The narrow console check caught pre-existing grid min-content overflow clipping
+the Send button. A scoped narrow-screen grid minimum fix was included; its
+before screenshot is retained. Geometry/after screenshots and final targeted
+results are recorded with `interview-scroll-*`. Full/package results remain
+revision-labelled historical evidence, not rerun for this frontend follow-up.
+`interview-scroll-tests-final.log`: **31/31 tests in5files PASS**, including
+closed-history retention, full plan/task visibility outside disclosures and
+approval disabled without revision-bound confirmations. Ordinary typecheck/
+build/licenses **PASS** in `interview-scroll-build-final.log`.
+After a fresh final-build reload (no injected CSS), the377×933 console kept
+question/composer visible and adjacent, both histories open with all18turns
+present, and the entire Send button inside the panel. Captured console errors0.
+See `interview-scroll-browser/result.json`, `pocket-history-expanded.jpg`,
+`console-history-expanded-final.jpg`; the before-fix narrow screenshot is kept.
+Owned QA demo4438 and tab stopped; user-guided4439 intentionally retained.
+
 ## Guided-demo environment interpretation follow-up
 
 The manager's library plan incorrectly showed Box/existing/anonymized-copy after

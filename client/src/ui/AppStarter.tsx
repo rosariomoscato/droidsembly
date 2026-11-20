@@ -8,6 +8,7 @@ import { useT } from '../i18n';
 import { Markdown } from './Markdown';
 import { MessageBox } from './MessageBox';
 import { planningMessageId } from './planningMessageId';
+import { AppStarterHistory, AppStarterPrompt } from './AppStarterHistory';
 import './appStarter.css';
 
 export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigation: ReactNode }) {
@@ -28,12 +29,14 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
   useLayoutEffect(() => {
     const el = log.current;
     if (!el) return;
-    if (d.status === 'interview') el.scrollTop = el.scrollHeight;
+    if (d.status === 'interview') el.scrollTop = 0;
     else if (d.status === 'awaiting-approval' && document.current) {
       el.scrollTop += document.current.getBoundingClientRect().top - el.getBoundingClientRect().top;
     }
   }, [d.messages.length, d.status, d.revision]);
   const ref = { draftId: d.id, revision: d.revision };
+  const last = d.messages.at(-1);
+  const question = d.status === 'interview' && !d.plan && last?.from === 'ceo' ? last : undefined;
   const editable = d.status === 'interview' || d.status === 'awaiting-approval';
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -46,16 +49,13 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
     setText('');
     answerRevision.current = null;
   });
-  return <div className="phone-chat">
+  return <div className="phone-chat app-starter-chat">
     {navigation}
     <div ref={log} className="chat-log app-starter-log" tabIndex={0} aria-label={t('Project interview and complete plan')}>
       <h3>{repo.fullName} · {t('Revision')} {d.revision}</h3>
       <p role="status">{t(d.status)} · {t('No plan issues or workers start before explicit approval and confirmed publication.')}</p>
       <p className="muted small">{t('Do not paste passwords, connection strings or real data. Describe requirements using examples.')}</p>
-      {d.messages.map((m) => <div key={m.id} className={`bubble ${m.from === 'manager' ? 'bubble-me' : 'bubble-them'}`}>
-        <b>{m.from === 'manager' ? t('You') : 'CEO'}</b><Markdown text={m.text} />
-      </div>)}
-      {d.decisions && <section><h4>{t('Decisions so far')}</h4><Markdown text={d.decisions} /></section>}
+      <AppStarterHistory messages={d.messages.filter((m) => m.id !== question?.id)} decisions={d.decisions} />
       {d.plan && <section ref={document} aria-label={t('Complete proposed plan')}>
         <h3>{t('Complete proposed plan')}</h3>
         <Markdown text={appPlanText(d.plan)} />
@@ -89,6 +89,7 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
         <button className="btn btn-ghost" disabled={busy} onClick={() => act(() => api.appPlanAction(repo.id, { ...ref, action: 'cancel' }))}>{t('Cancel planning')}</button>
       </div>}
     </div>
+    {d.status === 'interview' && <AppStarterPrompt question={question} editing={!!d.plan} answered={last?.from === 'manager'} />}
     {editable && <form ref={form} className="chat-input" onSubmit={(e) => { e.preventDefault(); if (!busy && text.trim()) void send(); }}>
       <MessageBox value={text} readOnly={busy} onChange={(value) => { setText(value); answerRevision.current = ref; }} maxLength={4000} placeholder={t('Answer or request a plan change…')} aria-label={t('Project interview answer')} />
       <button className="btn btn-good" disabled={busy || !text.trim()}>{t('Send')}</button>

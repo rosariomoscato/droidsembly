@@ -1,5 +1,11 @@
 // New-app planning UI. User-authored plans and task bodies are never translated.
 export const italianAppStarter: Readonly<Record<string, string>> = {
+  'Conversation history ({count})': 'Storico della conversazione ({count})',
+  'Current CEO question': 'Domanda attuale del CEO',
+  'Request a plan change': 'Richiedi una modifica al piano',
+  'Describe your changes below. Review the new revision before approving.': 'Descrivi qui sotto le modifiche. Leggi la nuova revisione prima di approvarla.',
+  'Your answer is saved. Waiting for the next CEO question…': 'La risposta è salvata. In attesa della prossima domanda del CEO…',
+  'Waiting for the CEO interview to start…': 'In attesa dell’inizio dell’intervista del CEO…',
   'Creating project {name}…': 'Creazione del progetto {name}…',
   'Please wait. Do not submit the request again.': 'Attendi. Non inviare nuovamente la richiesta.',
   'Project creation was not confirmed.': 'La creazione del progetto non è stata confermata.',

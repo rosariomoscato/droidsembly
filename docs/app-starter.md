@@ -17,6 +17,11 @@ stays beside the form and the entered name is retained. Check the project list
 before retrying an uncertain request; an interrupted response does not prove
 the remote creation failed.
 
+During the interview, the current CEO question stays directly above the reply
+box. Earlier turns and accumulated decisions are collapsed by default and can
+be expanded independently without pushing the reply box away. The complete
+proposed plan and all tasks remain expanded for review before approval.
+
 1. Open Chat in the phone, manager console or Pocket. Select the project's
    **New app plan** conversation, not the company-wide chat. An empty brief is OK.
 2. Answer the CEO's focused questions. Requirements, users, ownership, data model,
