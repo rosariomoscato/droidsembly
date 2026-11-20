@@ -7,6 +7,7 @@ import { api } from '../api';
 import { useT } from '../i18n';
 import { Markdown } from './Markdown';
 import { MessageBox } from './MessageBox';
+import { planningMessageId } from './planningMessageId';
 import './appStarter.css';
 
 export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigation: ReactNode }) {
@@ -41,7 +42,7 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
     finally { setBusy(false); }
   };
   const send = () => act(async () => {
-    await api.answerAppInterview(repo.id, { ...(answerRevision.current ?? ref), messageId: crypto.randomUUID(), text });
+    await api.answerAppInterview(repo.id, { ...(answerRevision.current ?? ref), messageId: planningMessageId(), text });
     setText('');
     answerRevision.current = null;
   });
