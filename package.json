@@ -33,7 +33,9 @@
   "files": [
     "bin",
     "dist",
-    "dist-server"
+    "dist-server",
+    "docs/app-starter.md",
+    "docs/app-starter-provenance.md"
   ],
   "engines": {
     "node": ">=22"

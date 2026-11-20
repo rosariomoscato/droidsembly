@@ -4,6 +4,7 @@ import { italianOperations } from './italianOperations.ts';
 import { italianNavigation } from './italianNavigation.ts';
 import { italianSpecialized } from './italianSpecialized.ts';
 import { italianPhoneAccess } from './italianPhoneAccess.ts';
+import { italianAppStarter } from './italianAppStarter.ts';
 
 /** Office language. English keys double as readable, safe fallback strings. Never translate user content or IDs. */
 export type Language = 'en' | 'it';
@@ -16,6 +17,7 @@ export const italian: Readonly<Record<string, string>> = {
   ...italianNavigation,
   ...italianSpecialized,
   ...italianPhoneAccess,
+  ...italianAppStarter,
   'Resume task': 'Riprendi attività',
   'Resuming…': 'Ripresa in corso…',
   'Resume issue #{number}?': 'Riprendere l’issue #{number}?',

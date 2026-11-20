@@ -10,7 +10,7 @@ const user = { id: 'user', type: 'user', text: 'Plan the work' };
 const reply = { id: 'reply', type: 'assistant', content: [{ type: 'reasoning', text: 'private reasoning' }, { type: 'text', text: 'The plan is ready.' }] };
 const idle = { id: 'idle', type: 'idle', outcome: 'succeeded' };
 
-async function plugin(events: Record<string, unknown>[], messages: unknown[] = [user, reply, idle], model?: { providerID: string; id: string; variant?: string }, rejectUsage = false, eventsFile?: string) {
+async function plugin(events: Record<string, unknown>[], messages: unknown[] = [user, reply, idle], model?: { providerID: string; id: string; variant?: string }, rejectUsage = false, eventsFile?: string, defaultModelResponse: unknown = { providerID: 'openai', id: 'configured-default' }) {
   const posts: Record<string, unknown>[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: RequestInit) => {
     expect(url).toBe(URL);
@@ -23,7 +23,7 @@ async function plugin(events: Record<string, unknown>[], messages: unknown[] = [
   const definition = (await import(`data:text/javascript;base64,${Buffer.from(OPENCODE_PLUGIN_SOURCE).toString('base64')}`)).default;
   const promptHook = vi.fn();
   const switchModel = vi.fn();
-  const defaultModel = vi.fn(async () => ({ providerID: 'openai', id: 'configured-default' }));
+  const defaultModel = vi.fn(async () => defaultModelResponse);
   const dispose = await definition.setup({
     options: { sessionID: SESSION, ...(eventsFile ? { eventsFile } : { notifyUrl: URL }), model },
     model: { default: defaultModel },
@@ -122,6 +122,24 @@ describe('OpenCode V2 turn notifications', () => {
     const p = await plugin([]);
     await p.promptHook.mock.calls[0][1]({ sessionID: SESSION, prompt: { text: 'Continue' } });
     expect(p.switchModel).toHaveBeenCalledWith({ sessionID: SESSION, model: { providerID: 'openai', id: 'configured-default' } });
+    p.dispose();
+  });
+  it('unwraps the location-scoped default model before admitting the office prompt', async () => {
+    const selected = { providerID: 'opencode', id: 'tidepool-alpha-free' };
+    const p = await plugin([], undefined, undefined, false, undefined, { location: { directory: 'isolated-ceo' }, data: selected });
+    p.switchModel.mockImplementation(async ({ model }) => {
+      if (!model.id || !model.providerID) throw new Error('Missing model reference');
+    });
+    await p.promptHook.mock.calls[0][1]({ sessionID: SESSION, prompt: { text: 'Continue the interview' } });
+    expect(p.switchModel).toHaveBeenCalledWith({ sessionID: SESSION, model: selected });
+    expect(p.posts).toEqual([{ hook_event_name: 'UserPromptSubmit', session_id: SESSION, prompt: 'Continue the interview' }]);
+    p.dispose();
+  });
+  it('does not switch to an invalid model when the location has no default', async () => {
+    const p = await plugin([], undefined, undefined, false, undefined, { location: { directory: 'isolated-ceo' }, data: null });
+    await p.promptHook.mock.calls[0][1]({ sessionID: SESSION, prompt: { text: 'Continue' } });
+    expect(p.switchModel).not.toHaveBeenCalled();
+    expect(p.posts[0].hook_event_name).toBe('UserPromptSubmit');
     p.dispose();
   });
   it('forwards native V2 execution completion without relying on the compatibility idle event', async () => {

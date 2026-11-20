@@ -1,5 +1,11 @@
 # Droidsembly
 
+**New-app planning (development sources, not published beta.5):** Something new
+with the CEO enabled now follows project interview → complete revisable plan →
+**Approve plan and create issues** → normal workflow. No plan issue or worker/Box
+preparation before approval and confirmed publication. See the
+[A5 guide, environment/data FAQ and recovery limits](docs/app-starter.md).
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/logo-readme.svg" alt="Droidsembly — Software, assembled by agents." width="360">
 </p>

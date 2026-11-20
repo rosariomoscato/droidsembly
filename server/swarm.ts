@@ -20,6 +20,8 @@ import { Cloud, officeId, redact } from './cloud.ts';
 import type { PrDetails } from './github.ts';
 import { defaultProjectsDir, DESK_SWEEP_INTERVAL_MS, HOME_DIR, LOG_BUFFER, SCHEDULER_INTERVAL_MS, STATE_FILE, SYNC_INTERVAL_MS, VERSION } from './config.ts';
 import { askedFor, ceoJobPrompt, ceoSystemPrompt, checkCloseIssue, createOfficeTools, floorCapacity, IssueCap, jobLabel, NOT_ASKED, planDependencies, plannedSize, scalePlan, type CeoJob, type OfficeTools, type TeamNow } from './ceo.ts';
+import { compatibleHost, planningHeld, type AppStarter, type DraftRef } from '../shared/appStarter.ts';
+import { approvePlan, checkDraft, newAppStarter, planningSkill, planningText, presentPlan, publishPlan } from './appStarter.ts';
 import { afterClose, ASK_AGAIN_MS, closedWhy, closuresHeld, forgettable, issueOpen, nameList, pullNow, stillOpen, stoppedMessage, toAsk, toHold, type Closure, type FloorState, type KnownPull, type LearnedPull } from './closeCleanup.ts';
 import { depsPromptLine, type DepsOutcome } from './deps.ts';
 import { setUpDesk } from './deskSetup.ts';
@@ -113,6 +115,7 @@ import type {
 // ---------- persisted shape ----------
 
 interface PersistedRepo {
+  appStarter?: AppStarter;
   id: string;
   fullName: string;
   description: string;
@@ -200,6 +203,7 @@ const prepKey = (repoId: string, prNumber: number, task: PrepJob['task']) => `${
 
 /** Choices made when a project moves into the office. */
 interface FloorOptions {
+  guidedApp?: boolean; // internal: only createRepo enables this, never connect existing repos
   mission?: string; // brief for the CEO to plan from
   autoAssign?: boolean; // free agents pick up backlog issues as soon as they're filed
   onboardCeo?: boolean;
@@ -559,8 +563,9 @@ export class Swarm {
    * The CEO's office tools. Every session gets its own server: one can only be connected to one session at a time, so
    * a shared one left the next session connected but without any tools while an earlier session still held it.
    */
-  private officeTools(): OfficeTools {
+  private officeTools(job?: CeoJob): OfficeTools {
     return createOfficeTools({
+      ...(job?.kind === 'app-starter' ? { updateAppPlan: (a: { decisions: string; question?: string; plan?: unknown }) => this.updateAppPlan(job, a) } : {}),
       companyStatus: () => this.companyStatus(),
       agentDetail: (a) => this.agentDetail(a),
       setFloorProfile: (a) => this.setFloorProfile(a),
@@ -732,6 +737,7 @@ export class Swarm {
         settings: { ...this.state.settings, defaultCli: 'claude', defaultModel: DEFAULT_MODEL, ...loaded.settings },
         repos: (loaded.repos ?? []).map((r) => ({
           ...r,
+          ...(r.appStarter?.status === 'publishing' ? { appStarter: { ...r.appStarter, status: 'paused' as const, problem: 'Publication interrupted. Reconcile and resume explicitly.' } } : {}),
           autoMerge: r.autoMerge ?? true,
           links: r.links ?? [],
           mission: r.mission ?? '',
@@ -1082,6 +1088,7 @@ export class Swarm {
   private repoView(r: PersistedRepo): RepoView {
     const rt = this.repoRt.get(r.id)!;
     return {
+      ...(r.appStarter ? { appStarter: structuredClone(r.appStarter) } : {}),
       id: r.id,
       fullName: r.fullName,
       description: r.description,
@@ -1610,6 +1617,7 @@ export class Swarm {
       qaBrief: '',
       preview: { ...DEFAULT_PREVIEW, env: {} },
       addedAt: Date.now(),
+      ...(opts.guidedApp ? { appStarter: newAppStarter((opts.mission ?? '').trim().slice(0, 4000)) } : {}),
     };
     this.backend.setLocalPath(repo.fullName, folder);
     this.state.repos.push(repo);
@@ -1621,7 +1629,9 @@ export class Swarm {
     void this.cloneRepo(repo.id);
     void this.syncRepo(repo.id);
     // The CEO studies every new floor and sizes its team; a brief given here is the manager asking for a plan.
-    if (opts.onboardCeo !== false) {
+    if (repo.appStarter) {
+      this.queueAppInterview(repo);
+    } else if (opts.onboardCeo !== false) {
       this.enqueueCeo({ kind: 'onboard', repoId: repo.id, at: Date.now() });
       if (repo.mission) this.enqueueCeo({ kind: 'plan', repoId: repo.id, at: Date.now() });
     }
@@ -1640,13 +1650,131 @@ export class Swarm {
     return path.join(root, name); // cloned there when the floor opens
   }
 
+  // ---------- new-app planning ----------
+
+  private planPublications = new Map<string, Promise<void>>();
+
+  private requirePlanReady(repo: PersistedRepo, agent?: PersistedAgent) {
+    if (planningHeld(repo.appStarter)) throw new HttpError(409, 'This new app is held: complete the project interview, approve its exact plan and confirm publication first.');
+    if (agent && !compatibleHost(repo.appStarter, agent.host ?? 'local'))
+      throw new HttpError(409, 'This agent is incompatible with the approved environments. Work is held, not migrated.');
+  }
+
+  private queueAppInterview(repo: PersistedRepo) {
+    const d = repo.appStarter!;
+    this.enqueueCeo({ kind: 'app-starter', repoId: repo.id, draftId: d.id, revision: d.revision, at: Date.now() });
+  }
+
+  private currentAppJob(job: CeoJob) {
+    const d = this.state.repos.find((r) => r.id === job.repoId)?.appStarter;
+    return !!d && d.id === job.draftId && d.revision === job.revision && d.status === 'interview';
+  }
+
+  /** Answers have explicit project/revision and idempotency identity, never "last CEO chat". */
+  async answerAppInterview(repoId: string, ref: DraftRef, messageId: string, text: string) {
+    const repo = this.repo(repoId), d = repo.appStarter;
+    if (!/^[a-zA-Z0-9-]{8,80}$/.test(messageId) || !text.trim() || text.length > 4000) throw new HttpError(400, 'Invalid planning message.');
+    if (d?.id === ref.draftId && d.messages.some((m) => m.id === messageId && m.from === 'manager' && m.text === text.trim())) return this.repoView(repo);
+    checkDraft(d, ref);
+    if (!['interview', 'awaiting-approval'].includes(d.status) || d.ledger.length) throw new HttpError(409, 'This draft cannot be edited.');
+    if (d.messages.length >= 100) throw new HttpError(409, 'Interview transcript is full. Pause and review the requirements.');
+    if (d.messages.some((m) => m.id === messageId)) throw new HttpError(409, 'Message ID already used.');
+    d.messages.push({ id: messageId, from: 'manager', text: planningText(text.trim()) });
+    d.revision++;
+    d.status = 'interview';
+    delete d.approved;
+    delete d.hash;
+    await this.writeState();
+    this.emitRepo(repo);
+    this.queueAppInterview(repo);
+    return this.repoView(repo);
+  }
+
+  private async updateAppPlan(job: CeoJob, x: { decisions: string; question?: string; plan?: unknown }) {
+    if (this.state.ceo.job !== job || !this.currentAppJob(job)) throw new HttpError(409, 'Stale or foreign project interview turn.');
+    const repo = this.repo(job.repoId!), d = repo.appStarter!;
+    if (typeof x.decisions !== 'string' || x.decisions.length > 8000 || (x.plan === undefined) === !x.question)
+      throw new HttpError(400, 'Save decisions with either one question or a complete plan.');
+    if (d.messages.length >= 100) throw new HttpError(409, 'Interview transcript is full.');
+    if (x.plan !== undefined) presentPlan(d, x.plan, x.decisions);
+    else {
+      if (typeof x.question !== 'string' || x.question.length > 2000) throw new HttpError(400, 'Question is too long.');
+      const question = planningText(x.question.trim());
+      if (!question) throw new HttpError(400, 'Empty question.');
+      const decisions = planningText(x.decisions);
+      d.messages.push({ id: crypto.randomUUID(), from: 'ceo', text: question });
+      d.decisions = decisions;
+      d.revision++;
+    }
+    await this.writeState();
+    this.emitRepo(repo);
+    return `Saved ${repo.id}, draft ${d.id}, revision ${d.revision}. ${d.status}. End this turn; wait for the manager.`;
+  }
+
+  async approveAppPlan(repoId: string, ref: DraftRef, hash: string, environments: boolean, local: boolean) {
+    const repo = this.repo(repoId), d = repo.appStarter;
+    checkDraft(d, ref);
+    if (this.planPublications.has(repoId)) throw new HttpError(409, 'Publication is already in progress.');
+    approvePlan(d, hash, environments, local);
+    try { await this.writeState(); }
+    catch (err) { d.status = 'paused'; d.problem = 'Approval could not be saved. No publication started.'; this.emitRepo(repo); throw err; }
+    this.emitRepo(repo);
+    await this.publishAppPlan(repo);
+    return this.repoView(repo);
+  }
+
+  async appPlanAction(repoId: string, ref: DraftRef, action: string) {
+    const repo = this.repo(repoId), d = repo.appStarter;
+    checkDraft(d, ref);
+    if (['ready', 'cancelled'].includes(d.status)) throw new HttpError(409, 'This planning workflow is closed.');
+    if (action === 'edit' && d.status === 'awaiting-approval' && !d.ledger.length) {
+      d.status = 'interview';
+      d.revision++;
+      delete d.hash;
+      delete d.approved;
+    } else if (action === 'pause' || action === 'cancel') {
+      d.status = action === 'pause' ? 'paused' : 'cancelled';
+      this.state.ceo.queue = this.state.ceo.queue.filter((j) => j.draftId !== d.id);
+    } else if (action === 'resume' && d.status === 'paused') {
+      if (this.planPublications.has(repoId)) throw new HttpError(409, 'Wait for the in-flight publication to settle.');
+      d.status = d.approved ? 'publishing' : d.hash ? 'awaiting-approval' : 'interview';
+    } else throw new HttpError(400, 'Choose pause, cancel or resume a paused plan.');
+    await this.writeState();
+    this.emitRepo(repo);
+    if (d.status === 'publishing') await this.publishAppPlan(repo);
+    else if (d.status === 'interview' && action !== 'edit') this.queueAppInterview(repo);
+    return this.repoView(repo);
+  }
+
+  private publishAppPlan(repo: PersistedRepo) {
+    if (this.planPublications.has(repo.id)) throw new HttpError(409, 'Publication is already in progress.');
+    const d = repo.appStarter!;
+    const operation = (async () => {
+      await publishPlan(d, {
+        create: (title, body) => this.backend.createIssue(repo.fullName, title, body),
+        find: (marker) => this.backend.findPlanIssues(repo.fullName, marker),
+        details: (n) => this.backend.issueDetails(repo.fullName, n),
+      }, async () => { await this.writeState(); this.emitRepo(repo); },
+      () => !this.stopping && this.state.repos.includes(repo) && repo.appStarter === d);
+      if (d.status !== 'ready' || this.stopping || !this.state.repos.includes(repo)) return;
+      try { this.ensureAgent(repo); }
+      catch (err) { d.problem = `Worker setup awaits compatible resources: ${oneLine(err)}`; this.emitRepo(repo); await this.writeState(); }
+      await this.syncRepo(repo.id);
+      this.schedule(); // Uses autoAssign/autoMerge as they stand now, never re-enables them.
+    })();
+    this.planPublications.set(repo.id, operation);
+    void operation.finally(() => this.planPublications.delete(repo.id)).catch(() => undefined);
+    return operation;
+  }
+
   /** A brand-new project: a folder in your projects folder, pushed to a new GitHub repo. */
   async createRepo(name: string, opts: FloorOptions & { description?: string; visibility: 'private' | 'public'; owner?: string }) {
     if (!/^[A-Za-z0-9._-]+$/.test(name)) throw new HttpError(400, 'Project names may only contain letters, numbers, ".", "-" and "_"');
+    if (opts.onboardCeo !== false) planningText(opts.mission ?? '');
     const created = await this.backend.createProject(this.state.settings.projectsDir, name, opts).catch((err: Error) => {
       throw new HttpError(400, err.message);
     });
-    return this.connectRepo(created.fullName, { ...opts, localPath: created.path });
+    return this.connectRepo(created.fullName, { ...opts, guidedApp: opts.onboardCeo !== false, localPath: created.path });
   }
 
   /** The folders in your projects folder (or another folder you point at), and which are floors already. */
@@ -1684,6 +1812,7 @@ export class Swarm {
 
   disconnectRepo(id: string) {
     const repo = this.repo(id);
+    if (this.planPublications.has(id)) throw new HttpError(409, 'Pause publication and wait for the in-flight action before disconnecting.');
     this.state.ceo.queue = this.state.ceo.queue.filter((j) => j.repoId !== id);
     for (const r of this.state.requests.filter((x) => x.repoId === id && x.status === 'pending')) {
       this.decide(r, { status: 'rejected', note: 'The floor was disconnected.', decidedBy: null });
@@ -1714,6 +1843,8 @@ export class Swarm {
     patch: Partial<Pick<PersistedRepo, 'autoAssign' | 'autoMerge' | 'browserTesting' | 'color' | 'links' | 'mission' | 'summary' | 'qaBrief'>> & { previewCommand?: unknown; previewEnv?: unknown },
   ) {
     const repo = this.repo(id);
+    if (planningHeld(repo.appStarter) && (patch.mission !== undefined || patch.previewCommand !== undefined || patch.previewEnv !== undefined))
+      throw new HttpError(409, 'Use the project interview to revise the plan and environments before approval.');
     const preview = parsePreviewPatch(patch.previewCommand, patch.previewEnv);
     repo.preview = { ...repo.preview, ...preview };
     if (preview.command === null) void this.previews.refreshDefault(repo);
@@ -1941,6 +2072,7 @@ export class Swarm {
 
   /** Run the floor's app from its preview worktree: the default branch, or an open PR. Replaces what it is running now. */
   async startPreview(id: string, pr?: number | null): Promise<PreviewView> {
+    this.requirePlanReady(this.repo(id));
     const repo = this.repo(id);
     return this.previews.start(repo, `${repo.fullName.split('/')[1]} app`, pr);
   }
@@ -1951,6 +2083,7 @@ export class Swarm {
 
   /** The PR theatre: run an open PR beside the floor's main preview (kept when it's already up, unless restart). */
   startPrPreview(id: string, pr: number, restart = false): Promise<PrPreviewView> {
+    this.requirePlanReady(this.repo(id));
     const repo = this.repo(id);
     return this.previews.startPr(repo, pr, `${repo.fullName.split('/')[1]} app`, restart);
   }
@@ -1995,6 +2128,7 @@ export class Swarm {
   }
 
   private async finishShutdown(restart: boolean): Promise<void> {
+    await Promise.allSettled([...this.planPublications.values()]);
     if (this.openCodeAuthRun) this.cancelOpenCodeConfiguration(this.openCodeAuthRun.agentId);
     this.backend.cloud.detach(); // cloud agents' CLIs carry on in their Boxes: their records are final from here
     await this.writeState().catch((err) => console.warn('could not save the state', err));
@@ -2109,6 +2243,7 @@ export class Swarm {
 
   async createIssue(repoId: string, title: string, body: string, assignTo?: string) {
     const repo = this.repo(repoId);
+    this.requirePlanReady(repo);
     if (!title.trim()) throw new HttpError(400, 'An issue needs a title');
     const number = await this.backend.createIssue(repo.fullName, title.trim(), body);
     await this.syncRepo(repo.id);
@@ -2341,6 +2476,7 @@ export class Swarm {
   ) {
     const repo = this.repo(repoId);
     const team = this.state.agents.filter((a) => a.repoId === repo.id);
+    this.requirePlanReady(repo);
     const max = this.state.settings.maxAgents;
     if (team.length >= max) throw new HttpError(409, `Floor ${repo.floor} already has ${team.length} agents, its most (${max}). Raise "Most agents per floor" in Settings to add more.`);
     const used = new Set(team.map((a) => a.desk));
@@ -2349,7 +2485,9 @@ export class Swarm {
     if (desk >= FLOOR_SEATS) throw new HttpError(409, `Floor ${repo.floor} has no free desk (${FLOOR_SEATS} desks)`);
     const name = opts.name?.trim().slice(0, 24) || this.freeName();
     const cli = isCli(opts.cli) ? opts.cli : '';
-    const host = this.hostFor(opts.host, cli || this.state.settings.defaultCli, !!opts.strict);
+    const plannedHost = repo.appStarter?.plan?.environments.workerHost;
+    if (plannedHost && opts.host && opts.host !== plannedHost) throw new HttpError(409, 'Host incompatible with the approved project environments.');
+    const host = this.hostFor(plannedHost ?? opts.host, cli || this.state.settings.defaultCli, !!plannedHost || !!opts.strict);
     // A cloud agent's CLI is the one the office installs in their Box, not this computer's.
     const localCli = cli || this.state.settings.defaultCli;
     if (host === 'local' && (cli || localCli === 'opencode') && !this.cliReady(localCli)) throw new HttpError(400, `${cliLabel(localCli)} isn't installed on this computer.`);
@@ -2387,6 +2525,10 @@ export class Swarm {
       logTail: [],
     };
     this.state.agents.push(agent);
+    if (repo.appStarter?.problem?.startsWith('Worker setup awaits compatible resources:')) {
+      delete repo.appStarter.problem;
+      this.emitRepo(repo);
+    }
     applyLedger(this.state.progress, { kind: 'hired', agentId: agent.id, at: Date.now() });
     this.agentRt.set(agent.id, { log: [], session: null, currentTool: null, browserUrl: null, screenshot: null, shots: [], terminal: null });
     this.appendLog(agent, [{ kind: 'system', text: `👋 ${name} joined floor ${repo.floor} (${repo.fullName})${host === 'box' ? ', working in the cloud' : ''}.` }]);
@@ -2446,6 +2588,7 @@ export class Swarm {
    * saved to leftovers); sessions can't move between machines, so their next one starts fresh.
    */
   private moveAgent(a: PersistedAgent, to: MachineHost) {
+    if (!compatibleHost(this.repo(a.repoId).appStarter, to)) throw new HttpError(409, 'Host incompatible with the approved project environments.');
     if ((a.host ?? 'local') === to) return;
     if (a.task || BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is on a task: move them once it's done.`);
     const host = this.hostFor(to, a.cli || this.state.settings.defaultCli, true, a);
@@ -2749,8 +2892,15 @@ export class Swarm {
 
   /** Every floor has at least one agent. */
   private ensureAgent(repo: PersistedRepo) {
+    if (planningHeld(repo.appStarter)) return;
     if (this.state.agents.some((a) => a.repoId === repo.id)) return;
-    this.hireAgent(repo.id, {});
+    try { this.hireAgent(repo.id, {}); }
+    catch (err) {
+      if (!repo.appStarter) throw err;
+      repo.appStarter.problem = `Worker setup awaits compatible resources: ${oneLine(err)}`;
+      this.emitRepo(repo);
+      this.save();
+    }
   }
 
   /** A name from the pool that no agent or waiting candidate has. */
@@ -2918,6 +3068,7 @@ export class Swarm {
     if (BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is busy; stop the current task first.`);
     const repo = this.repo(a.repoId);
     if (this.repoRt.get(repo.id)?.cloneStatus !== 'ready') throw new HttpError(409, 'Wait until the repository checkout is ready.');
+    this.requirePlanReady(repo, a);
     if (!this.backend.deskExists(this.backend.mainDir(repo.fullName))) throw new HttpError(409, 'The repository checkout is missing; reconnect it before starting analysis.');
     this.ensureUsage(a, 'issue');
     this.ensureSlot();
@@ -2956,6 +3107,7 @@ export class Swarm {
   private async assignIssue(agentId: string, issueNumber: number, note?: string, waitForDeps = false, resumeBranch?: string) {
     const a = this.agent(agentId);
     const repo = this.repo(a.repoId);
+    this.requirePlanReady(repo, a);
     if (a.role === 'ceo') throw new HttpError(400, `${a.name} runs the company; give issues to the agents on the floors.`);
     if (BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is busy: ${this.agentDoing(a)}`);
     if (this.issuePreparations.has(a.id)) throw new HttpError(409, `${a.name}'s previous setup is still finishing. Try again in a moment.`);
@@ -3123,6 +3275,7 @@ export class Swarm {
   /** job: the PR fix or QA run this desk is for; if the desk can't be set up, the PR pays for it, not the agent. */
   private async prepare(a: PersistedAgent, repo: PersistedRepo, base: { pr?: number; preserve?: boolean }, branch: string, job?: PrepJob): Promise<{ cwd: string; deps: DepsOutcome } | null> {
     try {
+      this.requirePlanReady(repo, a);
       if (this.repoRt.get(repo.id)?.cloneStatus !== 'ready') await this.cloneRepo(repo.id);
       const note = (text: string) => this.appendLog(a, [{ kind: 'system', text }]);
       const cwd = await setUpDesk(this.agentRt.get(a.id)?.terminal, {
@@ -3296,6 +3449,7 @@ export class Swarm {
   ) {
     const rt = this.agentRt.get(a.id);
     if (!rt || !this.state.agents.includes(a)) return; // let go meanwhile
+    if (!compatibleHost(repo.appStarter, a.host ?? 'local')) return;
     const attempt = Symbol('session startup');
     rt.sessionStart = attempt;
     if (!mode && this.cloudWorkPaused(a)) {
@@ -3649,6 +3803,7 @@ export class Swarm {
   /** Manager's "send to QA" for any open PR (including ones opened by people); with `agentId`, that free agent tests it now. */
   async sendToQa(repoId: string, prNumber: number, agentId?: string) {
     const repo = this.repo(repoId);
+    this.requirePlanReady(repo, agentId ? this.agent(agentId) : undefined);
     const pr = this.repoRt.get(repo.id)?.pulls.find((p) => p.number === prNumber && p.state === 'OPEN');
     if (!pr) throw new HttpError(404, `PR #${prNumber} is not open on ${repo.fullName}`);
     const rec = this.state.qa.find((q) => q.repoId === repo.id && q.prNumber === prNumber);
@@ -3678,6 +3833,7 @@ export class Swarm {
   /** Manager's "send back to dev" for a PR that needs a human or failed QA: a developer fixes it, with the note. */
   async sendBackToDev(repoId: string, prNumber: number, note?: string, from?: string) {
     const repo = this.repo(repoId);
+    this.requirePlanReady(repo);
     const find = () => this.state.qa.find((q) => q.repoId === repo.id && q.prNumber === prNumber);
     const listed = this.repoRt.get(repo.id)?.pulls.find((p) => p.number === prNumber);
     const allowPassed = from === undefined; // CEO triage is not permission to reopen a passed PR.
@@ -3698,6 +3854,7 @@ export class Swarm {
   }
 
   private async runQa(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (!compatibleHost(repo.appStarter, a.host ?? 'local')) return;
     if (this.cloudWorkPaused(a)) return;
     if (this.backend.allowWork && !this.backend.allowWork('qa', a)) return;
     const branch = qaBranch(rec.prNumber, slugify(a.name));
@@ -3834,7 +3991,7 @@ export class Swarm {
       return;
     }
 
-    a.status = 'done';
+    // Keep the task owned until its report is published; the watchdog must not retry it as orphaned.
     const pass = report.verdict === 'pass';
     if (rec) this.ledger({ kind: 'qa', repoId: repo.id, pr: rec.prNumber, round: rec.round, pass, tester: a.id, author: rec.devAgentId, at: Date.now() });
     this.appendLog(a, [{ kind: pass ? 'done' : 'error', text: `${pass ? '✅ QA passed' : '❌ QA failed'} PR #${a.prNumber} · ${report.checks.length} checks · ${rt.shots.length} screenshots` }]);
@@ -3899,6 +4056,7 @@ export class Swarm {
               : `❌ ${a.name} failed PR #${rec.prNumber}; sending it back to the developer`,
       );
     }
+    if (a.status !== 'stopped') a.status = 'done';
   }
 
   private async renderQaComment(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord, report: QaReport, shots: Shot[], next: QaNext) {
@@ -3943,6 +4101,7 @@ export class Swarm {
 
   /** Send a failed PR back to the agent who wrote it (or any free agent on the floor). */
   private async runFix(dev: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (!compatibleHost(repo.appStarter, dev.host ?? 'local')) return;
     if (this.cloudWorkPaused(dev)) return;
     if (this.backend.allowWork && !this.backend.allowWork('fix', dev)) return;
     const original = rec.devAgentId === dev.id;
@@ -4237,7 +4396,7 @@ export class Swarm {
 
   /** A floor's agents who can take work now, by desk. */
   private available(repo: PersistedRepo) {
-    return this.state.agents.filter((a) => a.repoId === repo.id && a.role !== 'ceo' && this.isFree(a) && !this.limited(a)).sort((x, y) => x.desk - y.desk);
+    return this.state.agents.filter((a) => a.repoId === repo.id && a.role !== 'ceo' && compatibleHost(repo.appStarter, a.host ?? 'local') && this.isFree(a) && !this.limited(a)).sort((x, y) => x.desk - y.desk);
   }
 
   private scheduleOffset = 0;
@@ -4273,6 +4432,7 @@ export class Swarm {
    * failing to set up sits out.
    */
   private startPipelineWork(repo: PersistedRepo): boolean {
+    if (planningHeld(repo.appStarter)) return false;
     const free = this.available(repo);
     if (!free.length) return false;
     const now = Date.now();
@@ -4317,7 +4477,7 @@ export class Swarm {
    * "Depends on #N" wait until #N is closed; the rest go in readyIssues() order.
    */
   private startIssueWork(repo: PersistedRepo): boolean {
-    if (!repo.autoAssign) return false;
+    if (!repo.autoAssign || planningHeld(repo.appStarter)) return false;
     const agent = this.available(repo).find((a) => this.mayStart('issue', a));
     const next = agent ? this.readyIssues(repo)[0] : undefined;
     if (!agent || !next) return false;
@@ -4449,6 +4609,7 @@ export class Swarm {
 
   /** May work of this kind start now, as far as resource controls and AI usage go? */
   private mayStart(kind: WorkKind, a: PersistedAgent) {
+    if (a.role !== 'ceo' && !compatibleHost(this.state.repos.find((r) => r.id === a.repoId)?.appStarter, a.host ?? 'local')) return false;
     if (this.cloudWorkPaused(a)) return false;
     if (this.backend.allowWork && !this.backend.allowWork(kind, a)) return false;
     if (this.configuringOpenCode) return false;
@@ -4583,6 +4744,7 @@ export class Swarm {
    * so no repo can hog the slots.
    */
   private schedule() {
+    if (this.stopping) return; // Already queued timers must not restart a closed office.
     this.tickUsage();
     this.progressTick();
     if (this.officeUpdateTick()) return; // draining for the office's own update
@@ -4852,7 +5014,8 @@ export class Swarm {
     if (!a || BUSY.includes(a.status) || c.job || c.queue.length === 0) return;
     if (!this.mayStart('ceo', a)) return;
     if (this.slotsFull()) return;
-    const rank: Record<CeoJob['kind'], number> = { chat: 0, triage: 0, onboard: 1, plan: 1, review: 2 };
+    c.queue = c.queue.filter((j) => j.kind !== 'app-starter' || this.currentAppJob(j));
+    const rank: Record<CeoJob['kind'], number> = { chat: 0, 'app-starter': 0, triage: 0, onboard: 1, plan: 1, review: 2 };
     // A floor's jobs wait for its clone and first sync, so the CEO has something to read.
     const ready = (j: CeoJob) => {
       const rt = j.repoId ? this.repoRt.get(j.repoId) : undefined;
@@ -4878,6 +5041,7 @@ export class Swarm {
   }
 
   private async runCeoJob(a: PersistedAgent, job: CeoJob) {
+    if (job.kind === 'app-starter' && !this.currentAppJob(job)) return;
     const rt = this.agentRt.get(a.id)!;
     const floor = this.ceoFloor(job.repoId);
     const label = jobLabel(job, floor);
@@ -4918,18 +5082,22 @@ export class Swarm {
     }
     // A chat carries on from the CEO's last session, so "why did you propose that?" has an answer.
     const how = this.sessionRuntime(a, job.kind === 'chat' ? (a.sessionId ?? undefined) : undefined);
+    const draft = job.kind === 'app-starter' ? this.repo(job.repoId!).appStarter! : undefined;
+    const scopedSystem = draft
+      ? `${communicationInstructions(this.state.settings.language)}\n${planningSkill()}\nProject ${job.repoId}. Persistent context:\n${JSON.stringify(draft)}`
+      : ceoSystemPrompt(this.ceoPromptInput(a));
     rt.session = this.backend.startSession(
       {
         cwd: CEO_DIR,
         prompt: ceoJobPrompt(job, floor, triage),
-        systemAppend: ceoSystemPrompt(this.ceoPromptInput(a)),
+        systemAppend: scopedSystem,
         model: this.modelFor(a, how.cli),
         effort: a.effort || CEO_EFFORT,
         browserTesting: false,
-        additionalDirectories: this.state.repos.filter((r) => this.repoRt.get(r.id)?.cloneStatus === 'ready').map((r) => this.backend.mainDir(r.fullName)),
+        additionalDirectories: this.state.repos.filter((r) => (!draft || r.id === job.repoId) && this.repoRt.get(r.id)?.cloneStatus === 'ready').map((r) => this.backend.mainDir(r.fullName)),
         role: 'ceo',
         agentId: a.id,
-        office: this.officeTools(),
+        office: this.officeTools(job),
         ...how,
       },
       {
@@ -4940,12 +5108,13 @@ export class Swarm {
           this.emitAgent(a);
         },
         sessionId: (id) => {
+          if (draft) return; // Interview state, not global CLI memory, survives runtime changes.
           a.sessionId = id;
           a.sessionCli = id ? (how.cli ?? 'claude') : null;
         },
         browserUrl: () => undefined,
         screenshot: () => undefined,
-        turn: (text) => this.postMessage('ceo', text),
+        turn: (text) => { if (!draft) this.postMessage('ceo', text); },
         usage: (observation) => this.recordAiUsage(a, observation),
         usageBatch: (observations) => this.recordAiUsageBatch(a, observations),
         resource: (resource) => this.recordResource(a, resource),
@@ -4997,7 +5166,7 @@ export class Swarm {
     const a = this.ceo();
     this.postMessage('manager', t);
     const rt = this.agentRt.get(a.id)!;
-    if (rt.session) {
+    if (rt.session && this.state.ceo.job?.kind !== 'app-starter') {
       this.appendLog(a, [{ kind: 'manager', text: `▶ Manager: ${t}` }]);
       this.ceoIssues.managerMessage(); // a new request: the issue cap counts from here
       this.ceoAsked = true;
@@ -5014,12 +5183,14 @@ export class Swarm {
 
   onboardFloor(repoId: string) {
     const repo = this.repo(repoId);
+    this.requirePlanReady(repo);
     this.enqueueCeo({ kind: 'onboard', repoId: repo.id, at: Date.now() });
   }
 
   /** The manager hands the CEO a brief for a floor; the CEO turns it into issues and a team. */
   planFloor(repoId: string, mission?: string) {
     const repo = this.repo(repoId);
+    this.requirePlanReady(repo);
     if (typeof mission === 'string') {
       repo.mission = mission.trim().slice(0, 4000);
       this.emitRepo(repo);
@@ -5839,6 +6010,7 @@ export class Swarm {
    */
   private scaleTeam(x: { floor: number; size: number; reason: string; cli?: string; model?: string; effort?: string }) {
     const repo = this.floorRepo(x.floor);
+    this.requirePlanReady(repo);
     const reason = String(x.reason ?? '').trim().slice(0, 600);
     if (!reason) throw new Error('Say why: the manager reads the reason.');
     const cli: AgentCli | '' = isCli(x.cli) ? x.cli : '';
@@ -6065,6 +6237,7 @@ export class Swarm {
 
   private async fileIssue(x: { floor: number; title: string; body: string }) {
     const repo = this.floorRepo(x.floor);
+    this.requirePlanReady(repo);
     if (!this.ceoAsked) throw new Error(NOT_ASKED);
     this.ceoIssues.check();
     const title = String(x.title ?? '').trim().slice(0, 120);
@@ -6078,6 +6251,7 @@ export class Swarm {
   /** Rewrite an open issue's "Depends on #N" line (see planDependencies for what is refused). */
   private async setDependencies(x: { floor: number; number: number; depends_on: number[] }) {
     const repo = this.floorRepo(x.floor);
+    this.requirePlanReady(repo);
     const issues = this.repoRt.get(repo.id)?.issues ?? [];
     const deps = (x.depends_on ?? []).map(Number);
     const asked = [Number(x.number), ...deps].filter((n) => !issues.some((i) => i.number === n));

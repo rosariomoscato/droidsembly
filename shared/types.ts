@@ -1,5 +1,6 @@
 // Types shared between the swarm server and the 3D client.
 import type { CareerView } from './careers.ts';
+import type { AppStarter } from './appStarter.ts';
 import type { ProgressView, RewardView } from './progress.ts';
 
 import type { WeatherSettings, WeatherView, WorldEventSettings } from './outside.ts';
@@ -58,6 +59,7 @@ export interface PullInfo {
 }
 
 export interface RepoView {
+  appStarter?: AppStarter;
   id: string; // "owner/name"
   fullName: string;
   description: string;
@@ -585,7 +587,7 @@ export interface PhoneMessage {
   voice?: Exclude<VoiceProvider, 'off'>; // who read it aloud when it arrived (absent: nobody), for the phone's ▶ replay
 }
 
-export type CeoJobKind = 'onboard' | 'plan' | 'review' | 'chat' | 'triage';
+export type CeoJobKind = 'onboard' | 'plan' | 'review' | 'chat' | 'triage' | 'app-starter';
 
 export interface CeoInfo {
   queue: { kind: CeoJobKind; label: string }[]; // jobs waiting for the CEO
