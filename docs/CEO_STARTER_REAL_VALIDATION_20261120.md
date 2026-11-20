@@ -1,0 +1,106 @@
+# CEO app-starter: real isolated validation — 2026-11-20
+
+## Scope and outcome
+
+The maintainer authorized a real, isolated test using a disposable private GitHub
+repository, synthetic tasks and existing local OpenCode authentication. The
+tested application was an Italian task list using React/TypeScript/Vite and
+browser localStorage; no database, cloud Box or deployment was provisioned.
+
+The office ran from a locally built and installed package, through its compiled
+server, bound to `127.0.0.1:4437`, with a dedicated home, projects directory and
+preview range. Automatic assignment, automatic merge, periodic CEO review and
+office updates remained disabled. No live-office installation or state was used.
+
+Observed with the real browser, office API and GitHub:
+
+- Private repository creation and project-specific CEO interview.
+- Persisted questions, answers and decisions; revision-bound plan editing.
+- Explicit approval of revision 7 and its exact fingerprint.
+- Publication of three approved tasks with dependencies: foundation, interface
+  depending on foundation, verification depending on both preceding tasks.
+- A local OpenCode worker manually assigned only the foundation task.
+- A development PR and fresh-session QA covering tests, build, persistence,
+  malformed storage and mobile display.
+- After the fixes below, exactly one explicit QA rerun reached `passed`; its
+  worker reached `done` and stayed there for 130 seconds, spanning two watchdog
+  ticks, without a duplicate session.
+- The maintainer separately authorized merging that disposable PR. GitHub
+  confirmed the merge and closure of its foundation issue.
+
+The remaining interface and verification tasks were deliberately not executed:
+finishing a disposable app was unnecessary to validate the starter workflow.
+This is not a claim of complete application delivery or cross-provider coverage.
+
+## Defects found and corrected
+
+### OpenCode default-model response
+
+OpenCode 2.3.2 returned a location-scoped `{ location, data }` result from
+`ctx.model.default()`. Reading it as a bare model submitted an undefined model ID;
+the intended CEO turn did not finish normally.
+
+`14fdea2` unwraps that result while retaining the bare-response path. Two new
+regressions cover a wrapped model and a wrapped null default. The real interview
+then completed its office turns normally.
+
+The automatically chosen free model separately returned a quota error. This was
+not a model-envelope defect. The maintainer explicitly chose
+`openai/gpt-6.1-terra` for the CEO and worker; no credentials were copied.
+
+### Duplicate QA during report publication
+
+The tester was marked `done` before awaiting evidence/report publication. The
+watchdog could then consider a still-`testing` QA record orphaned and requeue it.
+
+`5ea2bb4` retains task ownership through publication and final QA disposition,
+without overwriting a manager stop. Four regression cases cover pass, fail,
+comment-publication failure and stop during publication. Both pass/fail race
+cases failed before the ordering fix. The real rerun described above passed.
+
+## Validation and remaining limits
+
+- Seven targeted files: **77 tests passed**, including the two fixes and the
+  app-starter workflow. Repeated after creating the fix commits: **77 passed**.
+- Typecheck and ordinary production build: **passed**.
+- Installed local package: **104 built artifacts byte-compared** before the
+  real QA rerun. Package version remained beta.5; this was not a release.
+- Full serial suite including both fixes: **3587 passed, 1 failed** across
+  **320 passed files, 1 failed file**. The failure was a 15-second timeout in
+  `server/resumeReviewRegression.test.ts`, renamed legacy worktree recovery.
+- All **11 tests** in that file passed on an isolated serial rerun. The exact
+  failing case then passed three times at **11.431, 11.133 and 12.688 seconds**
+  with Git Trace2 enabled and unchanged deadlines/assertions.
+- Traces show 25 top-level Git commands per case, plus nested Git processes.
+  Fixture setup and preservation snapshots consumed most elapsed time; recovery
+  itself took about 1.8 seconds in the slowest observed passing run.
+- These results suggest limited timing headroom but do **not** prove the cause
+  of the original timeout or turn the full-suite result into a pass.
+- A new full serial run for integration preparation was started after these
+  commits. Its result must be recorded separately; it is not presumed green.
+
+Earlier full-suite/install/smoke negatives are preserved in
+[the A5 validation history](A5_LOCAL_VALIDATION_20261120.md). This real test does
+not erase them. The existing beta.6 candidate PR #86 has its own prior Windows
+CI failure; this report does not certify that candidate or authorize publishing.
+
+No real database, migration, deployment, Box, Claude/Codex interview or full
+accessibility audit was tested. Screenshot/browser observations are not evidence
+of production data isolation or provider availability.
+
+## Cleanup and integration boundaries
+
+At the maintainer's request, the dedicated local installation, state, projects,
+workspaces, artifacts and test helpers were deleted after stopping only their
+verified server and PTY process trees. A local report and artifact-hash records
+were retained outside the source checkout.
+
+GitHub repository deletion was attempted but refused with HTTP 403 because the
+current authentication lacks `delete_repo`. The remote disposable repository
+therefore remained at the last verification; authentication scopes were not
+changed. Do not claim complete remote cleanup.
+
+Source work is proposed through the feature branch to `dev`, then a separate
+reviewed release promotion from `dev` to `main`. No tag, npm publish, Release
+workflow, automatic merge or live-office update is part of these validation
+results. The pre-existing local `CLAUDE.md` edit is excluded from this integration.
