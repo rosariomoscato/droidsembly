@@ -6,6 +6,7 @@ export const timingSensitiveTests = [
   'server/resumeDesk.test.ts',
   'server/resumeReviewRegression.test.ts',
   'server/boxDeskScript.test.ts',
+  'scripts/homeIntegration.test.ts',
   'scripts/opencodeGateLauncher.test.ts',
   'server/scale.test.ts',
   'server/httpParser.test.ts',

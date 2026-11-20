@@ -48,8 +48,8 @@ describe('test resource scheduling', () => {
     expect(timingSensitiveTests).toContain('server/notifier.test.ts');
   });
 
-  it('keeps complete real-Git fixtures in the quiet phase with their original deadlines', () => {
-    for (const file of ['server/resumeDesk.test.ts', 'server/resumeReviewRegression.test.ts', 'server/boxDeskScript.test.ts']) {
+  it('keeps complete real-Git and source-process fixtures in the quiet phase with their original deadlines', () => {
+    for (const file of ['server/resumeDesk.test.ts', 'server/resumeReviewRegression.test.ts', 'server/boxDeskScript.test.ts', 'scripts/homeIntegration.test.ts']) {
       expect(timingSensitiveTests.filter((entry) => entry === file)).toHaveLength(1);
     }
     for (const project of testSchedulingProjects) {
