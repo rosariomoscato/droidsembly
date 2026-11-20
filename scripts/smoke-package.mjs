@@ -8,15 +8,25 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { officeOverrides } from '../bin/environment.js';
+import { smokeStep } from './smokeStep.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 assert.equal(pkg.name, 'droidsembly');
 assert.deepEqual(pkg.bin, { droidsembly: 'bin/droidsembly.js' });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'droidsembly-package-'));
+console.log(`Package smoke fixture: ${tmp}`);
+const mark = (row) => {
+  fs.appendFileSync(path.join(tmp, 'smoke-phases.jsonl'), `${JSON.stringify(row)}\n`);
+  console.log(`[package-smoke] ${JSON.stringify(row)}`);
+};
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const dataHome = path.join(tmp, 'home');
 const env = { ...officeOverrides(process.env, { SWARM_HOME: dataHome, SWARM_HOST: '127.0.0.1', SWARM_DEMO: '1' }), CI: '1' };
+if (process.env.P11_NPM_TRACE === '1') {
+  env.npm_config_logs_dir = path.join(tmp, 'npm-diagnostics');
+  env.npm_config_timing = 'true';
+}
 // Deliberately disagree with the canonical aliases: no legacy home may be touched.
 env.SWARM_HOME = path.join(tmp, 'legacy-unselected');
 env.SWARM_DEMO = '0';
@@ -24,8 +34,8 @@ delete env.SWARM_DEMO_FLOORS;
 delete env.SWARM_DEMO_AGENTS;
 delete env.DROIDSEMBLY_DEMO_FLOORS;
 delete env.DROIDSEMBLY_DEMO_AGENTS;
-const sh = (cmd, cwd) => {
-  const res = spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env });
+const sh = (label, cmd, cwd) => {
+  const res = smokeStep(label, () => spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env }), mark);
   if (res.status !== 0) throw new Error(`${cmd} failed:\n${res.stdout}\n${res.stderr}`);
   return res.stdout.trim();
 };
@@ -36,16 +46,16 @@ try {
   // Optional retained tarball: validate exactly the artifact that was reviewed.
   let tarball = process.argv[2] && path.resolve(process.argv[2]);
   if (!tarball) {
-    const packed = JSON.parse(sh(`${npm} pack --ignore-scripts --json --pack-destination "${tmp}"`, root))[0];
+    const packed = JSON.parse(sh('npm-pack', `${npm} pack --ignore-scripts --json --pack-destination "${tmp}"`, root))[0];
     const paths = packed.files.map((f) => f.path);
     assert.ok(!paths.some((f) => /PerChatGPT|STACK_E_ARCHITETTURA|FORK_CHANGELOG|NPM_DISTRIBUTION_PLAN/.test(f)), 'local documents must not be packed');
     tarball = path.join(tmp, packed.filename);
   }
-  sh(`${npm} init -y`, tmp);
-  sh(`${npm} install --no-audit --no-fund "${tarball}"`, tmp);
+  sh('npm-init', `${npm} init -y`, tmp);
+  sh('npm-install', `${npm} install --no-audit --no-fund "${tarball}"`, tmp);
   const cli = path.join(tmp, 'node_modules', '.bin', process.platform === 'win32' ? 'droidsembly.cmd' : 'droidsembly');
-  assert.equal(sh(`"${cli}" --version`, tmp), pkg.version);
-  const help = sh(`"${cli}" --help`, tmp);
+  assert.equal(sh('cli-version', `"${cli}" --version`, tmp), pkg.version);
+  const help = sh('cli-help', `"${cli}" --help`, tmp);
   assert.ok(help.includes(`Droidsembly ${pkg.version}`));
   assert.ok(help.includes(`npx droidsembly@${pkg.publishConfig.tag}`));
   assert.ok(help.includes('~/.cubefarm') && help.includes('~/.droidsembly') && help.includes('DROIDSEMBLY_HOME'), 'home selection compatibility is documented');
@@ -55,8 +65,8 @@ try {
   for (const file of ['LICENSE', 'README.md', 'README.it.md', 'docs/app-starter.md', 'docs/app-starter-provenance.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist-server/skills/ceo-app-starter.md', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
     assert.ok(fs.existsSync(path.join(installed, file)), `missing package file: ${file}`);
   }
-  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
-  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
+  assert.equal(sh('legacy-version', `"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
+  assert.equal(sh('legacy-help', `"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
   const licenses = JSON.parse(fs.readFileSync(path.join(installed, 'dist/third-party-licenses.json'), 'utf8'));
   const notices = fs.readFileSync(path.join(installed, 'dist/THIRD_PARTY_LICENSES.txt'), 'utf8');
   assert.ok(licenses.length > 0, 'empty client license inventory');
