@@ -32,6 +32,89 @@ const run = () => runFixtureProcess('synthetic-private-command', ['synthetic-pri
 function exit(code = 1) { root.exitCode = code; root.emit('exit', code, null); }
 function close(code = 1) { root.emit('close', code, null); }
 
+const runWithStartup = () => runFixtureProcess('synthetic-command', [],
+  { cwd: '.', env: {}, timeout: 4000, startup: { timeout: 10000, stderrLine: 'fixture-ready' } });
+
+it('gives a bounded cold start its own budget and preserves four seconds after exact readiness', async () => {
+  const pending = runWithStartup();
+  now = 8000;
+  await vi.advanceTimersByTimeAsync(8000);
+  root.stderr.emit('data', 'fixture-');
+  expect(spawn).toHaveBeenCalledTimes(1);
+  root.stderr.emit('data', 'ready\r\n');
+  now = 11999;
+  await vi.advanceTimersByTimeAsync(3999);
+  exit(); close();
+  const result = await pending;
+  expect(result.error).toBeUndefined();
+  expect(result.observation).toMatchObject({
+    startupMs: 8000, startupTimeoutMs: 10000, commandTimeoutMs: 4000,
+    timerExpectedMs: 12000, timeoutPhase: null,
+  });
+});
+
+it('times out startup even if arbitrary output keeps arriving', async () => {
+  const pending = runWithStartup();
+  root.stdout.emit('data', 'fixture-ready\n');
+  root.stderr.emit('data', 'not-fixture-ready\nfixture-ready');
+  now = 10000;
+  await vi.advanceTimersByTimeAsync(10000);
+  expect(spawn).toHaveBeenCalledTimes(2);
+  exit(); close(); killer.emit('close', 0);
+  const result = await pending;
+  expect(result.error).toMatchObject({ code: 'ETIMEDOUT' });
+  expect(result.observation).toMatchObject({ startupMs: null, timeoutPhase: 'startup', timerExpectedMs: 10000 });
+});
+
+it('does not restart the functional deadline on repeated readiness lines', async () => {
+  const pending = runWithStartup();
+  now = 3000;
+  await vi.advanceTimersByTimeAsync(3000);
+  root.stderr.emit('data', 'fixture-ready\n');
+  now = 6000;
+  await vi.advanceTimersByTimeAsync(3000);
+  root.stderr.emit('data', 'fixture-ready\n');
+  now = 7000;
+  await vi.advanceTimersByTimeAsync(1000);
+  exit(); close(); killer.emit('close', 0);
+  const result = await pending;
+  expect(result.error).toMatchObject({ code: 'ETIMEDOUT' });
+  expect(result.observation).toMatchObject({ startupMs: 3000, timeoutPhase: 'command', timerExpectedMs: 7000 });
+});
+
+it('rejects readiness observed after startup expiry even before its timer callback', async () => {
+  const pending = runWithStartup();
+  now = 10001;
+  root.stderr.emit('data', 'fixture-ready\n');
+  exit(); close(); killer.emit('close', 0);
+  const result = await pending;
+  expect(result.error).toMatchObject({ code: 'ETIMEDOUT' });
+  expect(result.observation).toMatchObject({ startupMs: null, timeoutSource: 'late-ready', timeoutPhase: 'startup' });
+});
+
+it('rejects an early exit without readiness rather than treating it as success', async () => {
+  const pending = runWithStartup();
+  now = 10; exit(0); close(0);
+  expect((await pending).error).toMatchObject({ code: 'EPROTO' });
+  expect(spawn).toHaveBeenCalledTimes(1);
+});
+
+it('rejects a late functional close without waiting for timer delivery', async () => {
+  const pending = runWithStartup();
+  now = 3000; root.stderr.emit('data', 'fixture-ready\n');
+  now = 7001; exit(); close();
+  const result = await pending;
+  expect(result.error).toMatchObject({ code: 'ETIMEDOUT' });
+  expect(result.observation).toMatchObject({ timeoutSource: 'late-close', timeoutPhase: 'command' });
+  expect(spawn).toHaveBeenCalledTimes(1);
+});
+
+it('rejects invalid readiness contracts before starting any process', () => {
+  for (const startup of [{ timeout: Infinity, stderrLine: 'ready' }, { timeout: 0, stderrLine: 'ready' }, { timeout: 1, stderrLine: 'ready\n' }])
+    expect(() => runFixtureProcess('synthetic-command', [], { cwd: '.', env: {}, timeout: 4000, startup })).toThrow();
+  expect(spawn).not.toHaveBeenCalled();
+});
+
 it('exports only a fixed bounded schema while preserving ordinary output and status', async () => {
   const pending = run();
   now = 6; root.emit('spawn');

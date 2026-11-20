@@ -151,3 +151,31 @@ Integration validation remains **NON-PASS** locally and in CI. The feature branc
 and evidence are pushed; no integration PR, merge, release tag, publication or
 live-office update has been performed. Resolving or separately assessing the
 Windows timing failures is required before advancing release readiness.
+
+## Authorized Windows startup-contract change
+
+The maintainer explicitly approved separating interpreter startup from functional
+execution after reviewing the failures. This is a **test-contract change**, not a
+demonstrated fix for the historical Windows startup cause:
+
+- The PowerShell fixture now has a **10-second startup budget**, ending only at
+  the exact complete stderr line `probe script-enter ms=0`.
+- The original **4-second functional budget** then covers the launcher work,
+  protected synthetic input handling, child execution, disposal, acknowledgement
+  and stream close. All existing functional assertions remain.
+- The enclosing test uses **25 seconds** to accommodate the two bounded phases,
+  existing process-tree termination/drain bounds, and fixture setup.
+- The shared process helper keeps its original deadline semantics for every
+  caller that does not opt into the startup contract. Readiness is accepted only
+  once; arbitrary output, repeated markers and delayed timer callbacks cannot
+  extend either phase. Missing/late readiness and early exit without readiness
+  fail closed. Existing process-tree cleanup remains in force.
+- Seven new deterministic regressions exercise the startup contract.
+  **85 tests in seven targeted files passed**, followed by **4 real-process
+  lifecycle tests passed**. Typecheck and diff checks passed.
+- The client-source secret-boundary scan and its **5-second** limit are unchanged.
+  Its isolated pass does not resolve the previous full-run timeout.
+
+New full-suite/CI executions on this changed test contract must be assessed
+separately. Neither this change nor its targeted passes erase earlier failures,
+certify the existing beta.6 candidate, or authorize merging/publishing.
