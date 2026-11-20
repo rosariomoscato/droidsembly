@@ -179,3 +179,33 @@ demonstrated fix for the historical Windows startup cause:
 New full-suite/CI executions on this changed test contract must be assessed
 separately. Neither this change nor its targeted passes erase earlier failures,
 certify the existing beta.6 candidate, or authorize merging/publishing.
+
+## Final changed-contract validation — PASS
+
+On `36e0848`, the first CI execution of the changed startup contract,
+[44815997683](https://github.com/rosariomoscato/droidsembly/actions/runs/44815997683),
+passed **all five environments**: Ubuntu, Windows Node 24, Windows Node 22,
+macOS Intel and native macOS ARM64. Each completed clean installation,
+typecheck, full tests, production build and installed-package smoke.
+
+The ordinary local `npm test` then completed with **3595/3595 tests passed in
+321/321 files**, in 604.49 seconds. Typecheck and ordinary production build also
+passed on this implementation. The unchanged client-source scan completed its
+assertions in this full run.
+
+These are new positive results on the revised contract, not retroactive passes
+for any previous failure or proof of its historical cause. Later evidence-only
+commits do not change runtime/test/configuration/package bytes. Feature
+integration is proposed against `dev`; its PR checks, release candidate #86,
+promotion and publication remain separate gates.
+
+### Retained demo screenshots
+
+The following synthetic demo captures are from the earlier `c138d62` checkpoint,
+not new screenshots of `36e0848`. They illustrate desktop/mobile approval
+controls, not the final interview-history layout or real-provider behavior.
+Their original test context is documented in the A5 validation history.
+
+![Desktop approval controls in the synthetic demo](validation/ceo-starter-20261120/ui-desktop-console-approval-c138d62.png)
+
+![Mobile approval controls in the synthetic demo](validation/ceo-starter-20261120/ui-mobile-approval-c138d62.png)
