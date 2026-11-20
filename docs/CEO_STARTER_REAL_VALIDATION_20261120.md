@@ -132,4 +132,22 @@ executions that produced no checkpoints.
 No timeout, assertion, workload or concurrency was relaxed; no unchanged CI retry
 was launched. This new failure blocks integration/release readiness. Passing
 platforms, the real CEO workflow and targeted regressions do not cancel it.
-The separate local full serial run remains pending at this checkpoint.
+The separate local full serial run was still pending at this CI checkpoint.
+
+## Final local integration run
+
+The full serial run started at source `5ea2bb4` completed after the documentation
+follow-ups, with implementation/tests/config unchanged:
+**3587 tests passed, 1 failed; 320 files passed, 1 failed**, in 1115.35 seconds.
+
+The failure was `server/notifier.test.ts:105`, the client-source secret-boundary
+scan, at the unchanged 5000 ms test deadline (reported duration 5024 ms).
+The scan's elapsed-time, file-count and no-violation assertions did not complete.
+This is neither evidence of a secret leak nor certification that the boundary
+scan passed. It is distinct from both the earlier local worktree timeout and the
+new Windows Node 24 CI PowerShell failure. No further full-suite retry was started.
+
+Integration validation remains **NON-PASS** locally and in CI. The feature branch
+and evidence are pushed; no integration PR, merge, release tag, publication or
+live-office update has been performed. Resolving or separately assessing the
+Windows timing failures is required before advancing release readiness.
