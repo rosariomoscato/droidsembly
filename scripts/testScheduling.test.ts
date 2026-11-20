@@ -48,6 +48,16 @@ describe('test resource scheduling', () => {
     expect(timingSensitiveTests).toContain('server/notifier.test.ts');
   });
 
+  it('keeps complete real-Git fixtures in the quiet phase with their original deadlines', () => {
+    for (const file of ['server/resumeDesk.test.ts', 'server/resumeReviewRegression.test.ts', 'server/boxDeskScript.test.ts']) {
+      expect(timingSensitiveTests.filter((entry) => entry === file)).toHaveLength(1);
+    }
+    for (const project of testSchedulingProjects) {
+      expect(project.test).not.toHaveProperty('testTimeout');
+      expect(project.test).not.toHaveProperty('hookTimeout');
+    }
+  });
+
   it('keeps the protected launcher subprocess with its original deadline in the quiet phase', () => {
     expect(timingSensitiveTests).toContain('scripts/opencodeGateLauncher.test.ts');
   });
