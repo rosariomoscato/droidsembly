@@ -104,3 +104,32 @@ Source work is proposed through the feature branch to `dev`, then a separate
 reviewed release promotion from `dev` to `main`. No tag, npm publish, Release
 workflow, automatic merge or live-office update is part of these validation
 results. The pre-existing local `CLAUDE.md` edit is excluded from this integration.
+
+## Integration CI — executed failure retained
+
+[CI 44812334632](https://github.com/rosariomoscato/droidsembly/actions/runs/44812334632)
+ran once by manual dispatch on `f305fc8`, without retry:
+
+- Ubuntu, macOS Intel, native macOS ARM64 and Windows Node 22 passed installation,
+  typecheck, the full suite, build and installed-package smoke.
+- Windows Node 24 passed installation/typecheck but failed its full suite:
+  **3587 tests passed, 1 failed**; **320 files passed, 1 failed**.
+  Build and package smoke were not executed in that job.
+- The failure is the protected synthetic PowerShell launcher scenario at
+  `scripts/opencodeGateLauncher.test.ts:131`: `ETIMEDOUT` against its unchanged
+  4000 ms command budget. This is not the earlier local worktree-recovery timeout.
+
+The retained safe artifact adds evidence for this execution: both startup
+checkpoints were present, first stderr was observed at 3725 ms, and the script
+reported milestones through `process-info-ready` at script-clock 114 ms.
+The owner timer fired at 4010 ms (10 ms delay); process-tree stop was requested,
+taskkill succeeded, and exit/close were observed at 4114 ms. Disposal and
+failure-visibility milestones were not reached, so their assertions are not
+certified. This is consistent with little command budget remaining after slow
+startup, but does not establish the OS/runtime cause or explain earlier
+executions that produced no checkpoints.
+
+No timeout, assertion, workload or concurrency was relaxed; no unchanged CI retry
+was launched. This new failure blocks integration/release readiness. Passing
+platforms, the real CEO workflow and targeted regressions do not cancel it.
+The separate local full serial run remains pending at this checkpoint.
