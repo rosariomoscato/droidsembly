@@ -139,6 +139,12 @@ export const api = {
   /** The demo only: the office doctor's scenarios. */
   demoDoctor: (action: 'restart' | 'stuck' | 'later' | 'unclosed' | 'check') => call<{ text: string; doctor: DoctorFinding[] }>('POST', '/api/doctor/demo', { action }),
   messageCeo: (text: string) => call('POST', '/api/ceo/message', { text }),
+  answerAppInterview: (repoId: string, body: { draftId: string; revision: number; messageId: string; text: string }) =>
+    call<RepoView>('POST', `${r(repoId)}/app-starter/answer`, body),
+  approveAppPlan: (repoId: string, body: { draftId: string; revision: number; hash: string; confirmEnvironments: boolean; confirmLocal: boolean }) =>
+    call<RepoView>('POST', `${r(repoId)}/app-starter/approve`, body),
+  appPlanAction: (repoId: string, body: { draftId: string; revision: number; action: 'pause' | 'cancel' | 'resume' | 'edit' }) =>
+    call<RepoView>('POST', `${r(repoId)}/app-starter/action`, body),
   ceoReview: () => call('POST', '/api/ceo/review'),
   phoneRead: (at: number) => call('POST', '/api/phone/read', { at }),
   /** A finished ping-pong game on a floor, for its leaderboard (shared/pong.ts parsePongResult). */

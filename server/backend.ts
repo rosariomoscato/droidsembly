@@ -33,6 +33,7 @@ export interface Backend {
   listIssues(fullName: string): Promise<IssueInfo[]>;
   listPulls(fullName: string): Promise<PullInfo[]>;
   createIssue(fullName: string, title: string, body: string, labels?: string[]): Promise<number>;
+  findPlanIssues(fullName: string, marker: string): Promise<{ number: number; title: string; body: string }[]>;
   /** OPEN or CLOSED; null when there is no such issue. */
   issueState(fullName: string, number: number): Promise<'OPEN' | 'CLOSED' | null>;
   editIssue(fullName: string, number: number, edit: { body?: string; addLabels?: string[]; removeLabels?: string[] }): Promise<void>;
@@ -176,6 +177,7 @@ export const realBackend: Backend = {
   listIssues: github.listIssues,
   listPulls: github.listPulls,
   createIssue: github.createIssue,
+  findPlanIssues: github.findPlanIssues,
   issueState: github.issueState,
   editIssue: github.editIssue,
   closeIssue: github.closeIssue,

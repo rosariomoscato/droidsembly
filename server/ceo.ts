@@ -7,6 +7,7 @@ import { HttpError } from './httpError.ts';
 import { communicationInstructions, type Language } from '../shared/i18n.ts';
 import { ONE_TURN } from './prompts.ts';
 import { MAX_TRIAGES, type TriagePr } from './triage.ts';
+import { appPlanSchema } from './appStarter.ts';
 
 // The CEO: a coding-agent session in the lobby that runs the company instead of writing code.
 // It studies each floor's repo, sizes its team of interchangeable agents from its throughput (team changes the
@@ -17,6 +18,8 @@ import { MAX_TRIAGES, type TriagePr } from './triage.ts';
 export const NOT_ASKED = "Only the manager decides on new work, and they haven't asked for any in this job. Suggest it in your final message instead; they can ask you to file it.";
 
 export interface CeoJob {
+  draftId?: string;
+  revision?: number;
   kind: CeoJobKind;
   repoId?: string; // onboard / plan / triage
   prNumber?: number; // triage: the stuck pull request
@@ -29,6 +32,7 @@ export interface CeoJob {
 export const askedFor = (job: Pick<CeoJob, 'kind'>) => job.kind === 'plan' || job.kind === 'chat';
 
 export interface OfficeHandlers {
+  updateAppPlan?(a: { decisions: string; question?: string; plan?: unknown }): Promise<string>;
   companyStatus(): string | Promise<string>;
   agentDetail(a: { agent_id: string }): string | Promise<string>;
   setFloorProfile(a: { floor: number; summary?: string; qa_brief?: string; preview_command?: string; preview_env?: Record<string, string> }): string;
@@ -64,6 +68,12 @@ export function createOfficeTools(h: OfficeHandlers): OfficeTools {
     }
   };
   const defs = [
+    ...(h.updateAppPlan ? [tool(
+      'update_app_plan',
+      'Save the current new-app interview decisions and one next question, OR present a complete plan for explicit manager approval. Never publishes issues or approves.',
+      { decisions: z.string().max(8000), question: z.string().min(1).max(2000).optional(), plan: appPlanSchema.optional() },
+      (a) => run(() => h.updateAppPlan!(a)),
+    )] : []),
     tool(
       'company_status',
       'Everything about the company right now: settings, every floor (repo, clone path, brief, profile, QA brief), its team and throughput, backlog, pull requests and QA, team changes waiting for the manager and their recent decisions. Call this first.',
@@ -295,6 +305,8 @@ export function ceoSystemPrompt(o: {
 
 export function ceoJobPrompt(job: CeoJob, floor: { floor: number; fullName: string; clone: string; mission: string; backlog: number } | null, pr?: TriagePr | null): string {
   switch (job.kind) {
+    case 'app-starter':
+      return `New-app interview for project ${job.repoId}, draft ${job.draftId}, revision ${job.revision}.\nUse only the attached persistent project context. Save progress with update_app_plan and end the turn. Do not file issues.`;
     case 'triage':
       if (!floor || !pr) return `Pull request #${job.prNumber ?? '?'} no longer needs triage. Reply "Nothing to do."`;
       return [
@@ -356,6 +368,8 @@ export function ceoJobPrompt(job: CeoJob, floor: { floor: number; fullName: stri
 export function jobLabel(job: CeoJob, floor: { floor: number; fullName: string } | null) {
   const where = floor ? `floor ${floor.floor} · ${floor.fullName.split('/')[1] ?? floor.fullName}` : 'a removed floor';
   switch (job.kind) {
+    case 'app-starter':
+      return `App-starter · ${where}`;
     case 'onboard':
       return `Onboarding ${where}`;
     case 'plan':

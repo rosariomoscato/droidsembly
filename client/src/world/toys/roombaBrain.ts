@@ -147,14 +147,16 @@ export function segmentClear(rects: Rect[], a: Pt, b: Pt, r = NAV_R + 0.04) {
   const minZ = Math.min(a.z, b.z) - r;
   const maxZ = Math.max(a.z, b.z) + r;
   const nearby = rects.filter((rect) => rect.maxX > minX && rect.minX < maxX && rect.maxZ > minZ && rect.minZ < maxZ);
-  const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.08));
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / 0.08));
   // every sample k = 1..n once, coarse to fine, so a blocked line is usually found in a few checks
   let top = 1;
   while (top * 2 <= n) top *= 2;
   for (let stride = top; stride >= 1; stride >>= 1) {
-    for (let k = stride; k <= n; k += stride) {
-      if (stride !== top && k % (stride * 2) === 0) continue;
-      if (!clear(nearby, a.x + ((b.x - a.x) * k) / n, a.z + ((b.z - a.z) * k) / n, r)) return false;
+    // Even multiples were visited at coarser strides; enumerate only odd ones.
+    for (let k = stride; k <= n; k += stride * 2) {
+      if (!clear(nearby, a.x + (dx * k) / n, a.z + (dz * k) / n, r)) return false;
     }
   }
   return true;

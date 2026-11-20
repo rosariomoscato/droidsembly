@@ -36,7 +36,7 @@ export type Overlay =
   | { kind: 'app'; repoId: string; pr?: number | null } // pr: open the viewer on that channel (null: main)
   | { kind: 'elevator' }
   | { kind: 'manager'; tab?: ManagerTab; repoId?: string; card?: string } // card: an OpsAlarm id, or 'usage', to open at
-  | { kind: 'phone'; tab?: PhoneTab; requestId?: string }
+  | { kind: 'phone'; tab?: PhoneTab; requestId?: string; repoId?: string }
   /** A team change face to face: a new agent waiting in the lobby, or the CEO's let-go note on a desk. */
   | { kind: 'interview'; requestId: string }
   | { kind: 'help'; tab?: HelpTab }

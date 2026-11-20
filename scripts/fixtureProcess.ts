@@ -12,16 +12,48 @@ export interface FixtureProcessResult {
     firstStderrMs: number | null;
     exitMs: number | null;
     closeMs: number | null;
+    // Callback observations only, never native child readiness/CPU measurements.
+    timeoutSource: 'timer' | 'late-close' | 'late-ready' | null;
+    timerExpectedMs: number;
+    timerFiredMs: number | null;
+    timerDelayMs: number | null;
+    stopRequestedMs: number | null;
+    taskkillRequestedMs: number | null;
+    taskkillCloseMs: number | null;
+    // Null means not observed before settlement, not proof that no descendant exists.
+    taskkillOutcome: 'success' | 'nonzero' | 'signal' | 'spawn-error' | null;
+    /** Present only for callers explicitly separating startup from execution. */
+    startupMs?: number | null;
+    startupTimeoutMs?: number;
+    commandTimeoutMs?: number;
+    timeoutPhase?: 'startup' | 'command' | null;
   };
 }
 
 /** Test-only: terminate an owned process tree before its root disappears on timeout. */
-export function runFixtureProcess(file: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv; timeout: number }): Promise<FixtureProcessResult> {
+export function runFixtureProcess(file: string, args: string[], opts: {
+  cwd: string; env: NodeJS.ProcessEnv; timeout: number;
+  /** Exact complete stderr line, observed once; ordinary output cannot extend either deadline. */
+  startup?: { timeout: number; stderrLine: string };
+}): Promise<FixtureProcessResult> {
+  if (opts.startup && (!Number.isFinite(opts.startup.timeout) || opts.startup.timeout <= 0 || !opts.startup.stderrLine || /[\r\n]/.test(opts.startup.stderrLine)))
+    throw new Error('Fixture startup requires a positive finite budget and one nonempty readiness line');
   return new Promise((resolve) => {
     const started = performance.now();
-    const elapsed = () => Math.min(999999999, Math.floor(performance.now() - started));
-    const timeoutFailure = () => Object.assign(new Error(`Fixture command timed out after ${opts.timeout} ms`), { code: 'ETIMEDOUT' });
-    const observation: FixtureProcessResult['observation'] = { spawnMs: null, firstStdoutMs: null, firstStderrMs: null, exitMs: null, closeMs: null };
+    let deadline = started + (opts.startup?.timeout ?? opts.timeout);
+    let ready = !opts.startup;
+    const boundedMs = (ms: number) => Math.min(999999999, Math.max(0, Math.floor(ms)));
+    const elapsed = () => boundedMs(performance.now() - started);
+    const timeoutFailure = () => {
+      if (opts.startup) observation.timeoutPhase = ready ? 'command' : 'startup';
+      return Object.assign(new Error(`Fixture ${ready ? 'command' : 'startup'} timed out after ${ready ? opts.timeout : opts.startup!.timeout} ms`), { code: 'ETIMEDOUT' });
+    };
+    const observation: FixtureProcessResult['observation'] = {
+      spawnMs: null, firstStdoutMs: null, firstStderrMs: null, exitMs: null, closeMs: null,
+      timeoutSource: null, timerExpectedMs: boundedMs(deadline - started), timerFiredMs: null, timerDelayMs: null,
+      stopRequestedMs: null, taskkillRequestedMs: null, taskkillCloseMs: null, taskkillOutcome: null,
+      ...(opts.startup ? { startupMs: null, startupTimeoutMs: boundedMs(opts.startup.timeout), commandTimeoutMs: boundedMs(opts.timeout), timeoutPhase: null } : {}),
+    };
     const child = spawn(file, args, { cwd: opts.cwd, env: opts.env, windowsHide: true,
       detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '', stderr = '', primary: Error | undefined;
@@ -71,6 +103,7 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
     const stop = (reason: Error) => {
       if (stopping || settled) return;
       stopping = true;
+      observation.stopRequestedMs = elapsed();
       primary = reason;
       clearTimeout(timer);
       if (hasExited() || !child.pid) {
@@ -86,27 +119,63 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
         // This check prevents known-exited-root requests, not all OS-level races
         // between the check and taskkill. It is not Windows Job ownership.
         try {
+          observation.taskkillRequestedMs = elapsed();
           killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
-          killer.once('error', (err) => failClosed(err));
+          killer.once('error', (err) => {
+            observation.taskkillOutcome = 'spawn-error';
+            failClosed(err);
+          });
           killer.once('close', (code) => {
             if (settled) return;
+            observation.taskkillCloseMs = elapsed();
+            observation.taskkillOutcome = code === 0 ? 'success' : code === null ? 'signal' : 'nonzero';
             killerClosed = true;
             if (code !== 0) failClosed(new Error(`Owned fixture tree termination failed (${code})`));
             else drain();
           });
-        } catch (err) { failClosed(err as Error); }
+        } catch (err) {
+          observation.taskkillOutcome = 'spawn-error';
+          failClosed(err as Error);
+        }
       } else {
         try { process.kill(-child.pid, 'SIGKILL'); drain(); }
         catch (err) { failClosed(err as Error); }
       }
     };
+    const armTimer = () => {
+      clearTimeout(timer);
+      observation.timerExpectedMs = boundedMs(deadline - started);
+      timer = setTimeout(() => {
+        const firedAt = performance.now();
+        observation.timerFiredMs = boundedMs(firedAt - started);
+        observation.timerDelayMs = boundedMs(firedAt - deadline);
+        if (!stopping && !settled) observation.timeoutSource = 'timer';
+        stop(timeoutFailure());
+      }, Math.max(0, deadline - performance.now()));
+    };
     child.stdout.setEncoding('utf8');
     child.stderr.setEncoding('utf8');
     child.once('spawn', () => { observation.spawnMs = elapsed(); });
     child.stdout.on('data', (text: string) => { observation.firstStdoutMs ??= elapsed(); stdout += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
-    child.stderr.on('data', (text: string) => { observation.firstStderrMs ??= elapsed(); stderr += text; if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024) stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' })); });
+    child.stderr.on('data', (text: string) => {
+      observation.firstStderrMs ??= elapsed(); stderr += text;
+      if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > 1024 * 1024)
+        stop(Object.assign(new Error('Fixture output exceeded 1 MiB'), { code: 'ENOBUFS' }));
+      if (opts.startup && !ready && !stopping && !settled && stderr.split(/\r?\n/).slice(0, -1).includes(opts.startup.stderrLine)) {
+        const observedAt = performance.now();
+        if (observedAt >= deadline) {
+          observation.timeoutSource = 'late-ready';
+          stop(timeoutFailure());
+          return;
+        }
+        ready = true;
+        observation.startupMs = boundedMs(observedAt - started);
+        deadline = observedAt + opts.timeout;
+        armTimer();
+      }
+    });
     // Include synchronous spawn setup in the existing command deadline as well.
-    timer = setTimeout(() => stop(timeoutFailure()), Math.max(0, opts.timeout - (performance.now() - started)));
+    armTimer();
     child.once('error', (err) => {
       if (settled) return;
       if (!primary) primary = err;
@@ -126,7 +195,11 @@ export function runFixtureProcess(file: string, args: string[], opts: { cwd: str
       if (releasing || settled) return;
       // Timer delivery can lag behind I/O callbacks. A late close must not turn
       // an expired command into success, nor trigger PID-based cleanup after exit.
-      if (!primary && performance.now() - started >= opts.timeout) primary = timeoutFailure();
+      if (!primary && performance.now() >= deadline) {
+        observation.timeoutSource = 'late-close';
+        primary = timeoutFailure();
+      }
+      if (!primary && !ready) primary = Object.assign(new Error('Fixture exited without its startup readiness line'), { code: 'EPROTO' });
       clearTimeout(timer);
       if (!terminationPending) finish();
     });

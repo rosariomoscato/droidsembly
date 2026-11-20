@@ -58,6 +58,14 @@ async function office(openCodeInstalled = true, problem?: string) {
 }
 
 describe('the CEO coding agent', () => {
+  it('ignores a scheduler callback queued before shutdown without starting CEO work', () => {
+    const tickUsage = vi.fn(), startCeoWork = vi.fn();
+    const stopped = Object.assign(Object.create(Swarm.prototype), { stopping: true, tickUsage, startCeoWork });
+    stopped.schedule();
+    expect(tickUsage).not.toHaveBeenCalled();
+    expect(startCeoWork).not.toHaveBeenCalled();
+  });
+
   it('keeps a pending initialization inside the fixture drain barrier', async () => {
     const init = Swarm.prototype.init;
     let release!: () => void;

@@ -8,15 +8,25 @@ import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { officeOverrides } from '../bin/environment.js';
+import { smokeStep } from './smokeStep.mjs';
 
 const root = path.resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 assert.equal(pkg.name, 'droidsembly');
 assert.deepEqual(pkg.bin, { droidsembly: 'bin/droidsembly.js' });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'droidsembly-package-'));
+console.log(`Package smoke fixture: ${tmp}`);
+const mark = (row) => {
+  fs.appendFileSync(path.join(tmp, 'smoke-phases.jsonl'), `${JSON.stringify(row)}\n`);
+  console.log(`[package-smoke] ${JSON.stringify(row)}`);
+};
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const dataHome = path.join(tmp, 'home');
 const env = { ...officeOverrides(process.env, { SWARM_HOME: dataHome, SWARM_HOST: '127.0.0.1', SWARM_DEMO: '1' }), CI: '1' };
+if (process.env.P11_NPM_TRACE === '1') {
+  env.npm_config_logs_dir = path.join(tmp, 'npm-diagnostics');
+  env.npm_config_timing = 'true';
+}
 // Deliberately disagree with the canonical aliases: no legacy home may be touched.
 env.SWARM_HOME = path.join(tmp, 'legacy-unselected');
 env.SWARM_DEMO = '0';
@@ -24,8 +34,8 @@ delete env.SWARM_DEMO_FLOORS;
 delete env.SWARM_DEMO_AGENTS;
 delete env.DROIDSEMBLY_DEMO_FLOORS;
 delete env.DROIDSEMBLY_DEMO_AGENTS;
-const sh = (cmd, cwd) => {
-  const res = spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env });
+const sh = (label, cmd, cwd) => {
+  const res = smokeStep(label, () => spawnSync(cmd, { cwd, shell: true, encoding: 'utf8', env }), mark);
   if (res.status !== 0) throw new Error(`${cmd} failed:\n${res.stdout}\n${res.stderr}`);
   return res.stdout.trim();
 };
@@ -36,27 +46,27 @@ try {
   // Optional retained tarball: validate exactly the artifact that was reviewed.
   let tarball = process.argv[2] && path.resolve(process.argv[2]);
   if (!tarball) {
-    const packed = JSON.parse(sh(`${npm} pack --ignore-scripts --json --pack-destination "${tmp}"`, root))[0];
+    const packed = JSON.parse(sh('npm-pack', `${npm} pack --ignore-scripts --json --pack-destination "${tmp}"`, root))[0];
     const paths = packed.files.map((f) => f.path);
     assert.ok(!paths.some((f) => /PerChatGPT|STACK_E_ARCHITETTURA|FORK_CHANGELOG|NPM_DISTRIBUTION_PLAN/.test(f)), 'local documents must not be packed');
     tarball = path.join(tmp, packed.filename);
   }
-  sh(`${npm} init -y`, tmp);
-  sh(`${npm} install --no-audit --no-fund "${tarball}"`, tmp);
+  sh('npm-init', `${npm} init -y`, tmp);
+  sh('npm-install', `${npm} install --no-audit --no-fund "${tarball}"`, tmp);
   const cli = path.join(tmp, 'node_modules', '.bin', process.platform === 'win32' ? 'droidsembly.cmd' : 'droidsembly');
-  assert.equal(sh(`"${cli}" --version`, tmp), pkg.version);
-  const help = sh(`"${cli}" --help`, tmp);
+  assert.equal(sh('cli-version', `"${cli}" --version`, tmp), pkg.version);
+  const help = sh('cli-help', `"${cli}" --help`, tmp);
   assert.ok(help.includes(`Droidsembly ${pkg.version}`));
   assert.ok(help.includes(`npx droidsembly@${pkg.publishConfig.tag}`));
   assert.ok(help.includes('~/.cubefarm') && help.includes('~/.droidsembly') && help.includes('DROIDSEMBLY_HOME'), 'home selection compatibility is documented');
   console.log(`droidsembly --version/--help: ${pkg.version}`);
 
   const installed = path.join(tmp, 'node_modules', pkg.name);
-  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
+  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'docs/app-starter.md', 'docs/app-starter-provenance.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist-server/skills/ceo-app-starter.md', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
     assert.ok(fs.existsSync(path.join(installed, file)), `missing package file: ${file}`);
   }
-  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
-  assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
+  assert.equal(sh('legacy-version', `"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
+  assert.equal(sh('legacy-help', `"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --help`, tmp), help);
   const licenses = JSON.parse(fs.readFileSync(path.join(installed, 'dist/third-party-licenses.json'), 'utf8'));
   const notices = fs.readFileSync(path.join(installed, 'dist/THIRD_PARTY_LICENSES.txt'), 'utf8');
   assert.ok(licenses.length > 0, 'empty client license inventory');
@@ -112,6 +122,28 @@ try {
   assert.ok(!fs.existsSync(path.join(dataHome, 'state.json')), 'real state must not be created');
   assert.ok(!fs.existsSync(env.SWARM_HOME), 'shadowed legacy home must not be created');
   console.log(`demo office up: ${state.repos.length} floors, ${state.agents.length} agents; isolated data and client verified`);
+  const skill = fs.readFileSync(path.join(installed, 'dist-server/skills/ceo-app-starter.md'), 'utf8');
+  assert.ok(skill.includes('Original Droidsembly instructions') && skill.includes('planning only'));
+  const created = await fetch(`http://127.0.0.1:${port}/api/repos/new`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'package-planning-smoke', visibility: 'private', onboardCeo: true, autoAssign: false }),
+  });
+  assert.ok(created.ok, `create new guided demo app: HTTP ${created.status}`);
+  const project = await created.json();
+  let interview;
+  for (let i = 0; i < 60 && !interview; i++) {
+    const snapshot = await fetch(`http://127.0.0.1:${port}/api/state`).then((r) => r.json());
+    const repo = snapshot.repos.find((r) => r.id === project.id);
+    assert.ok(repo?.appStarter, 'installed server did not create a scoped draft');
+    assert.equal(repo.issues.length, 0, 'plan issues before approval');
+    assert.equal(snapshot.agents.filter((a) => a.repoId === project.id).length, 0, 'worker prepared before approval');
+    if (repo.appStarter.messages.some((m) => m.from === 'ceo')) interview = repo.appStarter;
+    else await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  assert.ok(interview, 'installed bundled CEO did not load its local planning resource and save a question');
+  assert.equal(interview.status, 'interview');
+  assert.equal(interview.approved, undefined);
+  console.log('Installed CEO app-starter resource loaded: persisted scoped question, zero plan issues/workers');
   verified = true;
 } finally {
   if (server?.pid && server.exitCode === null && server.signalCode === null) {

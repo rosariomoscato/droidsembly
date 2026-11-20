@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { SpawnSyncReturns } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
 import { runFixtureProcess, type FixtureProcessResult } from './fixtureProcess.ts';
+import { instrumentLauncherStartup, observeLauncherStartup } from './launcherStartupObserver.ts';
 
 let dir='';
 let pendingProbe: Promise<FixtureProcessResult> | undefined;
@@ -69,8 +70,9 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     expect(diagnostics.milestones).toHaveLength(16);
     expect(diagnostics.milestones[0]).toEqual({stage:'child-wait',ms:14});
   });
-  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',async()=>{
-    dir=path.join(process.env.SWARM_HOME!,'launcher-local-probe');fs.mkdirSync(dir,{recursive:true});
+  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',{timeout:25_000},async()=>{
+    fs.mkdirSync(process.env.SWARM_HOME!,{recursive:true});
+    dir=fs.mkdtempSync(path.join(process.env.SWARM_HOME!,'launcher-local-probe-'));
     const probe=path.join(dir,'probe.mjs');
     fs.writeFileSync(probe,"process.exit(process.argv.includes('--check')?0:1);\n");
     const loader=path.join(dir,'probe-loader.mjs');
@@ -100,16 +102,19 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
       if(line.startsWith('$script = ')) return `${line}\n[Console]::Error.WriteLine('probe script-path-ready ms=' + $probeClock.ElapsedMilliseconds)`;
       return label ? `[Console]::Error.WriteLine('probe ${label} ms=' + $probeClock.ElapsedMilliseconds)\n${line}` : line;
     });
-    fs.writeFileSync(script,`[Console]::Error.WriteLine('probe script-enter ms=0')\n$probeClock=[Diagnostics.Stopwatch]::StartNew()\nfunction Read-Host { param([string]$Prompt,[switch]$AsSecureString)\nif($AsSecureString){$secure=[Security.SecureString]::new(); foreach($c in 'synthetic-not-a-secret'.ToCharArray()){$secure.AppendChar($c)}; return $secure}\n[IO.File]::WriteAllText('${quote(path.join(dir,'acknowledged.txt'))}', $Prompt)\nreturn ''\n}\n${traced}`.replace('param([Parameter(Mandatory=$true)][string]$PlanFile)',"$PlanFile = 'synthetic-plan-not-read-by-probe'"));
+    fs.writeFileSync(script,instrumentLauncherStartup(`[Console]::Error.WriteLine('probe script-enter ms=0')\n$probeClock=[Diagnostics.Stopwatch]::StartNew()\nfunction Read-Host { param([string]$Prompt,[switch]$AsSecureString)\nif($AsSecureString){$secure=[Security.SecureString]::new(); foreach($c in 'synthetic-not-a-secret'.ToCharArray()){$secure.AppendChar($c)}; return $secure}\n[IO.File]::WriteAllText('${quote(path.join(dir,'acknowledged.txt'))}', $Prompt)\nreturn ''\n}\n${traced}`.replace('param([Parameter(Mandatory=$true)][string]$PlanFile)',"$PlanFile = 'synthetic-plan-not-read-by-probe'"),dir));
     const keep=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','LOCALAPPDATA','APPDATA','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','HOMEDRIVE','HOMEPATH','USERNAME','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS']);
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const spawnAt=performance.now();
-    pendingProbe=runFixtureProcess('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{cwd:process.cwd(),env,timeout:4000});
+    pendingProbe=runFixtureProcess('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{
+      cwd:process.cwd(),env,timeout:4000,startup:{timeout:10_000,stderrLine:'probe script-enter ms=0'},
+    });
     const result=await pendingProbe;
     const spawnMs=Math.min(999999999,Math.floor(performance.now()-spawnAt));
+    const {startup}=await observeLauncherStartup(Promise.resolve(result),dir);
     const diagnostics=launcherProbeDiagnostics(result);
-    const safeDiagnostics={...diagnostics,spawnMs,observation:result.observation,
-      executionMode:'owned-async',commandDeadlineMs:4000,
+    const safeDiagnostics={...diagnostics,spawnMs,observation:result.observation,...startup,
+      executionMode:'owned-async',commandDeadlineMs:4000,startupDeadlineMs:10_000,
       hasPath:Object.keys(env).some((key)=>key.toUpperCase()==='PATH'),hasSystemRoot:Object.keys(env).some((key)=>key.toUpperCase()==='SYSTEMROOT')};
     // CI uploads only this fixed-schema file, never the raw synthetic result or
     // a whole SWARM_HOME. Its location is explicit: RUNNER_TEMP != os.tmpdir().
@@ -118,7 +123,7 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
       fs.writeFileSync(path.join(process.env.DS_LAUNCHER_DIAGNOSTICS_DIR,'safe-diagnostics.json'),JSON.stringify(safeDiagnostics,null,2));
     }
     // Reporters can omit assertion-message stderr; emit only bounded safe protocol data on failure.
-    if(result.error || result.status!==1 || result.signal || !diagnostics.failureVisible || !diagnostics.disposed) {
+    if(result.error || result.status!==1 || result.signal || !diagnostics.failureVisible || !diagnostics.disposed || startup.observerError || startup.beforeConsole!=='present' || startup.afterConsole!=='present') {
       console.error('launcher-probe-diagnostics',JSON.stringify(safeDiagnostics));
       fs.writeFileSync(path.join(dir,'safe-diagnostics.json'),JSON.stringify(safeDiagnostics,null,2));
       // This fixture has only fixed synthetic inputs. Keep its local raw result
@@ -126,9 +131,12 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
       fs.writeFileSync(path.join(dir,'synthetic-result.json'),JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr},null,2));
     }
     expect(result.error).toBeUndefined();expect(result.status).toBe(1);
+    expect(result.observation.startupMs).toEqual(expect.any(Number));
+    expect(result.observation.startupMs!).toBeLessThan(10_000);
     expect(result.stdout).toContain('Runner exit code: 1');
     expect(result.stderr).toContain('probe disposed ms=');
     expect(fs.readFileSync(path.join(dir,'acknowledged.txt'),'utf8')).toContain('Press Enter to close');
     expect(result.stdout+result.stderr).not.toContain('synthetic-not-a-secret');
+    expect(startup).toEqual({observerVersion:1,beforeConsole:'present',afterConsole:'present',observerError:false});
   });
 });

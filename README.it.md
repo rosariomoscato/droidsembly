@@ -14,6 +14,8 @@ Uno spazio visuale per lo sviluppo software assistito dall'AI: collega i tuoi re
 
 **Beta pubblicata:** [0.4.0-beta.5](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5), disponibile su npm `next`; `latest` resta beta.1. Vedi [storico delle verifiche e limiti accettati](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione e le istruzioni demo; questo repository contiene i sorgenti e la documentazione tecnica.
 
+**Candidata sorgente, non pubblicata:** questo branch prepara `0.4.0-beta.6` per `next`, con ripresa delle issue interrotte e correzione degli exit status Box. [Note della candidata e limiti di validazione](https://github.com/rosariomoscato/droidsembly/blob/release/beta6-candidate-20261117/docs/RELEASE_NOTES_0.4.0-beta.6.md). Compilare questi sorgenti non installa i byte pubblici della beta.5 né aggiorna un ufficio esistente.
+
 **Gratuito e open source, con licenza MIT.** Nessuna attivazione a pagamento o sblocco commerciale degli agenti. Il sostegno volontario aiuta lo sviluppo; abbonamenti AI, consumi API e servizi cloud opzionali hanno costi e limiti propri.
 
 ## A chi è destinato
@@ -40,6 +42,13 @@ Tu definisci gli obiettivi e supervisioni il lavoro. Gli agenti ti aiutano a rea
 Il piano di progetto e il Kanban sono catture reali della beta 0.4.0-beta.1 in una demo isolata, con progetti e attività simulati e interfaccia inglese. L'immagine Pocket proviene da una precedente cattura demo in italiano.
 
 ## Cosa puoi fare
+
+**Nuove app (sorgenti dev, non beta.5 pubblicata):** “Qualcosa di nuovo” con CEO
+avvia intervista per progetto → piano completo revisionabile → **Approva piano e
+crea issue** → workflow standard. Nessuna issue del piano o preparazione worker/Box
+prima dell’approvazione e della pubblicazione confermata. Stack e database sono
+scelte motivate, non obblighi; SQLite/Docker non implicano worker locali.
+Vedi [guida A5, dati/ambienti e ripresa](docs/app-starter.md).
 
 - **Coordinare agenti di coding:** Claude Code, Codex e OpenCode V2, con selezione dei modelli e delle varianti di ragionamento supportate. La disponibilità dipende dal runtime: Agent SDK resta esclusivamente Claude. OpenCode supporta terminali locali e worker su Upstash Box; ufficio e CEO restano locali. Vedi [limiti della validazione Box](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Seguire il workflow completo:** issue → sviluppo e controlli iniziali → pull request → sessione QA separata → correzioni → merge quando le condizioni configurate sono soddisfatte.

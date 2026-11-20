@@ -20,6 +20,7 @@ import { NotifySettings } from './NotifySettings';
 import { ProfileSettings } from './ProfileSettings';
 import { Panel } from './Overlays';
 import { Resume } from './Phone';
+import { AppStarterChat } from './AppStarter';
 import { ProjectPicker } from './ProjectPicker';
 import { StatusPill } from './TerminalView';
 import { ThemeSettings } from './ThemeSettings';
@@ -373,7 +374,9 @@ function CeoTab() {
         <h3 className="section"><T>🗺️ Project briefs</T></h3>
         {repos.length === 0 && <p className="muted small"><T>Connect a repo first.</T></p>}
         {[...repos].sort((a, b) => a.floor - b.floor).map((r) => (
-          <FloorBrief key={r.id} repo={r} />
+          r.appStarter
+            ? <div key={r.id} className="card app-plan-console"><AppStarterChat repo={r} navigation={null} /></div>
+            : <FloorBrief key={r.id} repo={r} />
         ))}
       </div>
     </div>

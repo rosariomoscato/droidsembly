@@ -296,6 +296,17 @@ app.post('/api/journal/sample', route(() => swarm.journalSample()));
 
 // The CEO and the manager's phone
 app.post('/api/ceo/message', route((req) => swarm.messageCeo(str(req.body.text))));
+const draftRef = (req: Request) => {
+  if (typeof req.body.draftId !== 'string' || !Number.isSafeInteger(req.body.revision) || req.body.revision < 1)
+    throw new HttpError(400, 'Project draft ID and exact revision required.');
+  return { draftId: req.body.draftId, revision: req.body.revision as number };
+};
+app.post('/api/repos/:repo/app-starter/answer', route((req) =>
+  swarm.answerAppInterview(repoId(req), draftRef(req), str(req.body.messageId), str(req.body.text))));
+app.post('/api/repos/:repo/app-starter/approve', route((req) =>
+  swarm.approveAppPlan(repoId(req), draftRef(req), str(req.body.hash), req.body.confirmEnvironments === true, req.body.confirmLocal === true)));
+app.post('/api/repos/:repo/app-starter/action', route((req) =>
+  swarm.appPlanAction(repoId(req), draftRef(req), str(req.body.action))));
 app.post('/api/ceo/review', route(() => swarm.requestReview()));
 app.post('/api/phone/read', route((req) => swarm.markPhoneRead(Number(req.body?.at) || Date.now())));
 app.post(

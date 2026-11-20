@@ -59,6 +59,20 @@ describe('the balconies', () => {
 });
 
 describe('segmentClear', () => {
+  it('checks every sample for short and non-power-of-two segments without skipping any stride', () => {
+    const a = { x: -6, z: 0 };
+    for (let samples = 1; samples <= 96; samples++) {
+      const b = { x: a.x + samples * 0.08, z: 0 };
+      const n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, 0) / 0.08));
+      for (let k = 1; k <= n; k++) {
+        const x = a.x + ((b.x - a.x) * k) / n;
+        const obstacle: Rect = { minX: x - 0.001, maxX: x + 0.001, minZ: -0.001, maxZ: 0.001 };
+        expect(segmentClear([obstacle], a, b, 0), `${samples}/${k}`).toBe(false);
+      }
+      expect(segmentClear([], a, b, 0), `${samples}/clear`).toBe(true);
+    }
+  });
+
   it.each(FLOORS)('matches checking every sample against all %s obstacles', (floor) => {
     const rects = roombaRects(floor);
     for (let i = 0; i < 120; i++) {
