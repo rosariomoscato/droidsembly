@@ -13,6 +13,18 @@ const questions = [
   ['What visual style and device layouts do you want?', 'Quale stile visivo e quali dispositivi vuoi supportare?'],
 ];
 
+// Fixture hints, not language understanding: a negated alternative is not a choice.
+function affirms(text: string, choice: RegExp): boolean {
+  return text.split(/[.!?;,\n]|\b(?:ma|but)\b/i).some((clause) => {
+    const match = choice.exec(clause);
+    if (!match) return false;
+    const before = clause.slice(0, match.index);
+    const after = clause.slice(match.index + match[0].length);
+    return !/\b(?:non|no|not|without|senza|nessun[oaie]?|né|neither)\b/i.test(before)
+      && !/^\s+(?:non\s+(?:servono|occorrono|sono\s+necessari)|(?:are|is)\s+not\s+(?:needed|required))/i.test(after);
+  });
+}
+
 export function demoAppTurn(d: AppStarter, italian: boolean): { decisions: string; question?: string; plan?: AppPlan } {
   const asked = d.messages.filter((m) => m.from === 'ceo').length;
   const answers = d.messages.filter((m) => m.from === 'manager');
@@ -28,9 +40,11 @@ export function demoAppTurn(d: AppStarter, italian: boolean): { decisions: strin
   const designAnswer = d.messages.findIndex((m, i) => i > designQuestion && m.from === 'manager');
   const changes = d.messages.slice(designAnswer + 1).filter((m) => m.from === 'manager').map((m) => m.text).join('\n');
   const amendment = changes ? `\n\nManager revision requests:\n${changes}` : '';
-  const existing = /esistent|existing/i.test(a[5]);
-  const workerHost = /box|cloud/i.test(a[2]) ? 'box' as const : 'local' as const;
-  if (existing && workerHost === 'box' && !/anon|sicuri|secure/i.test(a[6]))
+  const existing = affirms(a[5], /\b(?:esistent\w*|existing)\b/i);
+  const workerHost = affirms(a[2], /\b(?:boxes|box|cloud)\b/i) ? 'box' as const : 'local' as const;
+  const anonymized = affirms(a[6], /\banon\w*/i);
+  const secure = affirms(a[6], /\b(?:sicur\w*|secure|safe)\b/i);
+  if (existing && workerHost === 'box' && !anonymized && !secure)
     return { decisions, question: italian ? 'Per i Box scegli una copia anonimizzata o un servizio raggiungibile in sicurezza; nessun dato locale non trasferibile.' : 'For Boxes choose anonymized copies or a safely reachable service; non-transferable local data needs local workers.' };
   return { decisions, plan: {
     requirements: (answers[0]?.text ?? 'Synthetic demo app') + amendment,
@@ -38,7 +52,7 @@ export function demoAppTurn(d: AppStarter, italian: boolean): { decisions: strin
     stack: 'Suggested React + TypeScript; SQLite with synthetic per-environment seeds. Alternatives remain open; no provider is mandatory.',
     design: a[8],
     environments: { workerHost, testPreview: a[3], deployment: a[4], data: existing ? 'existing' : 'sample',
-      dataAccess: !existing ? 'sample' : workerHost === 'local' ? 'local-only' : /anon/i.test(a[6]) ? 'anonymized-copy' : 'secure-service',
+      dataAccess: !existing ? 'sample' : workerHost === 'local' ? 'local-only' : anonymized ? 'anonymized-copy' : 'secure-service',
       database: 'SQLite for this synthetic demo; confirm suitability for the chosen deployment.',
       isolation: 'Disposable test and preview databases, separate from production. Migrations tested only on synthetic seeds or approved anonymized copies.',
       prerequisites: 'Verify runtime and database tooling in each environment. No provisioning or deploy is authorized. Local workers require this computer on.' },

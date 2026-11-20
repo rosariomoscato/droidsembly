@@ -38,6 +38,33 @@ duplicate requests, without changing server approval/publication gates.
   bibliography project state preserved through the owned demo's time-limit
   restart; no second real GitHub creation was performed.
 
+## Guided-demo environment interpretation follow-up
+
+The manager's library plan incorrectly showed Box/existing/anonymized-copy after
+answers explicitly choosing this computer and synthetic data. The scripted demo
+matched keywords even inside negated alternatives ("non su Upstash Box",
+"Non occorre importare dati esistenti"). This was a **demo-fixture defect**, not
+a change to the real CEO skill, host enforcement or approval gate.
+
+The fixture now considers common clause-level negations and contrasting
+ma/but clauses before interpreting its environment hints. This is still a
+limited scripted fixture, not general language understanding. Four regressions
+cover the actual Italian phrasing, English equivalents including "No cloud or
+Boxes", affirmative Box/existing/anonymized data and a post-noun negation.
+Each also checks that an amendment keeps the selected environment and does not
+publish or approve anything.
+
+The readonly `demo-negated-choices-guided-readonly.json` records the actual
+guided project's unchanged persisted plan (Box/existing/anonymized-copy), no
+approval, and the corrected fixture's predicted new local/sample/sample
+environment from the same transcript. The existing plan is **not silently
+rewritten**: the manager must request a new revision and review it before
+approval. Full/package results remain tied to bb1f10d, not this follow-up.
+`demo-negated-choices-tests-final.log`: **72/72 tests in3files PASS**.
+`demo-negated-choices-build-final.log`: ordinary typecheck/build/licenses PASS.
+The owned guided demo4439 was restarted on the same isolated home to load the
+fix; the stored plan still needs the manager's explicit revision request.
+
 ## Final full-suite result
 
 - Final ordinary installed-package smoke **PASS**, exit0:

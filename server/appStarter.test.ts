@@ -240,3 +240,25 @@ it('scripted demo follows isolated questions and presents without publishing', (
   expect(d.approved).toBeUndefined();
   expect(d.ledger).toEqual([]);
 });
+
+describe('scripted demo does not select negated environment alternatives', () => {
+  it.each([
+    ['Su questo computer, non su Upstash Box. Non voglio deploy né servizi cloud.', 'Bastano dati sintetici di esempio. Non occorre importare dati esistenti.', 'Non ci sono dati esistenti da usare. Non servono copie anonimizzate o servizi esterni.', 'local', 'sample', 'sample'],
+    ['On this computer, not on Upstash Boxes. No cloud or Boxes.', 'Synthetic sample data. No existing data.', 'No anonymized copies or external services are needed.', 'local', 'sample', 'sample'],
+    ['Upstash Box, non su questo computer.', 'Servono dati esistenti.', 'Copie anonimizzate approvate, non servizi esterni.', 'box', 'existing', 'anonymized-copy'],
+    ['Non su Upstash Box, ma su questo computer.', 'I dati esistenti non servono. Solo dati sintetici.', 'Nessuna copia anonimizzata necessaria.', 'local', 'sample', 'sample'],
+  ])('keeps the agreed host and data policy: %s', (host, data, access, workerHost, source, dataAccess) => {
+    const d = newAppStarter('Book tracker');
+    const answers = ['Private readers', 'Books and ownership', host, 'Local isolated tests', 'Local only', data, access, 'CRUD only', 'Paper style'];
+    for (const answer of answers) {
+      const turn = demoAppTurn(d, true);
+      d.messages.push({ id: crypto.randomUUID(), from: 'ceo', text: turn.question! }, { id: crypto.randomUUID(), from: 'manager', text: answer });
+    }
+    const plan = validatePlan(demoAppTurn(d, true).plan);
+    expect(plan.environments).toMatchObject({ workerHost, data: source, dataAccess });
+    d.messages.push({ id: crypto.randomUUID(), from: 'manager', text: 'Confermo la scelta già indicata. Rigenera il piano.' });
+    expect(demoAppTurn(d, true).plan?.environments).toEqual(plan.environments);
+    expect(d.approved).toBeUndefined();
+    expect(d.ledger).toEqual([]);
+  });
+});
