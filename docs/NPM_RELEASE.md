@@ -2,6 +2,46 @@
 
 ## Stato / Status
 
+### Beta.6 candidata — non pubblicata / Beta.6 candidate — not published
+
+**Aggiornamento 20 novembre / November 20 refresh:** base `dev` ora `58e4045`,
+inclusi CEO starter e fix OpenCode/QA della PR #91. La feature ha suite locale
+3595/3595 e CI propria su cinque ambienti PASS; **la candidata aggiornata deve
+avere esiti propri**, non eredita una certificazione di release. / The candidate
+now includes PR #91's CEO starter and OpenCode/QA fixes. Feature passes do not
+certify this candidate. Vedi / See [note aggiornate](RELEASE_NOTES_0.4.0-beta.6.md).
+Nessun tag/publish/aggiornamento PC / No tag, publication or PC update.
+
+#### Checkpoint precedente del 18 novembre / Previous November 18 checkpoint
+
+**IT:** Preparazione di `0.4.0-beta.6` per `next`: [note IT/EN e limiti](RELEASE_NOTES_0.4.0-beta.6.md).
+La beta pubblicata resta beta.5, `latest` beta.1 (controllo registry del 18 novembre 2026).
+Il cambio versione non certifica la candidata: verifiche locali, CI propria e review
+vanno registrate separatamente. La candidata è aggiornata sul dev5d47c50 dopo
+#87–#89, con CIpostmerge44261916727 cinque ambienti PASS incluso ARM64 nativo;
+non è certificazione della nuova candidata. Restano full locale NON-PASS,
+FAILCEO5000ms della candidata dc9442e,FAILPowerShell4000ms devpostmerge88
+e FAILPowerShell del vecchio head eea21c2,con suo ARM64 non eseguito distinto.
+Le correzioni fixture/diagnostica non dimostrano le cause storiche;review89
+non indipendente e gapcopertura dichiarati nelle note. I consensi per dev/main
+non autorizzano la pubblicazione. Nessun tag,
+dispatch Release, publish o aggiornamento PC autorizzato da questa preparazione.
+Release verifica tre OS e poi pubblica automaticamente: non è una prova verify-only.
+
+**EN:** Preparing `0.4.0-beta.6` for `next`: [IT/EN notes and limits](RELEASE_NOTES_0.4.0-beta.6.md).
+Published beta.5 and `latest=beta.1` remain unchanged (registry checked November 18, 2026).
+The version bump does not certify this candidate; record its own checks, CI and review
+separately. The candidate refresh uses dev5d47c50 after PR87–PR89;postmerge
+CI44261916727 passed five environments including native ARM64,but does not
+certify the refreshed candidate. Retain local full NON-PASS,candidate dc9442e's
+CEO5000ms failure,devpostmerge88 PowerShell4000ms failure and old candidate
+eea21c2's WindowsNode24 PowerShell failure with its separate unexecuted ARM64 gap.
+Fixture/diagnostic changes do not establish historical causes;PR89's non-independent
+review and coverage gaps remain declared in the release notes.
+Dev/main merge consent is not publication consent. Preparation authorizes no tag,
+Release dispatch, publish or PC update. Release verifies three OSes and then
+automatically publishes; it is not a verify-only workflow.
+
 ### Beta.5 pubblicata e verificata / Beta.5 published and verified
 
 **IT:** Dal 16 novembre 2026 `droidsembly@0.4.0-beta.5` è pubblicata su **`next`**;

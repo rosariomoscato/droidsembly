@@ -2,6 +2,12 @@
 
 ## Italiano
 
+**Candidata sorgente beta.6, non pubblicata:** un checkout di preparazione può
+mostrare `0.4.0-beta.6`, mentre npm `next` resta beta.5. Non è un aggiornamento
+del PC. La candidata aggiunge «Riprendi attività»: confermarla può avviare AI e
+consumare quota anche con assegnazione automatica disabilitata; non usarla come
+smoke su un profilo reale. Vedi [note e limiti](RELEASE_NOTES_0.4.0-beta.6.md).
+
 Beta pubblica verificata il 16 novembre 2026: **0.4.0-beta.5 su `next`**; `latest`
 resta beta.1. La pubblicazione non aggiorna da sola un ufficio già installato.
 Un aggiornamento Windows separatamente autorizzato è stato verificato con
@@ -51,6 +57,12 @@ automatica o nuovi task. Le altre impostazioni continuano a governare il lavoro.
    vecchia abbia liberato la porta. Non usare terminazioni forzate alla cieca.
 
 ## English
+
+**Source candidate beta.6, not published:** a preparation checkout may report
+`0.4.0-beta.6` while npm `next` remains beta.5. This does not update a PC.
+The candidate adds **Resume task**: confirming may start AI work and consume quota
+even with automatic assignment disabled. Do not use it as a real-profile smoke
+test. See [candidate notes and limits](RELEASE_NOTES_0.4.0-beta.6.md).
 
 Verified public release: **0.4.0-beta.5 on `next`** (November 16, 2026); `latest`
 remains beta.1. A separately authorized Windows update passed isolated demo,
