@@ -221,7 +221,8 @@ function NewMode({ floor, onDone }: { floor: FloorOptions; onDone: (r: RepoView)
         </button>
       </div>
       <p className="muted small">
-        <T>Creates</T> <code>{slug ? `${projectsDir}${sep(projectsDir)}${slug}` : `${projectsDir}${sep(projectsDir)}…`}</code> {t('with a README and pushes it to a new {visibility} GitHub repo. Give the CEO a brief below and they’ll plan the first milestone.', { visibility: t(visibility) })}
+        <T>Creates</T> <code>{slug ? `${projectsDir}${sep(projectsDir)}${slug}` : `${projectsDir}${sep(projectsDir)}…`}</code> {t('with a README and pushes it to a new {visibility} GitHub repo.', { visibility: t(visibility) })}
+        {' '}{floor.onboardCeo !== false && t('The CEO starts a project interview in Chat, even without a brief. Read and approve the complete plan before any plan issues or workers start.')}
       </p>
     </form>
   );

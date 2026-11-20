@@ -1,0 +1,12 @@
+/* Scoped planning content stays readable in the phone, console and pocket layouts. */
+.app-plan-navigation { flex-shrink: 0; padding: 8px 12px; }
+.app-plan-navigation select { width: 100%; min-width: 0; }
+.app-starter-log { overflow-wrap: anywhere; }
+.app-starter-log .bubble { margin: 8px 0; max-width: 100%; }
+.app-starter-log section { margin-block: 16px; }
+.app-starter-log .toggle { align-items: flex-start; margin-block: 12px; }
+.app-plan-hash { word-break: break-all; }
+.app-plan-actions { flex-wrap: wrap; margin-block: 12px; gap: 8px; }
+.app-plan-actions .btn { white-space: normal; }
+.app-plan-console { height: 70vh; min-height: 420px; max-height: 720px; display: flex; flex-direction: column; }
+.app-plan-console > .phone-chat { min-height: 0; flex: 1; }

@@ -17,6 +17,7 @@ import { HolidayStrip } from './HolidayStrip';
 import { replayKind } from './voiceQueue';
 import { CLAUDE_MODELS, effectiveModel, modelSuggestions } from '../../../shared/models';
 import { translate } from '../../../shared/i18n';
+import { AppStarterChat } from './AppStarter';
 
 // The manager's phone: text the CEO, decide on team changes, see the whole company at a glance
 // without walking anywhere, and play a game while the team works. Press P anywhere in the office.
@@ -372,7 +373,14 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
   const settings = useStore((s) => s.settings);
   const running = useStore((s) => Object.values(s.agents).filter(isBusy).length);
   const [text, setText] = useState('');
+  const repos = useStore((s) => s.repos);
+  const [scope, setScope] = useState('');
   const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scope) return;
+    const active = repos.find((r) => r.appStarter && !['ready', 'cancelled'].includes(r.appStarter.status));
+    if (active) setScope(active.id);
+  }, [repos, scope]);
 
   // Reading the thread marks it read.
   useEffect(() => {
@@ -385,6 +393,16 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
   }, [messages.length, info.job?.kind]);
 
   if (!ceo) return <p className="muted phone-empty"><T>The corner office is empty.</T></p>;
+  const projects = repos.filter((r) => r.appStarter);
+  const selected = scope === 'global' ? undefined : projects.find((r) => r.id === scope) ?? (!scope ? projects.find((r) => !['ready', 'cancelled'].includes(r.appStarter!.status)) : undefined);
+  const navigation = projects.length > 0 ? <label className="field app-plan-navigation">
+    <span>{t('CEO conversation')}</span>
+    <select aria-label={t('CEO conversation')} value={selected?.id ?? 'global'} onChange={(e) => setScope(e.target.value)}>
+      <option value="global">{t('Company chat (not a plan approval)')}</option>
+      {projects.map((r) => <option key={r.id} value={r.id}>{r.fullName} · {t('New app plan')}</option>)}
+    </select>
+  </label> : null;
+  if (selected) return <AppStarterChat key={selected.id} repo={selected} navigation={navigation} />;
   const send = (t: string) => {
     const body = t.trim();
     if (!body) return;
@@ -408,6 +426,7 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
 
   return (
     <div className="phone-chat">
+      {navigation}
       <div className="chat-head">
         <Avatar name={ceo.name} color={ceo.color} />
         <div className="grow">

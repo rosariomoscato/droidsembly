@@ -52,7 +52,7 @@ try {
   console.log(`droidsembly --version/--help: ${pkg.version}`);
 
   const installed = path.join(tmp, 'node_modules', pkg.name);
-  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
+  for (const file of ['LICENSE', 'README.md', 'README.it.md', 'docs/app-starter.md', 'docs/app-starter-provenance.md', 'bin/droidsembly.js', 'bin/cubefarm.js', 'bin/environment.js', 'bin/distribution.js', 'dist/icons/Sora-OFL.txt', 'dist-server/index.js', 'dist-server/skills/ceo-app-starter.md', 'dist/third-party-licenses.json', 'dist/THIRD_PARTY_LICENSES.txt']) {
     assert.ok(fs.existsSync(path.join(installed, file)), `missing package file: ${file}`);
   }
   assert.equal(sh(`"${process.execPath}" "${path.join(installed, 'bin', 'cubefarm.js')}" --version`, tmp), pkg.version);
@@ -112,6 +112,28 @@ try {
   assert.ok(!fs.existsSync(path.join(dataHome, 'state.json')), 'real state must not be created');
   assert.ok(!fs.existsSync(env.SWARM_HOME), 'shadowed legacy home must not be created');
   console.log(`demo office up: ${state.repos.length} floors, ${state.agents.length} agents; isolated data and client verified`);
+  const skill = fs.readFileSync(path.join(installed, 'dist-server/skills/ceo-app-starter.md'), 'utf8');
+  assert.ok(skill.includes('Original Droidsembly instructions') && skill.includes('planning only'));
+  const created = await fetch(`http://127.0.0.1:${port}/api/repos/new`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'package-planning-smoke', visibility: 'private', onboardCeo: true, autoAssign: false }),
+  });
+  assert.ok(created.ok, `create new guided demo app: HTTP ${created.status}`);
+  const project = await created.json();
+  let interview;
+  for (let i = 0; i < 60 && !interview; i++) {
+    const snapshot = await fetch(`http://127.0.0.1:${port}/api/state`).then((r) => r.json());
+    const repo = snapshot.repos.find((r) => r.id === project.id);
+    assert.ok(repo?.appStarter, 'installed server did not create a scoped draft');
+    assert.equal(repo.issues.length, 0, 'plan issues before approval');
+    assert.equal(snapshot.agents.filter((a) => a.repoId === project.id).length, 0, 'worker prepared before approval');
+    if (repo.appStarter.messages.some((m) => m.from === 'ceo')) interview = repo.appStarter;
+    else await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  assert.ok(interview, 'installed bundled CEO did not load its local planning resource and save a question');
+  assert.equal(interview.status, 'interview');
+  assert.equal(interview.approved, undefined);
+  console.log('Installed CEO app-starter resource loaded: persisted scoped question, zero plan issues/workers');
   verified = true;
 } finally {
   if (server?.pid && server.exitCode === null && server.signalCode === null) {
