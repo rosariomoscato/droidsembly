@@ -1,5 +1,15 @@
 // New-app planning UI. User-authored plans and task bodies are never translated.
 export const italianAppStarter: Readonly<Record<string, string>> = {
+  'Creating project {name}…': 'Creazione del progetto {name}…',
+  'Please wait. Do not submit the request again.': 'Attendi. Non inviare nuovamente la richiesta.',
+  'Project creation was not confirmed.': 'La creazione del progetto non è stata confermata.',
+  'Check the project list before retrying; the request may already have completed.': 'Controlla l’elenco dei progetti prima di riprovare: la richiesta potrebbe essere già stata completata.',
+  'Project created: {name}': 'Progetto creato: {name}',
+  'Next: answer the CEO interview. No plan issues or workers start before you approve the plan.': 'Ora rispondi all’intervista del CEO. Nessuna issue del piano o attività worker parte prima della tua approvazione del piano.',
+  'The project is now in the office.': 'Il progetto è ora presente nell’ufficio.',
+  'Open project interview': 'Apri intervista del progetto',
+  'View project': 'Visualizza progetto',
+  'Create another project': 'Crea un altro progetto',
   'CEO conversation': 'Conversazione CEO',
   'Company chat (not a plan approval)': 'Chat aziendale (non approva piani)',
   'New app plan': 'Piano nuova app',

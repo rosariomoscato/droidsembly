@@ -364,7 +364,7 @@ function Bubble({ m, ceoName }: { m: PhoneMessage; ceoName: string }) {
 }
 
 /** The thread with the CEO; pocket mode shows it as its Chat tab, where the keyboard waits for a tap. */
-export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
+export function Chat({ autoFocus = true, initialRepo }: { autoFocus?: boolean; initialRepo?: string }) {
   const t = useT();
   const messages = useStore((s) => s.messages);
   const readAt = useStore((s) => s.phoneReadAt);
@@ -374,7 +374,7 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
   const running = useStore((s) => Object.values(s.agents).filter(isBusy).length);
   const [text, setText] = useState('');
   const repos = useStore((s) => s.repos);
-  const [scope, setScope] = useState('');
+  const [scope, setScope] = useState(initialRepo ?? '');
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scope) return;
@@ -657,7 +657,7 @@ const waitingNow = () => {
   return pendingRequests(s.requests).length + unreadMessages(s.messages, s.phoneReadAt);
 };
 
-export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestId?: string }) {
+export function Phone({ tab: initialTab, requestId, repoId }: { tab?: PhoneTab; requestId?: string; repoId?: string }) {
   const t = useT();
   const [tab, setTab] = useState<PhoneTab>(() =>
     resumeGames && !requestId && waitingNow() <= resumeGames.waiting ? 'games' : (initialTab ?? (requestId ? 'hires' : 'chat')),
@@ -689,9 +689,9 @@ export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestI
   // Keep the overlay's tab in sync so new messages know whether the chat is on screen (during a game it isn't,
   // so the CEO's texts still pop up).
   useEffect(() => {
-    openOverlay({ kind: 'phone', tab, requestId });
+    openOverlay({ kind: 'phone', tab, requestId, repoId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, repoId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
@@ -724,7 +724,7 @@ export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestI
         <HolidayStrip />
         <div className="phone-screen">
           {tab !== 'games' && <LobbyNudge />}
-          {tab === 'chat' && <Chat />}
+          {tab === 'chat' && <Chat key={repoId ?? 'default'} initialRepo={repoId} />}
           {tab === 'hires' && <TeamChanges focusId={requestId} />}
           {tab === 'company' && <Company />}
           {tab === 'games' && <Games game={game} onGame={setGame} />}

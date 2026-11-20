@@ -8,6 +8,15 @@ by that explicit button; that does not mean the application has been built.
 
 ## Interview → review → approval → normal work
 
+After **Create project**, an inline status shows the request in progress, then
+a persistent **Project created: owner/name** confirmation. **Open project
+interview** opens that project's thread, even when other interviews are pending.
+The form cannot submit again while pending; after success, **Create another
+project** explicitly starts a fresh form. If creation is not confirmed, the error
+stays beside the form and the entered name is retained. Check the project list
+before retrying an uncertain request; an interrupted response does not prove
+the remote creation failed.
+
 1. Open Chat in the phone, manager console or Pocket. Select the project's
    **New app plan** conversation, not the company-wide chat. An empty brief is OK.
 2. Answer the CEO's focused questions. Requirements, users, ownership, data model,

@@ -2675,6 +2675,16 @@ input.inline:focus {
 .picker-mode .row {
   margin: 0;
 }
+.project-creation-notice {
+  border: 2px solid var(--ink);
+  border-left-width: 6px;
+  border-radius: 8px;
+  padding: 12px;
+  margin-block: 8px;
+  overflow-wrap: anywhere;
+}
+.project-creation-notice p { margin: 6px 0; }
+.project-creation-notice .row { flex-wrap: wrap; }
 .folder-list {
   max-height: 240px;
 }

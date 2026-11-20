@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { T, useT } from '../i18n';
 import { api, type FloorOptions } from '../api';
 import { useStore } from '../store';
 import type { GhRepoSummary, ProjectFolderView, RepoView } from '../../../shared/types';
 import { confirmDialog } from './Confirm';
+import { ProjectCreationNotice } from './ProjectCreationNotice';
 
 // Add a project to the office: one of your own folders, a GitHub repo, or something brand new.
 // Used by the setup wizard and by the Floors tab of the manager's console.
@@ -193,33 +194,54 @@ function NewMode({ floor, onDone }: { floor: FloorOptions; onDone: (r: RepoView)
   const [description, setDescription] = useState('');
   const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
+  const [error, setError] = useState('');
+  const [created, setCreated] = useState<RepoView>();
   const slug = name.trim().replace(/[^A-Za-z0-9._-]+/g, '-');
+  if (created) return <ProjectCreationNotice repo={created}
+    onOpen={() => useStore.getState().openOverlay(created.appStarter
+      ? { kind: 'phone', tab: 'chat', repoId: created.id }
+      : { kind: 'manager', tab: 'floors' })}
+    onAnother={() => { setCreated(undefined); setName(''); setDescription(''); }} />;
   return (
     <form
       className="picker-mode"
+      aria-busy={busy}
       onSubmit={async (e) => {
         e.preventDefault();
-        if (!slug) return;
+        if (!slug || submitting.current) return;
+        submitting.current = true;
+        setError('');
         setBusy(true);
-        const repo = await attempt(() => api.createRepo({ name: slug, description, visibility, ...floor }));
-        setBusy(false);
-        if (repo) onDone(repo);
+        let repo: RepoView;
+        try {
+          repo = await api.createRepo({ name: slug, description, visibility, ...floor });
+        } catch (error) {
+          setError(error instanceof Error ? error.message : t('Project creation was not confirmed.'));
+          return;
+        } finally {
+          submitting.current = false;
+          setBusy(false);
+        }
+        setCreated(repo);
+        onDone(repo);
       }}
     >
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('Project name, e.g. island-bakery')} autoFocus />
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={t('One-line description (optional)')} />
+      <input value={name} disabled={busy} onChange={(e) => setName(e.target.value)} placeholder={t('Project name, e.g. island-bakery')} autoFocus />
+      <input value={description} disabled={busy} onChange={(e) => setDescription(e.target.value)} placeholder={t('One-line description (optional)')} />
       <div className="row">
         <label className="toggle">
-          <input type="radio" checked={visibility === 'private'} onChange={() => setVisibility('private')} /> <T>Private</T>
+          <input type="radio" disabled={busy} checked={visibility === 'private'} onChange={() => setVisibility('private')} /> <T>Private</T>
         </label>
         <label className="toggle">
-          <input type="radio" checked={visibility === 'public'} onChange={() => setVisibility('public')} /> <T>Public</T>
+          <input type="radio" disabled={busy} checked={visibility === 'public'} onChange={() => setVisibility('public')} /> <T>Public</T>
         </label>
         <span className="spacer" />
         <button className="btn btn-good" disabled={busy || !slug}>
           {t(busy ? 'Creating…' : 'Create project')}
         </button>
       </div>
+      <ProjectCreationNotice pendingName={busy ? slug : undefined} error={error} />
       <p className="muted small">
         <T>Creates</T> <code>{slug ? `${projectsDir}${sep(projectsDir)}${slug}` : `${projectsDir}${sep(projectsDir)}…`}</code> {t('with a README and pushes it to a new {visibility} GitHub repo.', { visibility: t(visibility) })}
         {' '}{floor.onboardCeo !== false && t('The CEO starts a project interview in Chat, even without a brief. Read and approve the complete plan before any plan issues or workers start.')}

@@ -438,7 +438,7 @@ export function Overlays() {
     case 'terminal':
       return overlay.agentId === CEO_ID ? <ManagerConsole initialTab="ceo" /> : <TerminalView agentId={overlay.agentId} />;
     case 'phone':
-      return <Phone tab={overlay.tab} requestId={overlay.requestId} />;
+      return <Phone tab={overlay.tab} requestId={overlay.requestId} repoId={overlay.repoId} />;
     case 'kanban':
       return <KanbanView repoId={overlay.repoId} />;
     case 'card':

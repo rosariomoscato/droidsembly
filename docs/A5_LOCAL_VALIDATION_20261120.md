@@ -6,6 +6,38 @@ package smoke PASS under the manager-approved validation conditions below.**
 No push, PR, real issue,
 CI, merge, tag, release, PC update, real model, Box, database or deployment.
 
+## Subsequent guided-test UX fix: project creation feedback
+
+The manager reported that Create project gave no perceptible confirmation.
+The follow-up adds inline pending/error feedback, a persistent named success
+confirmation with focus, explicit Create another project, and a direct action
+to the newly created project's interview. A synchronous submission guard blocks
+duplicate requests, without changing server approval/publication gates.
+
+- `creation-feedback-tests-final.log`: **27/27 tests in4files PASS**, including
+  bilingual/static notice rendering, i18n coverage and app-starter workflow gates.
+  `creation-feedback-build-final.log`: ordinary typecheck/build/licenses **PASS**.
+  **The full3569-test and installed-package results below refer to bb1f10d,
+  before this UX change; neither was rerun for this follow-up.**
+- Browser on isolated QA demo4438: deferred request displays the pending message
+  and disables inputs/button; two additional form submits still produce just
+  **1creation request**. Success persists with name, receives focus and removes
+  the create-submit button until Create another project. Simulated network
+  rejection produces an inline alert and preserves the entered name; a GET
+  confirmed no project existed before the test explicitly retried.
+- Multi-project browser test caught an intermediate bug: Phone's tab-sync effect
+  discarded the requested project, reopening the first interview. Fixed by
+  preserving repoId in that effect. After rebuilding/reloading, the success
+  action correctly selected **demo-co/feedback-ui-final**, with3active project
+  interviews, **0issues/0workers** on that project, no horizontal document
+  overflow and no captured console errors. This failing intermediate observation
+  is not omitted from the result.
+- Screenshot/evidence: `creation-feedback-browser/success-notice.jpg`,
+  `creation-feedback-browser/result.json`. QA tab and server4438 stopped.
+  The manager's separate guided demo4439 remains intentionally available:
+  bibliography project state preserved through the owned demo's time-limit
+  restart; no second real GitHub creation was performed.
+
 ## Final full-suite result
 
 - Final ordinary installed-package smoke **PASS**, exit0:
