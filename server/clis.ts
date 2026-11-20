@@ -528,7 +528,9 @@ export default {
       // A resumed session keeps its previous model over agent configuration. Apply the office's next-task choice.
       let model = ctx.options.model;
       if (!model) {
-        const selected = await ctx.model.default();
+        const response = await ctx.model.default();
+        // Location-scoped V2 reads wrap their result; older V2 plugins returned the model directly.
+        const selected = response && 'data' in response ? response.data : response;
         if (selected) model = { providerID: selected.providerID, id: selected.id };
       }
       if (model) await ctx.session.switchModel({ sessionID, model });
