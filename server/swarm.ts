@@ -3991,7 +3991,7 @@ export class Swarm {
       return;
     }
 
-    a.status = 'done';
+    // Keep the task owned until its report is published; the watchdog must not retry it as orphaned.
     const pass = report.verdict === 'pass';
     if (rec) this.ledger({ kind: 'qa', repoId: repo.id, pr: rec.prNumber, round: rec.round, pass, tester: a.id, author: rec.devAgentId, at: Date.now() });
     this.appendLog(a, [{ kind: pass ? 'done' : 'error', text: `${pass ? '✅ QA passed' : '❌ QA failed'} PR #${a.prNumber} · ${report.checks.length} checks · ${rt.shots.length} screenshots` }]);
@@ -4056,6 +4056,7 @@ export class Swarm {
               : `❌ ${a.name} failed PR #${rec.prNumber}; sending it back to the developer`,
       );
     }
+    if (a.status !== 'stopped') a.status = 'done';
   }
 
   private async renderQaComment(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord, report: QaReport, shots: Shot[], next: QaNext) {
