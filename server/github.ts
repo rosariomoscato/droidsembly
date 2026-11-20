@@ -57,6 +57,14 @@ export async function repoMeta(fullName: string): Promise<RepoMeta> {
 }
 
 export const readOnce = <T>(read: () => Promise<T>): Promise<T> => read();
+/** Reconcile an ambiguous create using all issue states, without GitHub search indexing. */
+export async function findPlanIssues(fullName: string, marker: string) {
+  const pages = await ghJson<{ number: number; title: string; body: string | null; pull_request?: unknown }[][]>(
+    ['api', '--paginate', '--slurp', `repos/${fullName}/issues?state=all&per_page=100`], SYNC_READ,
+  );
+  return pages.flat().filter((i) => !i.pull_request && i.body?.includes(marker))
+    .map((i) => ({ number: i.number, title: i.title, body: i.body ?? '' }));
+}
 export async function listIssues(fullName: string, read = readTwice): Promise<IssueInfo[]> {
   const raw = await read(() =>
     ghJson<{ number: number; title: string; body: string; url: string; labels: { name: string }[]; createdAt: string }[]>(

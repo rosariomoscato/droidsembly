@@ -17,6 +17,7 @@ import { HolidayStrip } from './HolidayStrip';
 import { replayKind } from './voiceQueue';
 import { CLAUDE_MODELS, effectiveModel, modelSuggestions } from '../../../shared/models';
 import { translate } from '../../../shared/i18n';
+import { AppStarterChat } from './AppStarter';
 
 // The manager's phone: text the CEO, decide on team changes, see the whole company at a glance
 // without walking anywhere, and play a game while the team works. Press P anywhere in the office.
@@ -363,7 +364,7 @@ function Bubble({ m, ceoName }: { m: PhoneMessage; ceoName: string }) {
 }
 
 /** The thread with the CEO; pocket mode shows it as its Chat tab, where the keyboard waits for a tap. */
-export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
+export function Chat({ autoFocus = true, initialRepo }: { autoFocus?: boolean; initialRepo?: string }) {
   const t = useT();
   const messages = useStore((s) => s.messages);
   const readAt = useStore((s) => s.phoneReadAt);
@@ -372,7 +373,14 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
   const settings = useStore((s) => s.settings);
   const running = useStore((s) => Object.values(s.agents).filter(isBusy).length);
   const [text, setText] = useState('');
+  const repos = useStore((s) => s.repos);
+  const [scope, setScope] = useState(initialRepo ?? '');
   const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (scope) return;
+    const active = repos.find((r) => r.appStarter && !['ready', 'cancelled'].includes(r.appStarter.status));
+    if (active) setScope(active.id);
+  }, [repos, scope]);
 
   // Reading the thread marks it read.
   useEffect(() => {
@@ -385,6 +393,16 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
   }, [messages.length, info.job?.kind]);
 
   if (!ceo) return <p className="muted phone-empty"><T>The corner office is empty.</T></p>;
+  const projects = repos.filter((r) => r.appStarter);
+  const selected = scope === 'global' ? undefined : projects.find((r) => r.id === scope) ?? (!scope ? projects.find((r) => !['ready', 'cancelled'].includes(r.appStarter!.status)) : undefined);
+  const navigation = projects.length > 0 ? <label className="field app-plan-navigation">
+    <span>{t('CEO conversation')}</span>
+    <select aria-label={t('CEO conversation')} value={selected?.id ?? 'global'} onChange={(e) => setScope(e.target.value)}>
+      <option value="global">{t('Company chat (not a plan approval)')}</option>
+      {projects.map((r) => <option key={r.id} value={r.id}>{r.fullName} · {t('New app plan')}</option>)}
+    </select>
+  </label> : null;
+  if (selected) return <AppStarterChat key={selected.id} repo={selected} navigation={navigation} />;
   const send = (t: string) => {
     const body = t.trim();
     if (!body) return;
@@ -408,6 +426,7 @@ export function Chat({ autoFocus = true }: { autoFocus?: boolean }) {
 
   return (
     <div className="phone-chat">
+      {navigation}
       <div className="chat-head">
         <Avatar name={ceo.name} color={ceo.color} />
         <div className="grow">
@@ -638,7 +657,7 @@ const waitingNow = () => {
   return pendingRequests(s.requests).length + unreadMessages(s.messages, s.phoneReadAt);
 };
 
-export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestId?: string }) {
+export function Phone({ tab: initialTab, requestId, repoId }: { tab?: PhoneTab; requestId?: string; repoId?: string }) {
   const t = useT();
   const [tab, setTab] = useState<PhoneTab>(() =>
     resumeGames && !requestId && waitingNow() <= resumeGames.waiting ? 'games' : (initialTab ?? (requestId ? 'hires' : 'chat')),
@@ -670,9 +689,9 @@ export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestI
   // Keep the overlay's tab in sync so new messages know whether the chat is on screen (during a game it isn't,
   // so the CEO's texts still pop up).
   useEffect(() => {
-    openOverlay({ kind: 'phone', tab, requestId });
+    openOverlay({ kind: 'phone', tab, requestId, repoId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, repoId]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
@@ -705,7 +724,7 @@ export function Phone({ tab: initialTab, requestId }: { tab?: PhoneTab; requestI
         <HolidayStrip />
         <div className="phone-screen">
           {tab !== 'games' && <LobbyNudge />}
-          {tab === 'chat' && <Chat />}
+          {tab === 'chat' && <Chat key={repoId ?? 'default'} initialRepo={repoId} />}
           {tab === 'hires' && <TeamChanges focusId={requestId} />}
           {tab === 'company' && <Company />}
           {tab === 'games' && <Games game={game} onGame={setGame} />}

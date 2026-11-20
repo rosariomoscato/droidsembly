@@ -70,7 +70,7 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     expect(diagnostics.milestones).toHaveLength(16);
     expect(diagnostics.milestones[0]).toEqual({stage:'child-wait',ms:14});
   });
-  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',async()=>{
+  it.skipIf(process.platform!=='win32')('disposes synthetic secrets then keeps the failure visible until acknowledgement',{timeout:25_000},async()=>{
     fs.mkdirSync(process.env.SWARM_HOME!,{recursive:true});
     dir=fs.mkdtempSync(path.join(process.env.SWARM_HOME!,'launcher-local-probe-'));
     const probe=path.join(dir,'probe.mjs');
@@ -106,13 +106,15 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
     const keep=new Set(['SYSTEMROOT','WINDIR','COMSPEC','PATH','PATHEXT','TEMP','TMP','USERPROFILE','LOCALAPPDATA','APPDATA','PROGRAMFILES','PROGRAMFILES(X86)','PROGRAMDATA','HOMEDRIVE','HOMEPATH','USERNAME','OS','PROCESSOR_ARCHITECTURE','NUMBER_OF_PROCESSORS']);
     const env=Object.fromEntries(Object.entries(process.env).filter(([k])=>keep.has(k.toUpperCase())));
     const spawnAt=performance.now();
-    pendingProbe=runFixtureProcess('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{cwd:process.cwd(),env,timeout:4000});
+    pendingProbe=runFixtureProcess('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{
+      cwd:process.cwd(),env,timeout:4000,startup:{timeout:10_000,stderrLine:'probe script-enter ms=0'},
+    });
     const result=await pendingProbe;
     const spawnMs=Math.min(999999999,Math.floor(performance.now()-spawnAt));
     const {startup}=await observeLauncherStartup(Promise.resolve(result),dir);
     const diagnostics=launcherProbeDiagnostics(result);
     const safeDiagnostics={...diagnostics,spawnMs,observation:result.observation,...startup,
-      executionMode:'owned-async',commandDeadlineMs:4000,
+      executionMode:'owned-async',commandDeadlineMs:4000,startupDeadlineMs:10_000,
       hasPath:Object.keys(env).some((key)=>key.toUpperCase()==='PATH'),hasSystemRoot:Object.keys(env).some((key)=>key.toUpperCase()==='SYSTEMROOT')};
     // CI uploads only this fixed-schema file, never the raw synthetic result or
     // a whole SWARM_HOME. Its location is explicit: RUNNER_TEMP != os.tmpdir().
@@ -129,6 +131,8 @@ describe('protected PowerShell launcher failure visibility, no real credentials 
       fs.writeFileSync(path.join(dir,'synthetic-result.json'),JSON.stringify({status:result.status,signal:result.signal,stdout:result.stdout,stderr:result.stderr},null,2));
     }
     expect(result.error).toBeUndefined();expect(result.status).toBe(1);
+    expect(result.observation.startupMs).toEqual(expect.any(Number));
+    expect(result.observation.startupMs!).toBeLessThan(10_000);
     expect(result.stdout).toContain('Runner exit code: 1');
     expect(result.stderr).toContain('probe disposed ms=');
     expect(fs.readFileSync(path.join(dir,'acknowledged.txt'),'utf8')).toContain('Press Enter to close');

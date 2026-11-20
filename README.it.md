@@ -43,6 +43,13 @@ Il piano di progetto e il Kanban sono catture reali della beta 0.4.0-beta.1 in u
 
 ## Cosa puoi fare
 
+**Nuove app (sorgenti dev, non beta.5 pubblicata):** “Qualcosa di nuovo” con CEO
+avvia intervista per progetto → piano completo revisionabile → **Approva piano e
+crea issue** → workflow standard. Nessuna issue del piano o preparazione worker/Box
+prima dell’approvazione e della pubblicazione confermata. Stack e database sono
+scelte motivate, non obblighi; SQLite/Docker non implicano worker locali.
+Vedi [guida A5, dati/ambienti e ripresa](docs/app-starter.md).
+
 - **Coordinare agenti di coding:** Claude Code, Codex e OpenCode V2, con selezione dei modelli e delle varianti di ragionamento supportate. La disponibilità dipende dal runtime: Agent SDK resta esclusivamente Claude. OpenCode supporta terminali locali e worker su Upstash Box; ufficio e CEO restano locali. Vedi [limiti della validazione Box](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Seguire il workflow completo:** issue → sviluppo e controlli iniziali → pull request → sessione QA separata → correzioni → merge quando le condizioni configurate sono soddisfatte.
 - **Mantenere il controllo:** assegnazione manuale o automatica, onboarding CEO facoltativo, approvazione dei cambi team e interruttore distinto per il merge automatico.

@@ -20,6 +20,8 @@ import { CloudError, type BoxApi, type BoxInfo } from './box.ts';
 import type { CloudBackend } from './backend.ts';
 import type { BoxSignIn } from './cliRunner.ts';
 import type { AgentTerminal } from './terminal.ts';
+import type { AppStarter } from '../shared/appStarter.ts';
+import { demoAppTurn } from './demoAppStarter.ts';
 
 // `npm run demo`: a fake GitHub and fake Claude Code sessions, so the office (including the
 // build → QA → fix loop) can be explored without spending any usage or touching real repos.
@@ -625,6 +627,23 @@ async function fakeTrim(stillIdle: () => boolean) {
 
 /** The demo's fake world; `scale` (--floors / --agents) makes it the big company instead of the usual two floors. */
 export function createDemoBackend(scale: DemoScale | null = null): Backend {
+  const planIssues = new Map<string, { number: number; title: string; body: string }[]>();
+  // Fake remote state is separate from the office ledger, so a demo process restart
+  // can reconcile a lost create response too. Never used by the real backend.
+  const planningDir = path.join(HOME_DIR, 'demo-planning-github');
+  const planningRepos = new Set<string>();
+  for (const file of fs.existsSync(planningDir) ? fs.readdirSync(planningDir).filter((f) => f.endsWith('.json')) : []) {
+    const saved = JSON.parse(fs.readFileSync(path.join(planningDir, file), 'utf8')) as { repo: FakeRepo; issues: { number: number; title: string; body: string }[] };
+    const name = saved.repo.fullName;
+    repos.set(name, saved.repo); bareRepos.add(name); planningRepos.add(name);
+    planIssues.set(name, saved.issues);
+  }
+  const savePlanning = (name: string) => {
+    const planningFile = path.join(planningDir, `${encodeURIComponent(name)}.json`);
+    fs.mkdirSync(planningDir, { recursive: true });
+    fs.writeFileSync(`${planningFile}.tmp`, JSON.stringify({ repo: repos.get(name), issues: planIssues.get(name) ?? [] }));
+    fs.renameSync(`${planningFile}.tmp`, planningFile);
+  };
   if (scale) seedBigCompany(scale.floors);
   restoreNumbers();
   // Tie each fake session back to its repo via the desk directory name.
@@ -676,6 +695,12 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
       return { fullName: newRepo(name, opts.description), path: `/demo/projects/${name}` };
     },
     listIssues: async (fullName) => {
+      // A new empty demo repo may exist only in a restored office snapshot.
+      if (!repos.has(fullName)) {
+        repos.set(fullName, { fullName, description: '', issues: [], pulls: [], nextNumber: 1 });
+        bareRepos.add(fullName);
+        restoreNumbers();
+      }
       const r = repos.get(fullName);
       if (r && scale) topUp(r, scale.agents * 2);
       return [...(r?.issues ?? [])];
@@ -690,8 +715,14 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
       if (!r) throw new Error('Unknown repo');
       const n = takeNumber(r);
       r.issues.push(issue(n, title, body, fullName, labels));
+      if (body.includes('<!-- droidsembly-plan:')) {
+        planningRepos.add(fullName);
+        planIssues.set(fullName, [...(planIssues.get(fullName) ?? []), { number: n, title, body }]);
+        savePlanning(fullName);
+      }
       return n;
     },
+    findPlanIssues: async (fullName, marker) => (planIssues.get(fullName) ?? []).filter((i) => i.body.includes(marker)),
     issueState: async (fullName, number) => {
       const r = repos.get(fullName);
       return r?.issues.some((i) => i.number === number) ? 'OPEN' : closedIssues.has(`${fullName}#${number}`) || forgotten(fullName, number) ? 'CLOSED' : null;
@@ -701,6 +732,8 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
       if (!i) throw new Error(`Unknown issue #${number}`);
       if (edit.body !== undefined) i.body = edit.body;
       i.labels = [...i.labels.filter((l) => !edit.removeLabels?.includes(l)), ...(edit.addLabels ?? []).filter((l) => !i.labels.includes(l))];
+      const planned = planIssues.get(fullName)?.find((p) => p.number === number);
+      if (planned) { planned.body = i.body; savePlanning(fullName); }
     },
     mergePull: async (fullName, number, _method, headSha) => {
       const r = repos.get(fullName);
@@ -716,6 +749,7 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
       setTimeout(() => {
         for (const n of pr.closesIssues) closedIssues.add(`${fullName}#${n}`);
         r.issues = r.issues.filter((i) => !pr.closesIssues.includes(i.number));
+        if (planningRepos.has(fullName)) savePlanning(fullName);
       }, 20_000).unref();
     },
     closeIssue: async (fullName, number) => {
@@ -723,6 +757,7 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
       if (!r?.issues.some((i) => i.number === number)) throw new Error(`Issue #${number} is not open`);
       closedIssues.add(`${fullName}#${number}`);
       r.issues = r.issues.filter((i) => i.number !== number);
+      if (planningRepos.has(fullName)) savePlanning(fullName);
     },
     updateBranch: async (fullName, number) => {
       const pr = repos.get(fullName)?.pulls.find((p) => p.number === number);
@@ -792,7 +827,8 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
     },
     issueDetails: async (fullName, number) => {
       const i = repos.get(fullName)?.issues.find((x) => x.number === number);
-      return { title: i?.title ?? `Issue #${number}`, body: i?.body ?? '', createdAt: i?.createdAt };
+      const planned = planIssues.get(fullName)?.find((x) => x.number === number);
+      return { title: i?.title ?? planned?.title ?? `Issue #${number}`, body: i?.body ?? planned?.body ?? '', createdAt: i?.createdAt };
     },
     commentPull: async (fullName, number) => `https://github.com/${fullName}/pull/${number}#issuecomment-${Date.now()}`,
     uploadEvidence: async (fullName, filePath) => `https://github.com/${fullName}/raw/swarm-qa-evidence/${filePath}`,
@@ -1339,9 +1375,17 @@ function ceoSession(opts: SessionOptions, cb: SessionCallbacks): SessionHandle {
   };
 
   const prompt = opts.prompt;
+  const interview = opts.systemAppend.includes('# CEO app-starter — planning only');
   const where = prompt.match(/[Ff]loor (\d+) \(([^,)]+)/);
   const triage = prompt.match(/^Triage: pull request #(\d+) on floor (\d+)/);
-  const run = triage
+  const run = interview
+    ? async () => {
+      const d = JSON.parse(opts.systemAppend.split('Persistent context:\n')[1]) as AppStarter;
+      const out = await office.call('update_app_plan', demoAppTurn(d, opts.systemAppend.includes('Office language: Italian')));
+      if (out.startsWith('Refused:')) throw new Error(out);
+      return out;
+    }
+    : triage
     ? () => scripts.triage(Number(triage[2]), Number(triage[1]), prompt)
     : /no longer needs triage/.test(prompt)
       ? async () => 'Nothing to do.'
