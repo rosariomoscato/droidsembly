@@ -14,6 +14,11 @@ CI, merge, tag, release, PC update, real model, Box, database or deployment.
 - Follow-up: `c138d62` binds a pending UI answer to the revision at typing time
   and preserves question/answer association when the scripted demo revises a plan.
   Its new regression retains environments and includes the amendment in task text.
+- Final client-only follow-up: `9fc5825`, with the existing project's fallback
+  pattern for transport IDs when a LAN HTTP browser lacks/refuses secure-context
+  `crypto.randomUUID`. Three pure regressions cover native, absent and refusing
+  implementations. This ID is not authentication. The browser captures below
+  refer to c138d62; this final change affects ID generation, not the shown UI.
 - Original checkout's uncommitted `server/boxCli.ts`, `server/boxMachines.ts`,
   `server/swarm.ts` work is preserved. No live office, home or ports were used.
 - Upstream reuse was not established. The manager explicitly authorized original
@@ -25,6 +30,26 @@ CI, merge, tag, release, PC update, real model, Box, database or deployment.
 Local Windows, Node **v22.23.1**, Vitest **5.0.3**. Evidence directory:
 `C:/Users/rosar/AppData/Local/Temp/opencode/ceo-app-starter-plan-20261120/`.
 
+- **Final code9fc5825:** `targeted-9fc5825.log`, **134/134 tests in7 files**;
+  `build-9fc5825.log`, ordinary typecheck/Vite/licenses/server build **PASS**.
+  No full-suite retry. Final tarball in `final-artifact/`, SHA-256
+  `0d7445c06216b7edc6a087ab80c869873132bcc71afa98ac9a60e043fa45a848`.
+  `final-artifact/contents-result.json`: **95 packaged files** compared to the
+  build/guides, private browser/report files excluded. Server and skill are
+  **byte-identical** to the c138d62 installed runtime already exercised below.
+  The final client ID fallback has three additional regressions; this does not
+  turn the earlier full/clean-install failures into successes.
+  The extracted final tarball was also served in demo on **4439**, preview9570,
+  with validated reused dependencies and its own `final-ui-home`. Baseline
+  **10 workers** retained. A 390×844 browser test temporarily simulated the
+  optional UUID method being unavailable: sending an answer returned200 with a
+  fallback `message-…` ID, persisted the answer and advanced to the next CEO
+  question; the new project still had **0 issues / 0 workers**, with no horizontal
+  overflow. See `final-artifact/browser-artifacts/ui-lan-fallback-9fc5825.json`,
+  `ui-mobile-final-9fc5825.png`, and its empty error-console capture.
+  This is a browser API-availability simulation, not a real LAN phone
+  certification or a clean install. The extracted demo and owned browser were
+  stopped; no demo listener remains on4437/4438/4439.
 - `targeted-c138d62.log`: **131/131 tests, 6 files**, app-starter pure/state/remote
   publication and integrated workflow tests, CEO tools/asks/demo and all 16 CEO
   runtime tests. Includes SDK Claude / terminal Claude / terminal OpenCode
