@@ -18,15 +18,23 @@ export function demoAppTurn(d: AppStarter, italian: boolean): { decisions: strin
   const answers = d.messages.filter((m) => m.from === 'manager');
   const decisions = answers.map((m) => m.text).join('\n').slice(0, 8000);
   if (asked < questions.length) return { decisions, question: questions[asked][italian ? 1 : 0] };
-  // The last nine answers follow the nine scripted questions; an optional initial brief comes before.
-  const a = answers.slice(-9).map((m) => m.text);
+  // Keep answers attached to their questions when a later revision request arrives.
+  // Taking the last nine messages would shift worker/test/data answers into other slots.
+  const a = questions.map((q) => {
+    const at = d.messages.findIndex((m) => m.from === 'ceo' && q.includes(m.text));
+    return d.messages.slice(at + 1).find((m) => m.from === 'manager')?.text ?? '';
+  });
+  const designQuestion = d.messages.findIndex((m) => m.from === 'ceo' && questions[8].includes(m.text));
+  const designAnswer = d.messages.findIndex((m, i) => i > designQuestion && m.from === 'manager');
+  const changes = d.messages.slice(designAnswer + 1).filter((m) => m.from === 'manager').map((m) => m.text).join('\n');
+  const amendment = changes ? `\n\nManager revision requests:\n${changes}` : '';
   const existing = /esistent|existing/i.test(a[5]);
   const workerHost = /box|cloud/i.test(a[2]) ? 'box' as const : 'local' as const;
   if (existing && workerHost === 'box' && !/anon|sicuri|secure/i.test(a[6]))
     return { decisions, question: italian ? 'Per i Box scegli una copia anonimizzata o un servizio raggiungibile in sicurezza; nessun dato locale non trasferibile.' : 'For Boxes choose anonymized copies or a safely reachable service; non-transferable local data needs local workers.' };
   return { decisions, plan: {
-    requirements: answers[0]?.text ?? 'Synthetic demo app',
-    users: a[0], dataModel: a[1], mvp: a[7], exclusions: 'Everything not explicitly in the agreed MVP.',
+    requirements: (answers[0]?.text ?? 'Synthetic demo app') + amendment,
+    users: a[0], dataModel: a[1], mvp: a[7] + amendment, exclusions: 'Everything not explicitly in the agreed MVP.',
     stack: 'Suggested React + TypeScript; SQLite with synthetic per-environment seeds. Alternatives remain open; no provider is mandatory.',
     design: a[8],
     environments: { workerHost, testPreview: a[3], deployment: a[4], data: existing ? 'existing' : 'sample',
@@ -37,7 +45,7 @@ export function demoAppTurn(d: AppStarter, italian: boolean): { decisions: strin
     risks: 'Synthetic demo proposal, not a certification of real infrastructure. SQLite to Postgres can require code and migration changes.',
     tasks: [
       { id: 'foundation', title: 'Create the agreed application foundation', body: 'Implement the approved stack and design tokens. Configure separate development, preview and disposable test databases; supply synthetic seed and migration commands. Acceptance: tests and build pass without production access or committed secrets.', dependsOn: [] },
-      { id: 'mvp', title: 'Implement the approved MVP', body: `Implement: ${a[7]}. Acceptance: ownership rules and core actions work end to end; regression tests and accessible desktop/mobile UI pass. Document prerequisites and deployment steps without deploying.`, dependsOn: ['foundation'] },
+      { id: 'mvp', title: 'Implement the approved MVP', body: `Implement: ${a[7]}${amendment}. Acceptance: ownership rules and core actions work end to end; regression tests and accessible desktop/mobile UI pass. Document prerequisites and deployment steps without deploying.`, dependsOn: ['foundation'] },
     ],
   } };
 }

@@ -1,6 +1,7 @@
 // The same project planning thread is used by the phone, console and pocket chat.
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { appPlanText } from '../../../shared/appStarter';
+import type { DraftRef } from '../../../shared/appStarter';
 import type { RepoView } from '../../../shared/types';
 import { api } from '../api';
 import { useT } from '../i18n';
@@ -20,6 +21,7 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
   const local = localRevision === d.revision;
   const reviewed = reviewedRevision === d.revision;
   const form = useRef<HTMLFormElement>(null);
+  const answerRevision = useRef<DraftRef | null>(null);
   const log = useRef<HTMLDivElement>(null);
   const document = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
@@ -39,8 +41,9 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
     finally { setBusy(false); }
   };
   const send = () => act(async () => {
-    await api.answerAppInterview(repo.id, { ...ref, messageId: crypto.randomUUID(), text });
+    await api.answerAppInterview(repo.id, { ...(answerRevision.current ?? ref), messageId: crypto.randomUUID(), text });
     setText('');
+    answerRevision.current = null;
   });
   return <div className="phone-chat">
     {navigation}
@@ -86,7 +89,7 @@ export function AppStarterChat({ repo, navigation }: { repo: RepoView; navigatio
       </div>}
     </div>
     {editable && <form ref={form} className="chat-input" onSubmit={(e) => { e.preventDefault(); if (!busy && text.trim()) void send(); }}>
-      <MessageBox value={text} onChange={setText} maxLength={4000} placeholder={t('Answer or request a plan change…')} aria-label={t('Project interview answer')} />
+      <MessageBox value={text} readOnly={busy} onChange={(value) => { setText(value); answerRevision.current = ref; }} maxLength={4000} placeholder={t('Answer or request a plan change…')} aria-label={t('Project interview answer')} />
       <button className="btn btn-good" disabled={busy || !text.trim()}>{t('Send')}</button>
     </form>}
   </div>;

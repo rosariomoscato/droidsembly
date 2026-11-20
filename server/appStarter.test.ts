@@ -231,6 +231,12 @@ it('scripted demo follows isolated questions and presents without publishing', (
   }
   const final = demoAppTurn(d, true);
   expect(validatePlan(final.plan).environments).toMatchObject({ workerHost: 'box', database: expect.stringContaining('SQLite'), dataAccess: 'sample' });
+  const originalEnvironments = final.plan!.environments;
+  d.messages.push({ id: crypto.randomUUID(), from: 'manager', text: 'Add an author filter to the MVP.' });
+  const revised = demoAppTurn(d, true);
+  expect(validatePlan(revised.plan).environments).toEqual(originalEnvironments);
+  expect(revised.plan!.mvp).toContain('Add an author filter');
+  expect(revised.plan!.tasks[1].body).toContain('Add an author filter');
   expect(d.approved).toBeUndefined();
   expect(d.ledger).toEqual([]);
 });

@@ -59,7 +59,7 @@ async function office() {
 function proposal(): AppPlan {
   const d: AppStarter = { id: 'demo', revision: 1, status: 'interview', decisions: '', ledger: [], messages: [] };
   for (const text of ['Readers', 'Books with owner', 'local', 'Disposable local fixtures', 'Private host', 'sample', 'No existing data', 'Track books; no sharing', 'Paper style'])
-    d.messages.push({ id: crypto.randomUUID(), from: 'ceo', text: 'question' }, { id: crypto.randomUUID(), from: 'manager', text });
+    d.messages.push({ id: crypto.randomUUID(), from: 'ceo', text: demoAppTurn(d, false).question! }, { id: crypto.randomUUID(), from: 'manager', text });
   return demoAppTurn(d, false).plan!;
 }
 
