@@ -4743,6 +4743,7 @@ export class Swarm {
    * so no repo can hog the slots.
    */
   private schedule() {
+    if (this.stopping) return; // Already queued timers must not restart a closed office.
     this.tickUsage();
     this.progressTick();
     if (this.officeUpdateTick()) return; // draining for the office's own update

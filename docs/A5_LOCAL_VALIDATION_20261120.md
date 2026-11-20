@@ -4,6 +4,51 @@
 ordinary clean-install package smoke are NON-PASS.** No push, PR, real issue,
 CI, merge, tag, release, PC update, real model, Box, database or deployment.
 
+## P11 follow-up diagnosis (after e01e502)
+
+- Commit `a6e79a8` adds package-smoke phase boundaries and opt-in npm timing.
+  Commands, dependency choices, assertions and budgets are unchanged.
+  Pure regressions cover intent-before-operation, unchanged results, errors and
+  exclusion of command/output/credential values from the phase trace.
+- One diagnostic full run used the original **240 s** external budget, unchanged
+  workers, load, test deadlines and scheduling. An external reporter wrote failure
+  stacks immediately; its synthetic preflight passed. Evidence:
+  `p11-full-a6e79a8.log` and `p11-full-a6e79a8.jsonl`.
+  **NON-PASS / SIGTERM143**, not a final suite summary: 303 module-end PASS records,
+  2 module-end FAIL records, 4 failed test records before termination.
+  CEO runtime failed its pre-inventory assertion that the CEO directory is
+  absent. Three resumeDesk cases exceeded their unchanged **15 s** deadlines.
+  resumeReviewRegression, boxDeskScript and homeIntegration ended PASS in this
+  run; their historical failures remain preserved.
+- Static inspection found `schedule()` had no shutdown check, including in
+  `origin/dev`: queued timers could schedule CEO/worker work after the office was
+  closed. A minimal early-return guard and deterministic stopped-callback
+  regression were added. This is a concrete lifecycle defect consistent with
+  fixture contamination, not proof that it explains every full-suite failure.
+  The Git fixture files themselves are unchanged from `origin/dev`.
+- One ordinary smoke run with phase/timing diagnostics used the original
+  **120 s** external budget: **NON-PASS / SIGTERM143**. Pack completed in7415ms,
+  npm-init in3985ms; the unfinished phase is **npm-install**. No demo was started.
+  Sanitized npm evidence: 128 HTTP200 fetches, slowest84313ms, no observed
+  EAI_AGAIN/ENOTFOUND/ECONNRESET/ETIMEDOUT/ECONNREFUSED/FETCH_ERROR/integrity/
+  HTTP401/403/404 error code, no lifecycle starts or successful install exit.
+  This localizes the blocker to dependency retrieval/resolution, not an app-start
+  failure, but does not certify installability or exclude later install errors.
+  Evidence: `p11-smoke-a6e79a8.log`, `p11-smoke-sanitized.json`; retained fixture
+  `C:/Users/rosar/AppData/Local/Temp/droidsembly-package-LgOWcd`.
+  Raw npm diagnostic logs stay local and are not published.
+- No further full/smoke retry merely to obtain green; P11 remains open until an
+  ordinary full run and clean install/package smoke actually finish successfully.
+  After the scheduler guard, the targeted diagnostic selection passed
+  **104/104 tests in8files** in53.67s: all5previously failing file names,
+  appStarter/appStarterWorkflow and the3smoke trace regressions.
+  Evidence: `p11-targeted-shutdown.log`. This is not a full-suite PASS and does
+  not establish that the Git deadlines will hold under full load.
+  The previous134-test result and tarball refer to9fc5825, before this server
+  change. No new installed-artifact runtime PASS is claimed.
+  Ordinary typecheck/client/licenses/server build also passed after the guard:
+  `p11-build-shutdown.log`. No new full run was performed after this fix.
+
 ## Revisions and safety
 
 - Verified remote development base: `5d47c5029e31d73788fed271bf035ceea08467c1`.
