@@ -1,8 +1,111 @@
 # A5 — local implementation and validation, 20 November 2026
 
-**Implemented locally, not released. P11 remains incomplete: full suite and
-ordinary clean-install package smoke are NON-PASS.** No push, PR, real issue,
+**P11 complete for local/demo acceptance on code bb1f10d, not released:
+3569/3569 tests,318/318 files, ordinary typecheck/build and final fresh-install
+package smoke PASS under the manager-approved validation conditions below.**
+No push, PR, real issue,
 CI, merge, tag, release, PC update, real model, Box, database or deployment.
+
+## Final full-suite result
+
+- Final ordinary installed-package smoke **PASS**, exit0:
+  `p11-smoke-bb1f10d-600s.log`. npm pack ran separately to retain the exact
+  artifact; the ordinary smoke's supported tarball argument installed that
+  artifact into a new directory with ordinary npm caching, **no reused
+  node_modules/junction**. npm-init6252ms, npm-install102435ms. CLI/legacy help
+  and version,93client-license texts, isolated demo server/client, baseline
+ 10workers, installed CEO skill loading and persistent scoped question verified;
+  **0new-project issues/workers** before approval. Demo port53155, isolated home;
+  successful temporary install/demo cleaned automatically. No provider was used.
+  Retained artifact: `validated-bb1f10d/droidsembly-0.4.0-beta.5.tgz`, SHA256
+  `4982e076b18d70a3fbfa4b6a604d75dd6d180b28a7be7861828fa127f418bee3`.
+  Its `pack.json` / `contents-result.json` verify105packaged entries, required
+  guides/skill included and private reports/browser files excluded.
+- Code **bb1f10d**, `p11-full-segment-1200s.log` and `.jsonl`:
+  **318/318 files,3569/3569 tests PASS**, exit0,541.02s. The immediate reporter
+  contains318module-end records, no failed tests and a final end record.
+  Unchanged walkways benchmark's5batches:
+  `[3.6997,4.4465,3.2196,3.5754,3.2761]ms`, median **3.5754ms <8ms**.
+- All historical failures below remain evidence. The successful full uses the
+  manager-approved quiet phase for4additional complete files and1200s external
+  budget; it is not a claim that the original parallel240s condition now passes.
+  No internal timeout, test assertion, benchmark threshold/sampling, fixture
+  workload or retry count was weakened. The new sample-coverage regression adds
+  one test relative to the prior completed full.
+- `p11-build-bb1f10d.log`: ordinary typecheck/Vite/client-license/server build
+  **PASS** after that full. Packaging the exact rebuilt output separately allows
+  the final ordinary smoke to install the retained tarball, not a reused
+  dependency directory. The source-checkout dependencies remain the earlier
+  validated identical-lock junction; no source `npm ci` PASS is claimed.
+- P11 is closed **for this local/demo scope**, combining the explicitly
+  revision-labelled prior desktop/mobile UI evidence with the final source
+  full/build and exact installed-artifact smoke. The last source change preserves
+  collision samples/path semantics; no fresh visual redesign is being certified.
+  Remaining non-claims: actual LAN phones, a full accessibility audit, original
+  parallel240s full conditions, source clean `npm ci`, Linux/macOS runs, real AI,
+  Box/database/Docker/Neon/deployment integration, publication or release.
+
+## P11 second follow-up (manager-authorized validation changes)
+
+- The1200s quiet-home full **completed**, exit1, in568.82s:
+  **317files PASS /1FAIL,3567tests PASS /1FAIL (3568total)**.
+  All4moved files and CEO runtime passed. The sole remaining failure was the
+  unchanged walkways performance check:15paths,5measured batches, median
+  **8.3927ms**, required **<8ms**. Evidence:
+  `p11-full-quiet-home-1200s.log` and `.jsonl`. This is not a timeout or a full PASS.
+  No retries/sampling/threshold changes were applied.
+- To address that demonstrated performance miss, `segmentClear` now enumerates
+  only odd multiples at each coarse-to-fine stride instead of visiting and
+  skipping even multiples with modulo. Deltas are computed once per segment.
+  The exact sample positions, numerical operation order, collision checks,
+  obstacle set and pathfinding algorithm are retained; no route caching or
+  reduced test workload. A new regression places a thin obstacle at **every**
+  sample across96segment lengths, including non-powers-of-two, supplementing
+  the existing two-floor sampled-reference/tangency/boundary/path tests.
+- The600s quiet-Git full still ended **NON-PASS / SIGTERM143**:
+  `p11-full-quiet-git.log` and `.jsonl`,308module-end PASS records,
+ 1module-end FAIL,1failed-test record (homeIntegration's unchanged5s deadline).
+  Functional phase ended and the quiet phase started; resumeReviewRegression
+  passed in18.237s overall, including all3real-Git cases individually below15s.
+  resumeDesk/boxDeskScript had not ended at interruption: do not claim that all
+ 3Git files passed this full. A conversational overstatement was corrected
+  immediately; all3had passed only in the earlier104-test targeted selection.
+- The manager then explicitly approved adding the complete homeIntegration file
+  to the quiet phase and allowing up to1200s external full budget. All internal
+  deadlines, assertions and fixture operations remain unchanged. This changes
+  the concurrency of4files relative to the original base. Results of that run
+  are recorded separately in `p11-full-quiet-home-1200s.log` and `.jsonl`.
+- After `d8860ea`, another full used the original240s budget and unmodified
+  concurrency. **NON-PASS / SIGTERM143**:302module-end PASS records,3FAIL and
+ 8failed-test records before termination (not a final suite summary).
+  CEO runtime passed, including the previously failing directory assertion.
+  Remaining failures were resumeDesk/resumeReviewRegression15s deadlines and
+  boxDeskScript's fixture-command/cleanup error. Evidence:
+  `p11-full-d8860ea.log` and `.jsonl`. This supports the shutdown correction;
+  it does not prove that the remaining failures are harmless.
+- The manager explicitly allowed up to600s external budget for an ordinary
+  smoke. **PASS**: `p11-smoke-d8860ea-600s.log`.
+  Ordinary npm pack/init/install into a fresh directory, **no dependency junction
+  or node_modules reuse**. npm's ordinary download cache remains enabled.
+  npm-install completed in113794ms, pack9453ms, init3715ms; the120s external
+  limit would not cover even those three completed phases.
+  Verified real installed CLI and legacy version/help,93bundled license texts,
+  demo server/client/isolated canonical data-home behavior,10baseline workers,
+  installed CEO resource loading and a persisted scoped question with
+  **0new-project workers/issues**. Demo port62190, own temporary home;
+  successful fixture was cleaned by the ordinary script. This is finally an
+  ordinary installed-package PASS, not the earlier reused-dependency supplement.
+- For the Git gap, the manager deferred to the recommendation after being
+  offered unchanged-concurrency diagnosis versus the existing quiet phase.
+  The chosen recommendation was explicitly announced before running:
+  move only the3complete Git/bash files into the existing timing-sensitive
+  project, **1worker for those files**, after all functional files; allow up
+  to600s external full-run budget. This intentionally changes the concurrency
+  condition and the external budget; it is **not equivalent** to passing the
+  old parallel240s run. No test selection, fixture operations, assertions,
+  internal command/test/hook deadlines or retries were weakened.
+  Config regressions retain full-file coverage/exactly-once partitioning and
+  unchanged functional-worker configuration. The original failures are retained.
 
 ## P11 follow-up diagnosis (after e01e502)
 
