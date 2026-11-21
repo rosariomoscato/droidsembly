@@ -25,10 +25,11 @@ const PLURAL: Record<NotifyEvent, string> = {
   ceoMessage: 'messages from the CEO',
   hire: 'team changes wait for you',
   agentError: 'agents need help',
+  needsSignIn: 'cloud agents need sign-in',
   usage: 'usage changes',
   merge: 'merges',
 };
-const ICON: Record<NotifyEvent | 'test', string> = { needsHuman: '⚠️', ceoMessage: '💬', hire: '📄', agentError: '🛑', usage: '⏸', merge: '🔀', test: '🔔' };
+const ICON: Record<NotifyEvent | 'test', string> = { needsHuman: '⚠️', ceoMessage: '💬', hire: '📄', agentError: '🛑', needsSignIn: '🔑', usage: '⏸', merge: '🔀', test: '🔔' };
 
 export const clip = (s: string, max = BODY_MAX) => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -108,7 +109,7 @@ export function noteText(n: Note, officeUrl = ''): string {
 
 /** ntfy's JSON publishing: POSTed to the server's root with the topic in the body. */
 export function ntfyPayload(n: Note, topic: string, officeUrl = '') {
-  const urgent = n.event === 'needsHuman' || n.event === 'agentError' || n.event === 'usage';
+  const urgent = n.event === 'needsHuman' || n.event === 'agentError' || n.event === 'needsSignIn' || n.event === 'usage';
   return { topic, title: n.title, message: n.body, priority: urgent ? 4 : 3, ...(officeUrl ? { click: officeUrl } : {}) };
 }
 

@@ -2731,6 +2731,7 @@ export class Swarm {
         },
       ]);
       this.postMessage('office', `🔑 ${a.name} needs you to sign ${label} in${expired ? ' again' : ''}: walk to their desk or tap 🔑 Sign in on their card, then follow the link in their terminal. Their cloud machine keeps the sign-in.`);
+      void this.notifier.notify('needsSignIn', `${a.name} needs sign-in`, `${label} ${expired ? 'sign-in expired or was revoked' : 'needs sign-in'} in their cloud machine. Open Droidsembly and tap Sign in on their card to complete the official login.`, `${a.name}: ${label} needs sign-in`);
     }
     this.emitAgent(a);
     this.save();

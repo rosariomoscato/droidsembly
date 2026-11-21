@@ -17,6 +17,8 @@ describe('notification settings', () => {
     expect(notifySettings(s, { officeUrl: '' }).officeUrl).toBe('');
     // An older saved state without the newer fields gets their defaults.
     expect(notifySettings(DEFAULT_NOTIFY, { events: { needsHuman: false } }).events.usage).toBe(true);
+    expect(notifySettings(DEFAULT_NOTIFY, { events: { needsHuman: false } }).events.needsSignIn).toBe(true);
+    expect(notifySettings(DEFAULT_NOTIFY, { events: { needsSignIn: false } }).events.needsSignIn).toBe(false);
   });
 
   it('accept only http(s) office URLs', () => {
@@ -32,6 +34,7 @@ describe('notification settings', () => {
     expect(noteTab('hire')).toBe('approvals');
     expect(noteTab('ceoMessage')).toBe('chat');
     expect(noteTab('agentError')).toBe('team');
+    expect(noteTab('needsSignIn')).toBe('team');
     expect(noteTab('merge')).toBe('company');
   });
 });
