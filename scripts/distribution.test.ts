@@ -7,9 +7,17 @@ describe('npm distribution channels', () => {
     for (const file of ['README.md', 'README.it.md']) {
       const text = fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
       const links = [...text.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1])
-        .filter((url) => /RELEASE_NOTES_0\.4\.0-beta\.[45]\.md|OPENCODE_BOX_VALIDATION\.md/.test(url));
+        .filter((url) => /RELEASE_NOTES_0\.4\.0-beta\.\d+\.md|OPENCODE_BOX_VALIDATION\.md/.test(url));
       expect(links.length).toBeGreaterThanOrEqual(3);
       for (const link of links) expect(link).toMatch(/^https:\/\/github\.com\/rosariomoscato\/droidsembly\/blob\//);
+      expect(links.some((link) => link.endsWith('/RELEASE_NOTES_0.4.0-beta.6.md'))).toBe(true);
+      const images = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)|<img[^>]+src="([^"]+)"/g)]
+        .map((match) => match[1] ?? match[2]);
+      expect(images.some((url) => url.endsWith('/beta6/robot-at-computer.png'))).toBe(true);
+      for (const image of images) expect(image).toMatch(/^https:\/\/raw\.githubusercontent\.com\/rosariomoscato\/droidsembly\/(?:main|[a-f0-9]{40})\//);
+      for (const image of images.filter((url) => url.includes('/screenshots/beta6/'))) {
+        expect(image).toContain('/12937e8a36d35aa3b615b956168598e655882425/');
+      }
     }
   });
   it('keeps beta.5 on next with its exact tag and recognizes the beta.4 update', () => {
