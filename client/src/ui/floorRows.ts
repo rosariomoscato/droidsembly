@@ -6,6 +6,7 @@ import type { Agent } from '../store';
 import { KIND_ICON, STATUS_KIND, type StatusKind } from './statusLook';
 import { translate } from '../../../shared/i18n';
 import { DEFAULT_CEO_CLI } from '../../../shared/agentDefaults';
+import { WORKER_PROFILES } from '../../../shared/workerProfiles';
 
 export interface FloorRow {
   id: string;
@@ -35,14 +36,16 @@ const CLI_NAMES: Record<AgentCli, string> = { claude: 'Claude Code', codex: 'Cod
 type Runtime = Pick<SwarmSettings, 'runtime' | 'defaultCli'> & Partial<Pick<SwarmSettings, 'language'>>;
 
 /** The coding agent someone runs: their own pick in Real terminals; the Agent SDK is Claude Code for everyone. */
-export const workerCli = (a: Pick<Agent, 'cli' | 'role'>, settings: Runtime): AgentCli =>
-  settings.runtime !== 'terminal' ? 'claude' : a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : settings.defaultCli);
+export const workerCli = (a: Pick<Agent, 'cli' | 'role'> & Partial<Pick<Agent, 'host'>>, settings: Runtime): AgentCli =>
+  settings.runtime !== 'terminal' && a.host !== 'box' ? 'claude' : a.cli || (a.role === 'ceo' ? DEFAULT_CEO_CLI : settings.defaultCli);
 
 /** What someone is, in a word or two: the CEO, or the coding agent they run. */
-export function agentLabel(a: Pick<Agent, 'cli' | 'role'>, settings: Runtime, clis: CliView[]): string {
+export function agentLabel(a: Pick<Agent, 'cli' | 'role'> & Partial<Pick<Agent, 'host' | 'profile'>>, settings: Runtime, clis: CliView[]): string {
   if (a.role === 'ceo') return 'CEO';
   const id = workerCli(a, settings);
-  return clis.find((c) => c.id === id)?.label ?? CLI_NAMES[id];
+  const cli = clis.find((c) => c.id === id)?.label ?? CLI_NAMES[id];
+  const profile = a.profile && a.profile !== 'generic' ? WORKER_PROFILES.find(p => p.id === a.profile) : null;
+  return profile ? `${cli} · ${translate(settings.language, profile.label)}` : cli;
 }
 
 /**
@@ -59,6 +62,7 @@ export function doingText(a: Pick<Agent, 'role' | 'status' | 'task' | 'issueNumb
   if (a.role === 'ceo') return a.status === 'working' ? (a.issueTitle ?? t('Working')) : t('Free for a chat');
   if (a.status === 'idle') return t('Nothing assigned');
   if (a.task === 'analysis') return t('Read-only analysis');
+  if (a.task === 'profile') return t(a.issueTitle ?? 'Work profile');
   const title = a.issueTitle ? `: ${a.issueTitle}` : '';
   if (a.task === 'qa') return a.prNumber ? t('Testing PR #{number}', { number: a.prNumber }) + title : t('Testing');
   if (a.task === 'fix' && a.prNumber) return t('Fixing PR #{number}', { number: a.prNumber }) + title;

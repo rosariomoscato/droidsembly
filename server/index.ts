@@ -174,6 +174,7 @@ app.post(
       name: str(req.body.name),
       cli: str(req.body.cli),
       host: str(req.body.host),
+      profile: req.body.profile,
       strict: true,
       model: str(req.body.model),
       effort: str(req.body.effort),
@@ -188,6 +189,9 @@ app.post('/api/agents/:id/assign', route((req) => swarm.assign(String(req.params
 app.post('/api/agents/:id/resume-issue', route((req) => swarm.resumeIssue(String(req.params.id), str(req.body.repoId), num(req.body.issueNumber))));
 app.post('/api/agents/:id/stop', route((req) => swarm.stopAgent(String(req.params.id))));
 app.post('/api/agents/:id/analyze', route((req) => swarm.analyze(String(req.params.id), str(req.body.text))));
+app.get('/api/agents/:id/profile', route((req) => swarm.profileReport(String(req.params.id))));
+app.post('/api/agents/:id/profile', route((req) => swarm.startProfile(String(req.params.id), req.body)));
+app.post('/api/agents/:id/profile/approve', route((req) => swarm.approveProfile(String(req.params.id), req.body)));
 app.post('/api/agents/:id/reset', route((req) => swarm.resetAgent(String(req.params.id))));
 app.post('/api/agents/:id/message', route((req) => swarm.message(String(req.params.id), str(req.body.text))));
 app.post('/api/agents/:id/sign-in', route((req) => swarm.signIn(String(req.params.id))));
@@ -318,6 +322,7 @@ app.post(
       model: typeof req.body?.model === 'string' ? req.body.model : undefined,
       effort: typeof req.body?.effort === 'string' ? req.body.effort : undefined,
       host: typeof req.body?.host === 'string' ? req.body.host : undefined,
+      profile: req.body?.profile,
       note: str(req.body?.note),
     }),
   ),

@@ -18,7 +18,7 @@ export interface ReconcileAgent {
   role: string;
   /** Their status when the office stopped. */
   status: string;
-  task: 'issue' | 'qa' | 'fix' | 'analysis' | null;
+  task: import('../shared/types.ts').AgentTask | null;
   work: WorkState;
   deskExists: boolean;
   /** A CLI the terminal keeper kept working on this task (restartRecovery.ts followKeptCli). */
@@ -36,7 +36,7 @@ export type ReconcileStep = 'none' | 'clear' | 'reattach' | 'resume' | 'requeue'
 /** What becomes of one agent after a restart. Work GitHub couldn't be asked about counts as still open. */
 export function reconcileStep(a: ReconcileAgent): ReconcileStep {
   if (a.role === 'ceo' || !a.task) return 'none';
-  if (a.task === 'analysis') return a.cliAlive && a.deskExists ? 'reattach' : 'keep';
+  if (a.task === 'analysis' || a.task === 'profile') return a.cliAlive && a.deskExists ? 'reattach' : 'keep';
   if (a.work === 'closed' || a.work === 'merged') return 'clear';
   if (a.status !== 'preparing' && a.status !== 'working') {
     // Done (waiting on QA) keeps its card: a fix sets up a desk of its own. A failed or stopped one whose desk is gone

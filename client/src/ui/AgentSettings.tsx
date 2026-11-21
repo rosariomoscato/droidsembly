@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
 import { api } from '../api';
+import { WorkerProfileSelect } from './WorkerProfileSelect';
 import { CodingAgentTestNotice } from './CodingAgentTestNotice';
 import { DEFAULT_CEO_CLI } from '../../../shared/agentDefaults';
 import { isBusy, useStore, type Agent } from '../store';
@@ -136,7 +137,7 @@ export function ModelInput({ agent, id, className = 'inline', style }: FieldProp
         aria-label={id ? undefined : t('Model')}
         onBlur={(e) => e.target.value !== agent.model && void save(agent.id, { model: e.target.value })}
       />
-      {cli === 'opencode' && <OpenCodeModelPicker value={agent.model} agent={agent.id} inherited={agent.role !== 'ceo' && settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => void save(agent.id, { model })} />}
+      {cli === 'opencode' && <OpenCodeModelPicker value={agent.model} agent={agent.id} disabled={agent.host === 'box' && agent.cloud !== 'ready' && agent.cloud !== 'paused'} inherited={agent.role !== 'ceo' && settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => void save(agent.id, { model })} />}
       <datalist id={listId}>
         {modelSuggestions(cli).map((m) => (
           <option key={m} value={m} />
@@ -152,6 +153,7 @@ export function EffortSelect({ agent, id, style }: FieldProps) {
   const defaultEffort = settings.defaultEffort;
   const opencode = workerCli(agent, settings) === 'opencode';
   if (opencode) return <OpenCodeVariantSelect value={agent.model} agent={agent.id} id={id} style={style}
+    disabled={agent.host === 'box' && agent.cloud !== 'ready' && agent.cloud !== 'paused'}
     inherited={agent.role !== 'ceo' && settings.defaultCli === 'opencode' ? settings.defaultModel : undefined}
     onSelect={(model) => void save(agent.id, { model })} />;
   return (
@@ -362,6 +364,7 @@ export function AgentSetup({ agent }: { agent: Agent }) {
             <HostSelect agent={agent} id={`${id}-host`} />
           </label>
         )}
+        {!ceo && agent.host === 'box' && <WorkerProfileSelect value={agent.profile} disabled={isBusy(agent) || !!agent.task} onChange={profile => { void api.updateAgent(agent.id, { profile }).catch(() => undefined); }} />}
         <label className="field" htmlFor={`${id}-model`}>
           <span><T>Model</T></span>
           <ModelInput agent={agent} id={`${id}-model`} className="" />
@@ -374,6 +377,7 @@ export function AgentSetup({ agent }: { agent: Agent }) {
       {(terminal || agent.host === 'box') && <CodingAgentTestNotice />}
       {(agent.cli || (ceo ? DEFAULT_CEO_CLI : defaultCli)) === 'opencode' && <OpenCodeConnections agent={agent} />}
       {agent.host === 'box' && <p className="muted small"><T>A ready Box describes its machine, not provider authentication or quota. Finish Sign in in this agent’s terminal and check its model before assigning work.</T></p>}
+      {!ceo && agent.host === 'box' && <p className="muted small"><T>Review and Deploy are reserved for manual tasks, not automatic issues or PR QA. Clear the desk before changing profile; the same Box and logins are retained.</T></p>}
       <LookEditor agent={agent} />
       <PromptPreview agent={agent} />
       <p className="muted small"><T>Name and model save when you leave them; the rest, and looks, as you pick them. Running sessions aren’t restarted.</T></p>
