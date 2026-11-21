@@ -132,7 +132,7 @@ export const italianUi: Readonly<Record<string, string>> = {
   'Halloween': 'Halloween', '24–31 Oct': '24–31 ott', '1–26 Dec': '1–26 dic', '31 Dec–1 Jan': '31 dic–1 gen', '12–14 Feb': '12–14 feb',
   'Good Friday to Easter Monday': 'Dal Venerdì Santo a Pasquetta', 'on the day you set': 'nel giorno impostato',
   'A pull request needs me': 'Una pull request richiede il mio intervento', 'A message from the CEO': 'Un messaggio dal CEO', 'A team change waits for my decision': 'Una modifica al team attende la mia decisione',
-  'Someone is stuck in an error for over 10 minutes': 'Un agente è bloccato da un errore da oltre 10 minuti', "Claude's usage limit pauses or paces the office": 'Il limite di utilizzo di Claude sospende o rallenta l’ufficio', 'Every merge': 'Ogni merge',
+  'Someone is stuck in an error for over 10 minutes': 'Un agente è bloccato da un errore da oltre 10 minuti', 'A cloud agent needs sign-in': 'Un agente cloud richiede l’accesso', "Claude's usage limit pauses or paces the office": 'Il limite di utilizzo di Claude sospende o rallenta l’ufficio', 'Every merge': 'Ogni merge',
   'Nobody works here yet.': 'Non lavora ancora nessuno qui.', 'Agent': 'Agente', 'Status': 'Stato', 'Doing': 'Attività', 'Actions': 'Azioni',
   'Open {name}’s terminal': 'Apri il terminale di {name}', 'Sign {name}’s {provider} in, in their terminal': 'Accedi a {provider} per {name} nel suo terminale',
   '👥 Floor {floor}: {repo}': '👥 Piano {floor}: {repo}', '👥 Lobby': '👥 Hall', 'Lobby': 'Hall', '🛗 Go there': '🛗 Vai lì', '🖥️ App': '🖥️ App', 'Floors': 'Piani',

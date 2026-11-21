@@ -131,6 +131,30 @@ function notifier(dir: string, status: (req: NotifyRequest) => number | Promise<
 }
 
 describe('the notifier', () => {
+  it('sends cloud sign-in alerts to ntfy and the Team tab, respecting the event toggle', async () => {
+    const dir = tmpDir();
+    const settings = notifySettings(DEFAULT_NOTIFY, { officeUrl: 'https://office.example.test/' });
+    const { n, posts, notes } = notifier(dir, () => 200, settings);
+    try {
+      await n.setWebhook('ntfy', SECRETS.ntfy);
+      await n.notify('needsSignIn', 'Ada needs sign-in', 'OpenCode needs sign-in. Open Droidsembly and tap Sign in.');
+      expect(posts).toHaveLength(1);
+      expect(posts[0].channel).toBe('ntfy');
+      expect(JSON.parse(String(posts[0].body))).toMatchObject({
+        title: '🔑 Ada needs sign-in', priority: 4,
+        message: 'OpenCode needs sign-in. Open Droidsembly and tap Sign in.',
+      });
+      expect(notes).toHaveLength(1);
+      expect(notes[0].url).toContain('team');
+      settings.events.needsSignIn = false;
+      await n.notify('needsSignIn', 'Lin needs sign-in', 'Codex needs sign-in.');
+      expect(posts).toHaveLength(1);
+      expect(notes).toHaveLength(1);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('exposes completion of an immediate notification without finishing before its transport', async () => {
     const dir = tmpDir();
     const gate = deferred<number>();

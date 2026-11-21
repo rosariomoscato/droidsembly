@@ -44,6 +44,8 @@ OpenCode keeps its own V2 database and configuration under `/workspace/home/.cub
 
 **When a sign-in expires** (or is revoked), the office notices before the agent's next task, or when their session fails on it mid-task. It forgets the dead login in their Box, marks them **needs sign-in** again and holds the task; signing in again the same way carries the task on in the same conversation.
 
+When a cloud agent first needs sign-in, or needs it again after expiration/revocation, the office also sends a **cloud agent needs sign-in** notification through your enabled channels (including ntfy). Repeated checks while the agent waits do not generate new alerts; bursts across agents use the usual notification rate limit. Disable this event in Settings → Notifications if desired. No login links, codes or credentials are included.
+
 **Rather not sign in Box by Box?** A key in Settings → Cloud agents is used by every cloud agent instead: an **Anthropic API key** (`sk-ant-…`, billed per token) for Claude Code, an **OpenAI API key** for Codex. Or, for Claude Code with your subscription, a token from `claude setup-token` kept in your environment as `CUBEFARM_CLAUDE_TOKEN` (Windows: `setx CUBEFARM_CLAUDE_TOKEN "<token>"`; macOS or Linux: `export CUBEFARM_CLAUDE_TOKEN="<token>"` in your shell profile), then restart the office. It's a cubefarm-only name, so your own `claude` keeps its normal login, and the office never writes it down.
 
 ## How it works
