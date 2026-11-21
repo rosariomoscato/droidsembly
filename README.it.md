@@ -12,9 +12,7 @@ Uno spazio visuale per lo sviluppo software assistito dall'AI: collega i tuoi re
 
 [Sito](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Release](https://github.com/rosariomoscato/droidsembly/releases) · [Segnala un problema](https://github.com/rosariomoscato/droidsembly/issues) · [Contribuire](CONTRIBUTING.it.md) · [Documentazione](#documentazione) · [Sostieni il progetto](#sostieni-il-progetto)
 
-**Beta pubblicata:** [0.4.0-beta.5](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.5), disponibile su npm `next`; `latest` resta beta.1. Vedi [storico delle verifiche e limiti accettati](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione e le istruzioni demo; questo repository contiene i sorgenti e la documentazione tecnica.
-
-**Candidata sorgente, non pubblicata:** questo branch prepara `0.4.0-beta.6` per `next`, con ripresa delle issue interrotte e correzione degli exit status Box. [Note della candidata e limiti di validazione](https://github.com/rosariomoscato/droidsembly/blob/release/beta6-candidate-20261117/docs/RELEASE_NOTES_0.4.0-beta.6.md). Compilare questi sorgenti non installa i byte pubblici della beta.5 né aggiorna un ufficio esistente.
+**Beta pubblicata:** [0.4.0-beta.6](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.6), disponibile su npm `next`; `latest` resta beta.1. Include pianificazione di nuove app con il CEO, ripresa delle issue interrotte e correzione degli exit status Box. Vedi [note di rilascio e limiti di validazione](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.4.0-beta.6.md). Visita [droidsembly.com](https://droidsembly.com) per la presentazione; questo repository contiene i sorgenti e la documentazione tecnica.
 
 **Gratuito e open source, con licenza MIT.** Nessuna attivazione a pagamento o sblocco commerciale degli agenti. Il sostegno volontario aiuta lo sviluppo; abbonamenti AI, consumi API e servizi cloud opzionali hanno costi e limiti propri.
 
@@ -28,28 +26,22 @@ Tu definisci gli obiettivi e supervisioni il lavoro. Gli agenti ti aiutano a rea
 
 ## Guarda l'ufficio
 
-![Piano di progetto della demo Droidsembly con sei agenti al lavoro e pannello delle attività](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/project-floor-beta.png)
+![Droidsembly beta.6: agenti robot seduti al computer nell'ufficio 3D](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/robot-at-computer.png)
 
 <details>
-<summary>Kanban e vista mobile Pocket</summary>
+<summary>Panoramica dell'ufficio e vista mobile Pocket</summary>
 
-![Bacheca Kanban demo con sei attività in corso assegnate agli agenti](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/kanban-beta.png)
+![Piano di progetto Droidsembly beta.6 nella vista dall'alto](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/office-overview.png)
 
-<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/pocket-mobile.png" alt="Dashboard Pocket in italiano con stato del progetto, chat CEO e navigazione del team" width="360">
+<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/pocket-mobile.png" alt="Dashboard Pocket Droidsembly beta.6 con stato dei progetti, chat CEO e navigazione del team" width="360">
 
 </details>
 
-Il piano di progetto e il Kanban sono catture reali della beta 0.4.0-beta.1 in una demo isolata, con progetti e attività simulati e interfaccia inglese. L'immagine Pocket proviene da una precedente cattura demo in italiano.
+Catture reali della **0.4.0-beta.6 pubblicata**, acquisite il 21 novembre 2026 in una demo isolata senza AI, con progetti e attività sintetici e interfaccia inglese. Il primo piano usa la fotocamera integrata; Pocket è mostrato con un viewport mobile. [Dettagli delle catture](https://github.com/rosariomoscato/droidsembly/blob/main/docs/branding/screenshots/beta6/README.md).
 
 ## Cosa puoi fare
 
-**Nuove app (sorgenti dev, non beta.5 pubblicata):** “Qualcosa di nuovo” con CEO
-avvia intervista per progetto → piano completo revisionabile → **Approva piano e
-crea issue** → workflow standard. Nessuna issue del piano o preparazione worker/Box
-prima dell’approvazione e della pubblicazione confermata. Stack e database sono
-scelte motivate, non obblighi; SQLite/Docker non implicano worker locali.
-Vedi [guida A5, dati/ambienti e ripresa](docs/app-starter.md).
-
+- **Pianificare nuove app con il CEO:** intervista per progetto → piano modificabile con perimetro, stack, ambienti e dati → **Approva piano e crea issue** → task GitHub con dipendenze. Nessuna issue del piano o preparazione worker/Box prima dell'approvazione e della pubblicazione confermata. [Guida starter e limiti di ripresa](docs/app-starter.md).
 - **Coordinare agenti di coding:** Claude Code, Codex e OpenCode V2, con selezione dei modelli e delle varianti di ragionamento supportate. La disponibilità dipende dal runtime: Agent SDK resta esclusivamente Claude. OpenCode supporta terminali locali e worker su Upstash Box; ufficio e CEO restano locali. Vedi [limiti della validazione Box](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Seguire il workflow completo:** issue → sviluppo e controlli iniziali → pull request → sessione QA separata → correzioni → merge quando le condizioni configurate sono soddisfatte.
 - **Mantenere il controllo:** assegnazione manuale o automatica, onboarding CEO facoltativo, approvazione dei cambi team e interruttore distinto per il merge automatico.
@@ -61,9 +53,9 @@ Vedi [guida A5, dati/ambienti e ripresa](docs/app-starter.md).
 
 ## Installa questo fork
 
-**Pacchetto pubblicato:** [droidsembly@0.4.0-beta.5 su npm](https://www.npmjs.com/package/droidsembly). Avvia con `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), oppure compila dai sorgenti come indicato sotto. Per scegliere esattamente beta.5 usa `npx droidsembly@0.4.0-beta.5`; compilare un checkout usa la sua versione, non necessariamente i byte pubblicati. Queste sono istruzioni di avvio, non un aggiornamento automatico dell'ufficio esistente: segui prima la [procedura di aggiornamento controllato](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/QUICKSTART_PC.md). Non è ancora disponibile un installer desktop. `npx cubefarm` installa il pacchetto originale, non Droidsembly.
+**Pacchetto pubblicato:** [droidsembly@0.4.0-beta.6 su npm](https://www.npmjs.com/package/droidsembly). Avvia con `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), oppure compila dai sorgenti come indicato sotto. Per scegliere esattamente beta.6 usa `npx droidsembly@0.4.0-beta.6`; compilare un checkout usa la sua versione, non necessariamente i byte pubblicati. Queste sono istruzioni di avvio, non un aggiornamento automatico dell'ufficio esistente: segui prima la [procedura di aggiornamento controllato](docs/QUICKSTART_PC.md). Non è ancora disponibile un installer desktop. `npx cubefarm` installa il pacchetto originale, non Droidsembly.
 
-**È una beta, non una versione stabile.** Usa il canale esplicito `next`: `latest` seleziona ancora beta.1, non beta.5. Una futura stabile subentrerà su `latest`; le beta verificano gli aggiornamenti su `next`. Il pacchetto non espone un alias globale `cubefarm`. Il file interno `bin/cubefarm.js` e i launcher dei checkout esistenti restano compatibili. Le home legacy esistenti sono adottate; `DROIDSEMBLY_HOME` prevale su `SWARM_HOME` e una doppia home ambigua richiede scelta esplicita. Per l'uso affiancato scegli una home separata e porte libere come descritto sotto.
+**È una beta, non una versione stabile.** Usa il canale esplicito `next`: `latest` seleziona ancora beta.1, non beta.6. Una futura stabile subentrerà su `latest`; le beta verificano gli aggiornamenti su `next`. Il pacchetto non espone un alias globale `cubefarm`. Il file interno `bin/cubefarm.js` e i launcher dei checkout esistenti restano compatibili. Le home legacy esistenti sono adottate; `DROIDSEMBLY_HOME` prevale su `SWARM_HOME` e una doppia home ambigua richiede scelta esplicita. Per l'uso affiancato scegli una home separata e porte libere come descritto sotto.
 
 ### Requisiti
 
@@ -72,7 +64,7 @@ Vedi [guida A5, dati/ambienti e ripresa](docs/app-starter.md).
 - Claude Code è incluso tramite Agent SDK. OpenCode **2.x** e Codex si installano separatamente quando selezionati. Le sessioni terminale esclusivamente OpenCode non richiedono un abbonamento Claude.
 - Google Chrome per gli agenti che verificano i progetti nel browser.
 
-**Browser consigliato per l'ufficio:** Google Chrome aggiornato è il nostro browser di riferimento per i collaudi desktop isolati. Altri browser moderni potrebbero funzionare, ma non sono stati validati in questo ciclo di test; non è una politica di supporto esclusivo a Chrome. Clic sulle notifiche native e focus delle finestre restano non verificati. Vedi [ambito e limiti del collaudo della candidata](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/RELEASE_NOTES_0.4.0-beta.5.md).
+**Browser consigliato per l'ufficio:** Google Chrome aggiornato è il nostro browser di riferimento per i collaudi desktop isolati. Altri browser moderni potrebbero funzionare, ma non sono stati validati in questo ciclo di test; non è una politica di supporto esclusivo a Chrome. Clic sulle notifiche native e focus delle finestre restano non verificati. Vedi [ambito e limiti del collaudo della release](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.4.0-beta.6.md).
 
 Il progetto è destinato a Windows, macOS e Linux. La demo senza AI descritta sotto non richiede credenziali dei provider o login GitHub.
 
@@ -144,7 +136,13 @@ SWARM_HOME="$HOME/.droidsembly" SWARM_PORT=4419 SWARM_HOST=127.0.0.1 SWARM_PREVI
 
 Apri **http://127.0.0.1:4419/**. Le cartelle degli esempi sono una scelta esplicita per una nuova installazione, non una migrazione: percorsi dati e launcher esistenti restano validi. `DROIDSEMBLY_HOME` è l'alias canonico di `SWARM_HOME`. Senza una scelta esplicita, i dati esistenti in `~/.cubefarm` restano al loro posto; i nuovi uffici usano `~/.droidsembly`. Se entrambe le cartelle predefinite esistono, l'avvio richiede una scelta esplicita, senza unire o spostare dati. Le variabili canoniche `DROIDSEMBLY_*` hanno la precedenza sulle equivalenti legacy. Vedi [compatibilità ambiente/cartella dati e rollback](docs/ENV_HOME_MIGRATION.md).
 
-Prima di collegare un progetto, seleziona il coding agent del CEO se non vuoi usare il predefinito Claude Code. Per saltare l'analisi AI iniziale, disattiva l'opzione che permette al CEO di studiare il repository e pianificare dal brief. Assegnazione automatica, merge automatico e revisioni periodiche CEO sono impostazioni distinte. Vedi [Agenti](https://github.com/rosariomoscato/droidsembly/blob/main/docs/agents.md) per configurazione dei provider e limiti dei runtime.
+I nuovi uffici propongono **OpenCode** per worker terminali e CEO, senza imporre provider o modello; le scelte degli uffici esistenti sono preservate. Controlla entrambi i valori prima di collegare un progetto. Il runtime Agent SDK resta esclusivamente Claude. Per saltare l'analisi AI iniziale, disattiva l'opzione che permette al CEO di studiare il repository e pianificare dal brief. Assegnazione automatica, merge automatico e revisioni periodiche CEO sono impostazioni distinte. Vedi [Agenti](docs/agents.md) per configurazione dei provider e limiti dei runtime.
+
+### 4. Crea una nuova app con il CEO
+
+Nella console del manager → **Piani e repository**, scegli **Qualcosa di nuovo**, imposta la visibilità del repository e descrivi l'app. La creazione del progetto crea un repository GitHub; con il CEO abilitato avvia anche un'intervista che consuma quota AI. **Apri intervista** apre la conversazione del progetto nel telefono.
+
+Rispondi alle domande, esamina e modifica il piano completo, poi usa **Approva piano e crea issue** soltanto quando sei pronto. Un “sì” in chat non pubblica task. L'approvazione vale per quel progetto, revisione e insieme di task esatti; il registro di pubblicazione riporta le issue confermate e le dipendenze. Lascia spenti assegnazione e merge automatici se vuoi soltanto pianificare. [Guida completa](docs/app-starter.md).
 
 ## Desktop, mobile e PWA
 
