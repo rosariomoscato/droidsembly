@@ -26,14 +26,14 @@ You set the goals and supervise the work. The agents help you get it done.
 
 ## See the office
 
-![Droidsembly beta.6: robot agents seated at computers in the 3D office](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/robot-at-computer.png)
+![Droidsembly beta.6: robot agents seated at computers in the 3D office](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/robot-at-computer.png)
 
 <details>
 <summary>Office overview and mobile Pocket view</summary>
 
-![Droidsembly beta.6 project floor in the overhead office view](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/office-overview.png)
+![Droidsembly beta.6 project floor in the overhead office view](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/office-overview.png)
 
-<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/pocket-mobile.png" alt="Droidsembly beta.6 Pocket dashboard with project status, CEO chat and team navigation" width="360">
+<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/pocket-mobile.png" alt="Droidsembly beta.6 Pocket dashboard with project status, CEO chat and team navigation" width="360">
 
 </details>
 

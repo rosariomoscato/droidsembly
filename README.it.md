@@ -26,14 +26,14 @@ Tu definisci gli obiettivi e supervisioni il lavoro. Gli agenti ti aiutano a rea
 
 ## Guarda l'ufficio
 
-![Droidsembly beta.6: agenti robot seduti al computer nell'ufficio 3D](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/robot-at-computer.png)
+![Droidsembly beta.6: agenti robot seduti al computer nell'ufficio 3D](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/robot-at-computer.png)
 
 <details>
 <summary>Panoramica dell'ufficio e vista mobile Pocket</summary>
 
-![Piano di progetto Droidsembly beta.6 nella vista dall'alto](https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/office-overview.png)
+![Piano di progetto Droidsembly beta.6 nella vista dall'alto](https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/office-overview.png)
 
-<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/main/docs/branding/screenshots/beta6/pocket-mobile.png" alt="Dashboard Pocket Droidsembly beta.6 con stato dei progetti, chat CEO e navigazione del team" width="360">
+<img src="https://raw.githubusercontent.com/rosariomoscato/droidsembly/12937e8a36d35aa3b615b956168598e655882425/docs/branding/screenshots/beta6/pocket-mobile.png" alt="Dashboard Pocket Droidsembly beta.6 con stato dei progetti, chat CEO e navigazione del team" width="360">
 
 </details>
 
