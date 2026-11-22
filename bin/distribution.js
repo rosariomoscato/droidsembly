@@ -30,7 +30,9 @@ export function isNewer(candidate, current) {
 export function updateInfo(name, version) {
   const parsed = parseVersion(version);
   if (!parsed) throw new Error(`Invalid package version: ${version}`);
-  const channel = parsed.pre.length ? 'next' : 'latest';
+  // Maintainer-approved public beta launch; do not promote other prereleases implicitly.
+  const publicBeta = name === 'droidsembly' && version === '0.5.0-beta.1';
+  const channel = parsed.pre.length && !publicBeta ? 'next' : 'latest';
   return {
     channel,
     command: `npx ${name}@${channel}`,

@@ -1,6 +1,6 @@
 {
   "name": "droidsembly",
-  "version": "0.4.0-beta.6",
+  "version": "0.5.0-beta.1",
   "description": "Droidsembly: a visual 3D office and mobile dashboard for coordinating AI coding agents on your GitHub projects.",
   "keywords": [
     "claude-code",
@@ -28,7 +28,7 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/",
-    "tag": "next"
+    "tag": "latest"
   },
   "files": [
     "bin",

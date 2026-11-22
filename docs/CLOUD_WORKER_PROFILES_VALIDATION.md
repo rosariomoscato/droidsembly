@@ -114,6 +114,30 @@ computed styles confirmed dark `rgb(31, 29, 43)` text on `rgb(233, 236, 239)`
 for the idle badge. No new screenshot was captured: the screenshot tool required
 a visible desktop window.
 
+Release-preparation revalidation of `2e7b720` on 22 November did **not** pass:
+`npm test -- --maxWorkers=2` reported 323 passed / 3 failed files and
+3622 passed / 7 failed tests (1028.06 seconds). Failures were six 15-second
+timeouts in the real throwaway-Git cases in `resumeDesk.test.ts` and
+`resumeReviewRegression.test.ts`, plus the five-second offline subprocess test
+in `npmPublicationCli.test.ts`. No assertion mismatch was reported for those
+seven cases; timeout cause remains unestablished. The earlier successful run
+does not supersede this result. Publication is blocked pending investigation.
+
+A separate, single-worker subprocess-timing diagnostic also failed: 15 tests
+passed / 4 timed out, plus a cleanup-hook timeout (182.78 seconds). The observed
+slow calls included Git worktree creation (11.877 seconds), a local Git push
+(4.150 seconds), rev-parse (3.832 seconds), and an offline Node CLI (9.286
+seconds). The observer itself adds I/O; these observations do not establish
+the cause of the uninstrumented failures. A host CPU snapshot showed other
+active applications and antivirus work, not proof of causation. No external
+application was stopped and no antivirus settings were changed.
+
+After closing the agent-owned browser tabs, the uninstrumented full suite with
+one worker (`npm test -- --maxWorkers=1`) passed: **326 files, 3629 tests**,
+1418.10 seconds. This validates the feature plus badge correction; it neither
+erases the failed runs nor establishes their cause. Release checks remain
+separate.
+
 ## Limits and assumptions
 
 No real Upstash Box, coding-provider session, Vercel account, provisioning,

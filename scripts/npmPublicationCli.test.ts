@@ -5,6 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { afterEach, expect, it } from 'vitest';
 import { integrity } from './npmPublication.mjs';
+import { releaseInfo } from '../bin/distribution.js';
 
 const fixtures: string[] = [];
 afterEach(() => {
@@ -17,6 +18,9 @@ it('runs actual capture/verify CLIs offline, writes exact artifact/output/report
   const dir = fs.mkdtempSync(path.join(parent, 'publication-cli-'));
   fixtures.push(dir);
   const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+  const { channel } = releaseInfo(pkg.version, `droidsembly-v${pkg.version}`);
+  const oldChannels = { latest: '0.4.0-beta.1', next: '0.0.0-old' };
+  const publicChannels = { ...oldChannels, [channel]: pkg.version };
   const gitHead = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const bytes = Buffer.from('synthetic CLI publication artifact');
   const filename = `droidsembly-${pkg.version}.tgz`;
@@ -31,7 +35,9 @@ it('runs actual capture/verify CLIs offline, writes exact artifact/output/report
     globalThis.fetch = async (url, options) => {
       assert.deepEqual(options.headers, { 'Cache-Control': 'no-cache' });
       assert.equal(options.redirect, 'error');
-      if (String(url).endsWith('/dist-tags')) return Response.json({ latest: '0.4.0-beta.1', next: process.argv[2] === 'capture' ? '0.0.0-old' : version });
+      if (String(url).endsWith('/dist-tags')) return Response.json(process.argv[2] === 'capture'
+        ? ${JSON.stringify(oldChannels)} : process.env.TEST_NEXT_ALIGNED === '1'
+          ? { ...${JSON.stringify(publicChannels)}, next: version } : ${JSON.stringify(publicChannels)});
       if (String(url).endsWith('/' + version)) return process.argv[2] === 'capture' ? new Response('', { status: 404 }) : Response.json(metadata);
       if (String(url) === metadata.dist.tarball) return new Response(artifact);
       throw new Error('Unexpected network access: ' + url);
@@ -46,7 +52,21 @@ it('runs actual capture/verify CLIs offline, writes exact artifact/output/report
   expect(verify.status, verify.stderr).toBe(0);
   expect(fs.readFileSync(path.join(dir, 'public.tgz'))).toEqual(bytes);
   const beforeReport = fs.readFileSync(path.join(dir, 'availability.json'), 'utf8');
-  expect(JSON.parse(beforeReport)).toMatchObject({ outcome: 'canonical-public-artifact-and-channels-verified', channels: { latest: '0.4.0-beta.1', next: pkg.version } });
+  expect(JSON.parse(beforeReport)).toMatchObject({ outcome: 'canonical-public-artifact-and-channels-verified', channels: publicChannels });
   expect(run('verify').status).not.toBe(0);
   expect(fs.readFileSync(path.join(dir, 'availability.json'), 'utf8')).toBe(beforeReport);
+  if (pkg.version === '0.5.0-beta.1') {
+    const check = (mode: string, aligned = false) => spawnSync(process.execPath,
+      ['--import', pathToFileURL(preload).href, 'scripts/check-npm-next.mjs', mode],
+      { env: { ...env, TEST_NEXT_ALIGNED: aligned ? '1' : '0' }, encoding: 'utf8' });
+    const ready = check('before');
+    expect(ready.status, ready.stderr).toBe(0);
+    expect(check('after').status).not.toBe(0);
+    expect(check('before', true).status).not.toBe(0);
+    const aligned = check('after', true);
+    expect(aligned.status, aligned.stderr).toBe(0);
+    expect(JSON.parse(fs.readFileSync(path.join(dir, 'next-alignment.json'), 'utf8')).channels)
+      .toEqual({ latest: pkg.version, next: pkg.version });
+    expect(check('after', true).status).not.toBe(0);
+  }
 });
