@@ -25,10 +25,12 @@ export async function resumeDesk(main: string, desk: string, branch: string, def
   if (entries.length) throw new Error('The desk folder contains files but is not a worktree; its files were left untouched.');
   // Preparation may have been stopped before the worktree was created. Reuse an
   // existing branch (including unpushed commits), or create it without -B/force.
-  await g(main, ['fetch', 'origin', '--prune']);
   const exists = (ref: string) => g(main, ['show-ref', '--verify', '--quiet', ref]).then(() => true, () => false);
+  const local = await exists(`refs/heads/${branch}`);
+  // Unpushed local work is recoverable even when the remote is unavailable.
+  if (!local) await g(main, ['fetch', 'origin', '--prune']);
   await fs.mkdir(path.dirname(desk), { recursive: true });
-  if (await exists(`refs/heads/${branch}`)) await g(main, ['worktree', 'add', desk, branch]);
+  if (local) await g(main, ['worktree', 'add', desk, branch]);
   else {
     const ref = await exists(`refs/remotes/origin/${branch}`) ? `origin/${branch}` : defaultRef;
     await g(main, ['worktree', 'add', '-b', branch, desk, ref]);
