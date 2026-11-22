@@ -1,5 +1,20 @@
 # Droidsembly 0.5.0-beta.1
 
+## Latest validation / Ultima verifica
+
+After separating the added alignment scenarios from the original CLI test:
+**326/326 files and 3638/3638 tests passed**, single worker, 1150.59 seconds.
+The focused distribution/CLI set also passed **41/41 tests** (25.29 seconds).
+No timeout, assertion, simulation workload or platform was weakened. This is
+not evidence that historical intermittent Git/host timing failures are fixed.
+Build, PR/promotion CI and publication checks remain separate; the chronological
+failed runs below are preserved.
+
+Dopo la separazione dei nuovi scenari di allineamento dal test CLI originario:
+**326 file e 3638 test passati**, un worker, 1150,59 secondi. Mirati
+distribuzione/CLI: **41/41 passati**, 25,29 secondi. Nessuna soglia o assertion
+indebolita. I fallimenti storici sotto restano conservati, non dichiarati risolti.
+
 ## Italiano
 
 ### Identità e distribuzione
@@ -86,6 +101,30 @@ clone locali 3,626/3,069 s; nessun errore Git riprodotto. L'osservazione aggiung
 I/O e non prova la causa dei rallentamenti. Nessuna modifica runtime o alle
 soglie derivata da questa prova. Previsto confronto con CI manuale sul branch
 candidato prima di aprire una PR; nessuna deroga ai controlli di rilascio.
+
+Il confronto sul branch candidato ha superato la CI manuale
+[45052737346](https://github.com/rosariomoscato/droidsembly/actions/runs/45052737346):
+cinque ambienti, suite completa/typecheck/build/smoke verdi. Questo non cancella
+i fallimenti locali o prova la loro causa.
+
+Ultima verifica locale autorizzata dopo conferma del PC disponibile:
+**324 file passati / 2 falliti, 3631 test passati / 2 timeout**,
+1505,99 secondi. Falliti soltanto CLI npm offline (5 s) e workspace
+«lets other desks fix a PR… (#199)» (60 s); nessun timeout di cleanup riportato.
+Non saranno avviate altre suite complete automaticamente. Il test CLI ora
+concentra otto subprocessi nello stesso caso, contro tre prima dell'aggiunta
+dei controlli di allineamento: contributo da misurare, non causa già dimostrata.
+
+Diagnosi dei due casi esatti: workspace passato, CLI fallita per timeout
+(1 passato / 1 fallito, 43 esclusi dal filtro; 75,11 secondi). La traccia CLI
+ha osservato otto subprocessi sequenziali di circa 0,6–1,2 s ciascuno, oltre
+al setup; il caso è durato 8,191 s contro 5 s. L'osservatore aggiunge I/O,
+ma evidenzia il nuovo carico aggregato nel caso originale. I cinque scenari
+di allineamento aggiunti sono stati separati in casi indipendenti con fixture
+proprie e un solo subprocesso ciascuno. Il caso capture/verify originario
+conserva i suoi tre subprocessi e tutte le sue assertion; nessun timeout
+è cambiato. Questa modifica riguarda soltanto la struttura dei test e non
+spiega o corregge i precedenti timeout Git/workspace.
 
 La feature profili ha superato 3624 test locali prima della correzione contrasto;
 il gruppo contrasto/palette/HUD ha superato 25 test e build/typecheck.

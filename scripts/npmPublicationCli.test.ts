@@ -12,7 +12,7 @@ afterEach(() => {
   for (const dir of fixtures.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
 });
 
-it('runs actual capture/verify CLIs offline, writes exact artifact/output/report, and refuses report overwrite', () => {
+function fixture() {
   const parent = path.join(os.tmpdir(), 'opencode');
   fs.mkdirSync(parent, { recursive: true });
   const dir = fs.mkdtempSync(path.join(parent, 'publication-cli-'));
@@ -45,6 +45,11 @@ it('runs actual capture/verify CLIs offline, writes exact artifact/output/report
   `);
   const env = { ...process.env, RELEASE_EVIDENCE: dir, RELEASE_TAG: `droidsembly-v${pkg.version}`, GITHUB_OUTPUT: path.join(dir, 'outputs') };
   const run = (mode: string) => spawnSync(process.execPath, ['--import', pathToFileURL(preload).href, 'scripts/verify-npm-publication.mjs', mode], { env, encoding: 'utf8' });
+  return { dir, pkg, channel, oldChannels, publicChannels, gitHead, bytes, filename, preload, env, run };
+}
+
+it('runs actual capture/verify CLIs offline, writes exact artifact/output/report, and refuses report overwrite', () => {
+  const { dir, publicChannels, bytes, filename, env, run } = fixture();
   const capture = run('capture');
   expect(capture.status, capture.stderr).toBe(0);
   expect(fs.readFileSync(env.GITHUB_OUTPUT, 'utf8')).toBe(`tarball=${path.join(dir, filename)}\n`);
@@ -55,18 +60,34 @@ it('runs actual capture/verify CLIs offline, writes exact artifact/output/report
   expect(JSON.parse(beforeReport)).toMatchObject({ outcome: 'canonical-public-artifact-and-channels-verified', channels: publicChannels });
   expect(run('verify').status).not.toBe(0);
   expect(fs.readFileSync(path.join(dir, 'availability.json'), 'utf8')).toBe(beforeReport);
-  if (pkg.version === '0.5.0-beta.1') {
-    const check = (mode: string, aligned = false) => spawnSync(process.execPath,
-      ['--import', pathToFileURL(preload).href, 'scripts/check-npm-next.mjs', mode],
-      { env: { ...env, TEST_NEXT_ALIGNED: aligned ? '1' : '0' }, encoding: 'utf8' });
-    const ready = check('before');
-    expect(ready.status, ready.stderr).toBe(0);
-    expect(check('after').status).not.toBe(0);
-    expect(check('before', true).status).not.toBe(0);
-    const aligned = check('after', true);
-    expect(aligned.status, aligned.stderr).toBe(0);
-    expect(JSON.parse(fs.readFileSync(path.join(dir, 'next-alignment.json'), 'utf8')).channels)
-      .toEqual({ latest: pkg.version, next: pkg.version });
-    expect(check('after', true).status).not.toBe(0);
-  }
+});
+
+// These are independent guard scenarios, not more subprocesses in the original publication test.
+it.runIf(JSON.parse(fs.readFileSync('package.json', 'utf8')).version === '0.5.0-beta.1').each([
+  { name: 'accepts the pre-alignment channels', mode: 'before', aligned: false, overwrite: false, success: true },
+  { name: 'refuses an incomplete alignment', mode: 'after', aligned: false, overwrite: false, success: false },
+  { name: 'refuses an already changed pre-alignment channel', mode: 'before', aligned: true, overwrite: false, success: false },
+  { name: 'records a verified alignment', mode: 'after', aligned: true, overwrite: false, success: true },
+  { name: 'preserves existing alignment evidence', mode: 'after', aligned: true, overwrite: true, success: false },
+])('$name', ({ mode, aligned, overwrite, success }) => {
+  const f = fixture();
+  fs.writeFileSync(path.join(f.dir, 'before.json'), JSON.stringify({
+    name: f.pkg.name, version: f.pkg.version, channel: f.channel, gitHead: f.gitHead,
+    integrity: integrity(f.bytes), size: f.bytes.length, previousChannels: f.oldChannels,
+  }));
+  fs.writeFileSync(path.join(f.dir, 'availability.json'), JSON.stringify({
+    outcome: 'canonical-public-artifact-and-channels-verified', channels: f.publicChannels,
+  }));
+  const evidence = path.join(f.dir, 'next-alignment.json');
+  if (overwrite) fs.writeFileSync(evidence, 'preserve this evidence');
+  const result = spawnSync(process.execPath,
+    ['--import', pathToFileURL(f.preload).href, 'scripts/check-npm-next.mjs', mode],
+    { env: { ...f.env, TEST_NEXT_ALIGNED: aligned ? '1' : '0' }, encoding: 'utf8' });
+  if (success) expect(result.status, result.stderr).toBe(0);
+  else expect(result.status, result.stderr).not.toBe(0);
+  if (overwrite) expect(fs.readFileSync(evidence, 'utf8')).toBe('preserve this evidence');
+  else if (success && mode === 'after') {
+    expect(JSON.parse(fs.readFileSync(evidence, 'utf8')).channels)
+      .toEqual({ latest: f.pkg.version, next: f.pkg.version });
+  } else expect(fs.existsSync(evidence)).toBe(false);
 });
