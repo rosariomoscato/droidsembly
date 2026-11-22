@@ -4,6 +4,7 @@ import { TeamStats } from './CareerCard';
 import { PhoneAccess } from './PhoneAccess';
 import { OpenCodeModelPicker, OpenCodeVariantSelect } from './OpenCodeModelPicker';
 import { api } from '../api';
+import { WorkerProfileSelect } from './WorkerProfileSelect';
 import { PreviewPill, PreviewSettings } from './AppViewer';
 import { agentsOnRepo, pendingRequests, useStore, type ManagerTab } from '../store';
 import { CEO_ID, DEFAULT_MAX_AGENTS, FLOOR_SEATS, type AgentCli, type EffortLevel, type OfficeUpdateView, type RepoView } from '../../../shared/types';
@@ -390,6 +391,8 @@ interface NewAgent {
   cli: AgentCli | '';
   model: string;
   effort: EffortLevel | '';
+  host?: import('../../../shared/types').MachineHost | '';
+  profile?: import('../../../shared/workerProfiles').WorkerProfile;
 }
 
 const NO_SETUP: NewAgent = { name: '', cli: '', model: '', effort: '' };
@@ -401,7 +404,8 @@ function AddAgent({ repo, size }: { repo: RepoView; size: number }) {
   const clis = useStore((s) => s.clis);
   const [draft, setDraft] = useState<NewAgent>(NO_SETUP);
   const [busy, setBusy] = useState(false);
-  const terminal = settings.runtime === 'terminal';
+  const cloud = (draft.host || settings.cloud.machineKind) === 'box';
+  const terminal = cloud || settings.runtime === 'terminal';
   const cli = terminal ? draft.cli || settings.defaultCli : 'claude';
   const full = size >= settings.maxAgents;
   const edit = (p: Partial<NewAgent>) => setDraft({ ...draft, ...p });
@@ -418,17 +422,17 @@ function AddAgent({ repo, size }: { repo: RepoView; size: number }) {
       {terminal && (
         <select value={draft.cli} onChange={(e) => edit({ cli: e.target.value as AgentCli | '' })} aria-label={t('New agent’s coding agent')} style={{ width: 'auto' }}>
           <option value="">{cliName(clis, settings.defaultCli)} {t('(default)')}</option>
-          <CliOptions clis={clis} cloud={settings.cloud.machineKind === 'box'} />
+          <CliOptions clis={clis} cloud={cloud} />
         </select>
       )}
       <input value={draft.model} onChange={(e) => edit({ model: e.target.value })} list={`new-agent-models-${repo.floor}`} placeholder={t('default model')} aria-label={t('New agent’s model')} style={{ maxWidth: 150 }} />
-      {cli === 'opencode' && <OpenCodeModelPicker value={draft.model} repo={repo.id} disabled={settings.cloud.machineKind === 'box'} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} />}
+      {cli === 'opencode' && <OpenCodeModelPicker value={draft.model} repo={repo.id} disabled={cloud} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} />}
       <datalist id={`new-agent-models-${repo.floor}`}>
         {modelSuggestions(cli).map((m) => (
           <option key={m} value={m} />
         ))}
       </datalist>
-      {cli === 'opencode' ? <OpenCodeVariantSelect value={draft.model} repo={repo.id} disabled={settings.cloud.machineKind === 'box'} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} /> : <select value={draft.effort} onChange={(e) => edit({ effort: e.target.value as EffortLevel | '' })} aria-label={t('New agent’s effort')} style={{ width: 'auto' }}>
+      {cli === 'opencode' ? <OpenCodeVariantSelect value={draft.model} repo={repo.id} disabled={cloud} inherited={settings.defaultCli === 'opencode' ? settings.defaultModel : undefined} onSelect={(model) => edit({ model })} /> : <select value={draft.effort} onChange={(e) => edit({ effort: e.target.value as EffortLevel | '' })} aria-label={t('New agent’s effort')} style={{ width: 'auto' }}>
         <option value="">{t('default effort ({effort})', { effort: settings.defaultEffort })}</option>
         {EFFORTS.map((x) => (
           <option key={x} value={x}>
@@ -436,6 +440,10 @@ function AddAgent({ repo, size }: { repo: RepoView; size: number }) {
           </option>
         ))}
       </select>}
+      <label className="field"><span><T>Works on</T></span><select aria-label={t('New agent’s host')} value={draft.host ?? ''} onChange={e => edit({ host: e.target.value as 'box' | 'local' | '', profile: 'generic' })}>
+        <option value="">{t('(default)')}</option><option value="local">{t('🖥️ This computer')}</option><option value="box">☁️ Upstash Box</option>
+      </select></label>
+      {cloud && <WorkerProfileSelect value={draft.profile} onChange={profile => edit({ profile })} />}
       <span title={full ? t('Floor {floor} has its most agents ({count}): change it in Settings → Most agents per floor', { floor: repo.floor, count: settings.maxAgents }) : undefined}>
         <button className="btn btn-small btn-good" disabled={busy || full} onClick={add}>
           <T>+ Agent</T>

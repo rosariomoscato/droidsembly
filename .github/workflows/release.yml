@@ -78,7 +78,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
-      - run: npm install --global npm@11
+      - run: npm install --global npm@">=11.21.0 <12"
       - id: release
         name: Validate release metadata
         env:
@@ -116,13 +116,24 @@ jobs:
           CHANNEL: ${{ steps.release.outputs.channel }}
         run: |
           flags=()
-          if [ "$CHANNEL" = next ]; then flags+=(--prerelease); fi
+          if [ "${{ steps.release.outputs.prerelease }}" = true ]; then flags+=(--prerelease); fi
+          notes="docs/RELEASE_NOTES_${{ steps.release.outputs.version }}.md"
+          if [ -f "$notes" ]; then flags+=(--notes-file "$notes"); fi
           previous=$(git describe --tags --abbrev=0 --match 'droidsembly-v*' HEAD^ 2>/dev/null || true)
           if [ -n "$previous" ]; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag "${flags[@]}" --generate-notes --notes-start-tag "$previous"
           else
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag "${flags[@]}" --title "$TAG" --notes "First Droidsembly npm release. Based on CubeFarm by Leon van Zyl, MIT licensed. See the repository README for installation, provider costs and compatibility."
           fi
+      - name: Align next to the approved public beta (never republish)
+        if: steps.release.outputs.version == '0.5.0-beta.1'
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          node scripts/check-npm-next.mjs before
+          npm dist-tag add "droidsembly@$VERSION" next
+          node scripts/check-npm-next.mjs after
       - name: Preserve publication artifacts and availability diagnostics
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,12 +1,31 @@
 import fs from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { capturePublication, inspectPublication, integrity, publicationBudgetMs, waitForPublication } from './npmPublication.mjs';
+import { assertNextAlignment, capturePublication, inspectPublication, integrity, publicationBudgetMs, waitForPublication } from './npmPublication.mjs';
 
 const bytes = Buffer.from('exact synthetic release artifact, not a real package');
 const expected = { name: 'droidsembly', version: '0.4.0-beta.4', channel: 'next', gitHead: 'a'.repeat(40), integrity: integrity(bytes), size: bytes.length, previousChannels: { latest: '0.4.0-beta.1', next: '0.4.0-beta.3' } };
 const channels = { latest: expected.previousChannels.latest, next: expected.version };
 const tarball = `https://registry.npmjs.org/droidsembly/-/droidsembly-${expected.version}.tgz`;
 const version = { name: expected.name, version: expected.version, gitHead: expected.gitHead, dist: { integrity: expected.integrity, tarball } };
+describe('approved public beta next alignment', () => {
+  const target = { ...expected, version: '0.5.0-beta.1', channel: 'latest' };
+  const before = { ...target.previousChannels, latest: target.version };
+  it('allows only the expected channel transition, retaining unrelated tags', () => {
+    expect(() => assertNextAlignment(target, before)).not.toThrow();
+    expect(() => assertNextAlignment(target, { ...before, next: target.version }, true)).not.toThrow();
+    expect(() => assertNextAlignment(target, { ...before, next: target.version })).toThrow();
+    expect(() => assertNextAlignment(target, before, true)).toThrow();
+    expect(() => assertNextAlignment(target, { ...before, canary: 'other' })).toThrow();
+    expect(() => assertNextAlignment(target, { ...before, latest: 'other' })).toThrow();
+    expect(() => assertNextAlignment(target, { ...before, next: 'other' })).toThrow();
+  });
+  it('refuses another package, version or publication channel', () => {
+    for (const patch of [{ name: 'other' }, { version: '0.5.0-beta.2' }, { channel: 'next' }]) {
+      expect(() => assertNextAlignment({ ...target, ...patch }, before)).toThrow();
+    }
+  });
+});
+
 const json = (value: unknown) => new Response(JSON.stringify(value), { headers: { 'Content-Type': 'application/json' } });
 function fixture(overrides: { version?: unknown; channels?: unknown; tarballStatus?: number; artifact?: Buffer } = {}) {
   return vi.fn<typeof fetch>(async input => {
@@ -153,6 +172,19 @@ describe('read-only npm publication availability', () => {
 });
 
 describe('Release public availability ordering', () => {
+  it('aligns only the approved beta after public smoke, with read-only channel guards', () => {
+    const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
+    const smoke = workflow.indexOf('node scripts/smoke-package.mjs "$RELEASE_EVIDENCE/public.tgz"');
+    const before = workflow.indexOf('node scripts/check-npm-next.mjs before');
+    const align = workflow.indexOf('npm dist-tag add "droidsembly@$VERSION" next');
+    const after = workflow.indexOf('node scripts/check-npm-next.mjs after');
+    expect(before).toBeGreaterThan(smoke);
+    expect(align).toBeGreaterThan(before);
+    expect(after).toBeGreaterThan(align);
+    expect(workflow).toContain("if: steps.release.outputs.version == '0.5.0-beta.1'");
+    expect(workflow).toContain('steps.release.outputs.prerelease');
+    expect(workflow).toContain('npm@">=11.21.0 <12"');
+  });
   it('sets the evidence path at step runtime, not through an unavailable job-env runner context', () => {
     const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
     const publishJob = workflow.slice(workflow.indexOf('\n  publish:'));

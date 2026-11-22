@@ -4,7 +4,7 @@
 
 export interface RestartAgent {
   status: string;
-  task: 'issue' | 'qa' | 'fix' | 'analysis' | null;
+  task: import('../shared/types.ts').AgentTask | null;
   sessionId: string | null;
   branch: string | null;
   issueNumber: number | null;
@@ -29,7 +29,7 @@ export function followKeptCli(a: RestartAgent, cli: KeptCli | undefined): boolea
  * that was still being prepared (preparing: its status when the office stopped), whose session never started.
  */
 export function resumesAfterRestart(a: RestartAgent, preparing: boolean, demo: boolean): boolean {
-  return !demo && !preparing && a.task !== 'qa' && a.task !== 'analysis' && !!a.sessionId && !!a.branch;
+  return !demo && !preparing && a.task !== 'qa' && a.task !== 'analysis' && a.task !== 'profile' && !!a.sessionId && !!a.branch;
 }
 
 /** What a resumed agent is told: the job it was on, not just "carry on". */

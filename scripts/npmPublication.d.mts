@@ -20,6 +20,7 @@ export interface PublicationResult extends PublicationObservation {
 }
 export const publicationBudgetMs: number;
 export function integrity(bytes: Uint8Array): string;
+export function assertNextAlignment(expected: PublicationSnapshot, channels: Record<string, string>, completed?: boolean): void;
 export function capturePublication(expected: PublicationIdentity, fetcher?: typeof fetch): Promise<PublicationSnapshot>;
 export function inspectPublication(expected: PublicationSnapshot, fetcher?: typeof fetch, budgetMs?: number): Promise<PublicationResult>;
 export function waitForPublication(expected: PublicationSnapshot, options?: {

@@ -303,6 +303,20 @@ export function fixPromptPull(prompt: string): { number: number; title?: string 
 }
 
 function fakeSession(opts: SessionOptions, cb: SessionCallbacks, fullName: string): SessionHandle {
+  if (opts.task === 'profile') {
+    cb.sessionId(`demo-profile-${crypto.randomUUID()}`);
+    const timer = setTimeout(() => {
+      const preflight = opts.systemAppend?.includes('VERCEL PREFLIGHT ONLY');
+      const text = preflight
+        ? JSON.stringify({ compatible: true, requiresResources: false, plan: 'DEMO ONLY: synthetic Vercel plan for the demo-team / demo-app account and project. Reuse existing resources; no provisioning, environment writes, migrations, DNS or provider charges. Target as requested. A real worker must verify identity, stack, credentials, costs, preview and deployed commit before claiming success. No real deployment is performed in demo mode.' })
+        : opts.systemAppend?.includes('APPLICATION REVIEW')
+          ? '# Demo application review\n\n## Features\nSynthetic example, not a real test.\n## Drift\nBaseline not verified in this simulation.\n## Security\nNo audit performed.\n## SEO/GEO\nNo live checks performed.\n\nNo source changes, issues, PRs or external actions.'
+          : '# Demo deployment report\n\nSynthetic URL: https://example.com/droidsembly-demo-preview\n\nNo real Vercel deployment or provider verification took place. No resources created, no charges or environment changes. A real worker reports the actual deployment metadata, checks and rollback instructions.';
+      cb.log([{ kind: 'text', text }]);
+      cb.finished({ ok: true, text, costUsd: 0, turns: 1, errors: [] });
+    }, 1200);
+    return { send: () => undefined, stop: () => { clearTimeout(timer); cb.finished({ ok: false, text: '', costUsd: 0, turns: 0, errors: ['Stopped by manager'], interrupted: true }); } };
+  }
   if (opts.task === 'analysis') {
     cb.sessionId(opts.resumeSessionId ?? `demo-analysis-${crypto.randomUUID()}`);
     const timer = setTimeout(() => {
@@ -1565,6 +1579,7 @@ function boxDeskRepo(cwd: string): string | null {
  * A new Box's coding agents aren't signed in (`logins`: Box id -> the CLIs signed in there) until the fake sign-in.
  */
 function demoBoxes(logins: Map<string, Set<string>>): BoxApi {
+  const profileBranches = new Map<string, string>();
   const boxes = new Map<string, BoxInfo>();
   const installed = new Set<string>();
   let seq = 0;
@@ -1596,6 +1611,7 @@ function demoBoxes(logins: Map<string, Set<string>>): BoxApi {
     },
     run: async (id, script) => {
       box(id).status = 'running';
+      if (script.startsWith('# droidsembly-profile-state')) return { code: 0, output: `${'a'.repeat(40)}\n${profileBranches.get(id) ?? 'demo-profile'}\n` };
       const cli = script.includes('opencode-query.cjs') ? 'opencode' : /claude'? auth /.test(script) ? 'claude' : 'codex';
       if (script.includes('CUBEFARM_SIGNED_IN') || (cli === 'opencode' && script.includes("'status'"))) return { code: 0, output: logins.get(id)?.has(cli) ? 'CUBEFARM_SIGNED_IN' : 'CUBEFARM_SIGNED_OUT' };
       if (cli === 'opencode' && script.includes("'models'")) return { code: 0, output: JSON.stringify({ list: { data: [{ providerID: 'demo', id: 'cloud-model', name: 'Demo cloud model', capabilities: { tools: true } }] }, selected: { data: null } }) };
@@ -1607,7 +1623,9 @@ function demoBoxes(logins: Map<string, Set<string>>): BoxApi {
         await wait(3500);
         return { code: 0, output: 'CUBEFARM_SETUP_OK' };
       }
-      if (script.includes('git worktree add')) {
+      if (script.includes('worktree add')) {
+        const branch = script.match(/^B='([^']+)'$/m)?.[1];
+        if (branch) profileBranches.set(id, branch);
         await wait(900);
         return { code: 0, output: '' };
       }

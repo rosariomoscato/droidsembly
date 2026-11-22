@@ -44,9 +44,17 @@ OpenCode keeps its own V2 database and configuration under `/workspace/home/.cub
 
 **When a sign-in expires** (or is revoked), the office notices before the agent's next task, or when their session fails on it mid-task. It forgets the dead login in their Box, marks them **needs sign-in** again and holds the task; signing in again the same way carries the task on in the same conversation.
 
+When a cloud agent first needs sign-in, or needs it again after expiration/revocation, the office also sends a **cloud agent needs sign-in** notification through your enabled channels (including ntfy). Repeated checks while the agent waits do not generate new alerts; bursts across agents use the usual notification rate limit. Disable this event in Settings → Notifications if desired. No login links, codes or credentials are included.
+
 **Rather not sign in Box by Box?** A key in Settings → Cloud agents is used by every cloud agent instead: an **Anthropic API key** (`sk-ant-…`, billed per token) for Claude Code, an **OpenAI API key** for Codex. Or, for Claude Code with your subscription, a token from `claude setup-token` kept in your environment as `CUBEFARM_CLAUDE_TOKEN` (Windows: `setx CUBEFARM_CLAUDE_TOKEN "<token>"`; macOS or Linux: `export CUBEFARM_CLAUDE_TOKEN="<token>"` in your shell profile), then restart the office. It's a cubefarm-only name, so your own `claude` keeps its normal login, and the office never writes it down.
 
 ## How it works
+
+Cloud workers can use **Generic**, **Application review** or **Vercel deployment**
+work profiles. Specialized profiles wait for explicit manual tasks; choosing one
+does not start work or authorize deployment. See [Cloud worker profiles](CLOUD_WORKER_PROFILES.md)
+for the approval flow, reports and limitations. No custom Box snapshots or
+authenticated clones are used.
 
 - **A Box per agent.** A cloud agent's Box is created and set up in the background when they're hired or moved (it takes about a minute). New Boxes are named `droidsembly-<office>-<agent>` and labelled `droidsembly`, `ds:<office>` and `m:<machine>`. They also carry the legacy `cubefarm` and `cf:<office>` labels (five labels total) so an older installation can still recognize them after rollback. Existing Boxes keep their names, labels, files and logins; complete legacy ownership labels remain supported. Conflicting/incomplete ownership is not used for discovery or orphan deletion, and a name alone never proves ownership. The office installs its own copies of the coding agents at the versions it supports (not the Box image's), Playwright for browser testing, tmux and git in it. The Box keeps the agent's own clone and worktree of the floor's repo between tasks, like a machine on your computer would. See [technical-name compatibility](TECHNICAL_NAME_MIGRATION.md).
 - **The office's credentials never land on the Box's disk.** GitHub's token and a key or token from Settings travel only as the environment of the commands that need them. git reads the token through a helper, not from a file. Keys you paste are kept in `~/.cubefarm/secrets.json` on your computer, never in the office's state, its logs or what your browser sees. The one exception is a coding agent's **own sign-in**: Claude Code and Codex keep their login in the Box user's home, where the agent (who runs as that user) can read it.

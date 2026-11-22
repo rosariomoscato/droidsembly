@@ -7,6 +7,8 @@ import { QuotaGate, type QuotaWindow } from './quotaGate.ts';
 import { openCodeModelRef } from '../shared/opencodeModels.ts';
 import { connectionArgs, type OpenCodeConnections } from '../shared/opencodeConnections.ts';
 import { analysisPrompt } from './analysisPrompt.ts';
+import { genericWorker, isWorkerProfile, type ProfileReport, type WorkerProfile } from '../shared/workerProfiles.ts';
+import { deploymentPlan, PROFILE_REPORT_MAX, PROFILE_VERSION, profileApproval, profilePrompt, profileRequest, profileSystem } from './workerProfiles.ts';
 import { communicationInstructions, languageOf } from '../shared/i18n.ts';
 import type { WebSocket } from 'ws';
 import type { Backend } from './backend.ts';
@@ -153,6 +155,8 @@ interface PersistedAgent {
   machine: string | null; // their machine (machines.ts); null for an agent from before machines, until their next task
   legacyDeskSlug?: string; // verified original legacy worktree; independent of display-name changes
   host?: MachineHost; // 'box': their machine is an Upstash Box (docs/cloud.md); absent: a folder on this computer
+  profile?: WorkerProfile;
+  profileRun?: ProfileReport;
   boxCli?: BoxCliRecord | null; // a cloud agent's live CLI in their Box, to pick up again after a restart
   needsSignIn?: boolean; // a cloud agent whose CLI waits for the manager to sign it in, in their terminal (docs/cloud.md)
   openCodeAuthRejected?: boolean; // metadata presence is not proof a rejected credential is usable, even after restart
@@ -1049,6 +1053,11 @@ export class Swarm {
   private recover(agents: PersistedAgent[], preparing: Set<PersistedAgent>, requeue = new Set<PersistedAgent>(), counts: RestartCounts = { cleared: 0, reattached: 0, resumed: 0, requeued: 0 }) {
     for (const a of agents) {
       if (!a.task) continue; // its issue or PR closed while the office was down: the startup sync cleared the desk
+      if (a.task === 'profile') {
+        if (a.profileRun && !['complete', 'blocked', 'awaiting-approval'].includes(a.profileRun.phase)) a.profileRun.phase = 'stopped';
+        this.appendLog(a, [{ kind: 'system', text: 'Profile work interrupted by restart. It will not start or deploy again automatically. Read the report and start a new task.' }]);
+        continue;
+      }
       if (a.task === 'analysis') {
         this.appendLog(a, [{ kind: 'system', text: 'Analysis stopped by the restart. It will not resume automatically; send a follow-up to continue.' }]);
         continue;
@@ -1136,6 +1145,8 @@ export class Swarm {
       effort: a.effort,
       cli: a.cli,
       host: a.host === 'box' ? 'box' : 'local',
+      profile: a.profile ?? 'generic',
+      profileRun: a.profileRun ? (({ request: _request, report: _report, plan: _plan, execution: _execution, ...view }) => view)(a.profileRun) : null,
       ...(a.host === 'box' ? { cloud: this.boxMachines.stateOf(a.machine ?? machineName(a.id)), needsSignIn: !!a.needsSignIn } : {}),
       terminal: !!rt.terminal,
       status: a.status,
@@ -1462,6 +1473,10 @@ export class Swarm {
   private clearTask(a: PersistedAgent) {
     this.cancelSessionStart(a);
     this.quotaWaiting.delete(a.id);
+    if (a.profileRun && !['complete', 'blocked', 'error'].includes(a.profileRun.phase)) {
+      a.profileRun.phase = 'stopped';
+      a.profileRun.approval = null;
+    }
     Object.assign(a, { status: 'idle', task: null, issueNumber: null, issueTitle: null, branch: null, prNumber: null, prUrl: null, lastError: null });
     this.emitAgent(a);
     this.pauseIdleBox(a);
@@ -2467,6 +2482,7 @@ export class Swarm {
       cli?: string;
       /** Where they work: 'local', 'box', or '' / absent for the office default (Settings → Cloud agents). */
       host?: string;
+      profile?: string;
       /** Refuse rather than fall back to this computer when they can't be a cloud agent (the manager chose). */
       strict?: boolean;
       appearance?: { color: string; hair: string; skin: string };
@@ -2488,6 +2504,9 @@ export class Swarm {
     const plannedHost = repo.appStarter?.plan?.environments.workerHost;
     if (plannedHost && opts.host && opts.host !== plannedHost) throw new HttpError(409, 'Host incompatible with the approved project environments.');
     const host = this.hostFor(plannedHost ?? opts.host, cli || this.state.settings.defaultCli, !!plannedHost || !!opts.strict);
+    if (opts.profile !== undefined && !isWorkerProfile(opts.profile)) throw new HttpError(400, 'Choose a valid worker profile.');
+    const profile = opts.profile ?? 'generic';
+    if (profile !== 'generic' && host !== 'box') throw new HttpError(400, 'Application review and Vercel deployment profiles require an Upstash Box.');
     // A cloud agent's CLI is the one the office installs in their Box, not this computer's.
     const localCli = cli || this.state.settings.defaultCli;
     if (host === 'local' && (cli || localCli === 'opencode') && !this.cliReady(localCli)) throw new HttpError(400, `${cliLabel(localCli)} isn't installed on this computer.`);
@@ -2509,6 +2528,7 @@ export class Swarm {
       cli,
       machine: machineName(id),
       ...(host === 'box' ? { host } : {}),
+      ...(profile !== 'generic' ? { profile: profile as WorkerProfile } : {}),
       status: 'idle',
       issueNumber: null,
       issueTitle: null,
@@ -2588,6 +2608,7 @@ export class Swarm {
    * saved to leftovers); sessions can't move between machines, so their next one starts fresh.
    */
   private moveAgent(a: PersistedAgent, to: MachineHost) {
+    if (to !== 'box' && !genericWorker(a)) throw new HttpError(409, 'Switch to Generic worker before moving this worker to the computer.');
     if (!compatibleHost(this.repo(a.repoId).appStarter, to)) throw new HttpError(409, 'Host incompatible with the approved project environments.');
     if ((a.host ?? 'local') === to) return;
     if (a.task || BUSY.includes(a.status)) throw new HttpError(409, `${a.name} is on a task: move them once it's done.`);
@@ -2731,6 +2752,7 @@ export class Swarm {
         },
       ]);
       this.postMessage('office', `🔑 ${a.name} needs you to sign ${label} in${expired ? ' again' : ''}: walk to their desk or tap 🔑 Sign in on their card, then follow the link in their terminal. Their cloud machine keeps the sign-in.`);
+      void this.notifier.notify('needsSignIn', `${a.name} needs sign-in`, `${label} ${expired ? 'sign-in expired or was revoked' : 'needs sign-in'} in their cloud machine. Open Droidsembly and tap Sign in on their card to complete the official login.`, `${a.name}: ${label} needs sign-in`);
     }
     this.emitAgent(a);
     this.save();
@@ -2916,10 +2938,24 @@ export class Swarm {
     return !this.clis.length || this.clis.some((c) => c.id === cli && c.installed);
   }
 
-  updateAgent(id: string, patch: { name?: string; model?: string; effort?: string; cli?: string; host?: string; look?: string; color?: string; hair?: string; style?: unknown }) {
+  updateAgent(id: string, patch: { name?: string; model?: string; effort?: string; cli?: string; host?: string; profile?: string; look?: string; color?: string; hair?: string; style?: unknown }) {
     if (this.openCodeAuthRun?.agentId === id && (patch.host !== undefined || patch.cli !== undefined)) throw new HttpError(409, 'Finish or stop OpenCode authentication before changing the host or coding agent.');
     const a = this.agent(id);
+    if (patch.profile !== undefined) {
+      if (!isWorkerProfile(patch.profile)) throw new HttpError(400, 'Choose a valid worker profile.');
+      if (a.role === 'ceo') throw new HttpError(400, 'Worker profiles are not available for the CEO.');
+      if (a.task || BUSY.includes(a.status) || this.agentRt.get(id)?.session || this.agentRt.get(id)?.pendingBoxStart || this.finishingAgents.has(id) || this.issuePreparations.has(id)) throw new HttpError(409, 'Clear the desk and wait for work to finish before changing its profile.');
+      if (patch.host !== undefined) throw new HttpError(400, 'Change the host and profile separately.');
+      if (patch.profile !== 'generic' && a.host !== 'box') throw new HttpError(400, 'This profile requires an Upstash Box.');
+    }
+    if (a.task === 'profile' && (patch.cli !== undefined || patch.model !== undefined || patch.effort !== undefined || patch.host !== undefined)) throw new HttpError(409, 'Clear the profile task before changing its execution settings; deployment plans must be prepared again.');
     if (patch.host !== undefined && a.role !== 'ceo' && (patch.host === 'box' || patch.host === 'local')) this.moveAgent(a, patch.host);
+    if (patch.profile !== undefined) {
+      a.profile = patch.profile as WorkerProfile;
+      delete a.profileRun;
+      a.sessionId = null;
+      a.sessionCli = null;
+    }
     if (patch.cli !== undefined) {
       const cli = isCli(patch.cli) ? patch.cli : '';
       if (a.role === 'ceo' && cli && cli !== 'claude' && cli !== 'opencode') throw new HttpError(400, 'The CEO can run Claude Code or OpenCode.');
@@ -2998,6 +3034,7 @@ export class Swarm {
     if (!BUSY.includes(a.status)) return;
     a.status = 'stopped';
     a.lastError = 'Stopped by manager';
+    if (a.task === 'profile' && a.profileRun) { a.profileRun.phase = 'stopped'; a.profileRun.approval = null; }
     this.appendLog(a, [{ kind: 'manager', text: '■ Manager stopped this session.' }]);
     const sign = this.signIns.get(id);
     if (sign) sign.held = null; // the task waiting for their sign-in stays stopped
@@ -3020,6 +3057,7 @@ export class Swarm {
     if (!BUSY.includes(a.status)) return;
     a.status = 'stopped';
     a.lastError = 'Interrupted in the terminal';
+    if (a.task === 'profile' && a.profileRun) { a.profileRun.phase = 'stopped'; a.profileRun.approval = null; }
     this.appendLog(a, [{ kind: 'manager', text: '■ Interrupted in the terminal. Type there to carry on.' }]);
   }
 
@@ -3059,9 +3097,100 @@ export class Swarm {
     if (!this.mayStart(kind, a)) throw new HttpError(429, 'This AI quota is paused or pacing. See AI usage for the affected resource and reset time.');
   }
 
+  /** The current profile report is read on demand, not repeated in world snapshots. */
+  profileReport(id: string): ProfileReport | null {
+    return this.agent(id).profileRun ?? null;
+  }
+
+  private profileExecution(a: PersistedAgent) {
+    const how = this.sessionRuntime(a);
+    return JSON.stringify([how.cli, this.modelFor(a, how.cli), a.effort || this.state.settings.defaultEffort, this.state.settings.runtime]);
+  }
+
+  private profileWorker(id: string) {
+    const a = this.agent(id);
+    const rt = this.agentRt.get(id);
+    if (a.role === 'ceo' || a.host !== 'box' || genericWorker(a)) throw new HttpError(409, 'Choose a cloud review or Vercel profile first.');
+    if (BUSY.includes(a.status) || rt?.session || rt?.pendingBoxStart || this.finishingAgents.has(id) || this.issuePreparations.has(id) || this.dropping.has(id)) throw new HttpError(409, 'Wait for the current work and cleanup to finish.');
+    if (a.task && a.task !== 'profile') throw new HttpError(409, 'Clear the existing task first.');
+    const repo = this.repo(a.repoId);
+    this.requirePlanReady(repo, a);
+    if (this.repoRt.get(repo.id)?.cloneStatus !== 'ready') throw new HttpError(409, 'Wait until the repository checkout is ready.');
+    this.ensureUsage(a, 'issue');
+    this.ensureSlot();
+    return { a, repo };
+  }
+
+  /** Explicit manual start: a new branch from the remote default, with no project scripts or dependency install. */
+  startProfile(id: string, raw: unknown) {
+    const request = profileRequest(raw);
+    const { a, repo } = this.profileWorker(id);
+    const run: ProfileReport = {
+      id: crypto.randomUUID(), profile: a.profile as 'review' | 'vercel', version: PROFILE_VERSION,
+      phase: a.profile === 'review' ? 'review' : 'preflight', commit: '', target: request.target,
+      requiresResources: false, approval: null, request, report: '', plan: '',
+      execution: this.profileExecution(a),
+    };
+    a.profileRun = run;
+    const branch = `swarm/profile-${run.id}`;
+    this.beginTask(a, { task: 'profile', issueNumber: null, issueTitle: a.profile === 'review' ? 'Application review' : 'Vercel preflight', branch, prNumber: null, prUrl: null, sessionId: null, sessionCli: null }, 'Manual cloud profile task', 'Preparing an isolated worktree without running project scripts…');
+    this.issuePreparations.add(id);
+    void (async () => {
+      await this.agentRt.get(id)?.terminal?.releaseIdle?.();
+      await this.releaseDesk(a, repo);
+      if (a.status !== 'preparing' || a.profileRun !== run || !this.state.agents.includes(a)) return;
+      const machine = this.machineOf(a);
+      const cwd = await this.boxMachines.prepareProfileDesk(machine, repo.fullName, repo.defaultBranch, branch);
+      if (a.status !== 'preparing' || a.profileRun !== run || !this.state.agents.includes(a)) return;
+      const state = await this.boxMachines.profileState(machine, repo.fullName);
+      if (!state.clean || state.branch !== branch) throw new Error('Profile worktree is not clean or is on another branch. Files were not reset.');
+      run.commit = state.commit;
+      if (a.status === 'preparing' && a.profileRun === run && this.state.agents.includes(a)) await this.startAgentSession(a, repo, cwd, profilePrompt(run), profileSystem(run, repo.fullName) + '\n' + communicationInstructions(this.state.settings.language));
+    })().catch(err => this.profileSetupFailed(a, run, err)).finally(() => {
+      this.issuePreparations.delete(id);
+      if (this.state.agents.includes(a)) { this.emitAgent(a); this.save(); }
+    });
+    return this.agentView(a, false);
+  }
+
+  /** Consent is bound to the exact completed plan; repeated/stale approval cannot launch a second deployment. */
+  approveProfile(id: string, raw: unknown) {
+    const { a, repo } = this.profileWorker(id);
+    const b = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    const run = a.profileRun;
+    if (!run || run.profile !== 'vercel' || run.phase !== 'awaiting-approval' || !run.approval || b.id !== run.id || b.approval !== run.approval || run.approval !== profileApproval(run) || a.task !== 'profile') throw new HttpError(409, 'This deployment plan is no longer awaiting approval. Read the latest report or run a new preflight.');
+    if (run.execution !== this.profileExecution(a)) throw new HttpError(409, 'Coding agent settings changed. Run a new preflight before deployment.');
+    if (run.target === 'production' && b.productionConfirmed !== true) throw new HttpError(400, 'Explicitly confirm production for this exact plan.');
+    if (run.requiresResources && b.resourcesConfirmed !== true) throw new HttpError(400, 'Explicitly confirm the resources and potential provider charges in this plan.');
+    run.phase = 'deploy';
+    run.approval = null;
+    this.beginTask(a, { issueTitle: 'Vercel deployment', sessionId: null, sessionCli: null }, 'Approved Vercel plan', 'Verifying the approved commit and clean worktree…');
+    this.issuePreparations.add(id);
+    void (async () => {
+      const state = await this.boxMachines.profileState(this.machineOf(a), repo.fullName);
+      if (state.commit !== run.commit || state.branch !== a.branch || !state.clean) throw new Error('The approved checkout changed or is dirty. No deployment started; run a new preflight.');
+      if (a.status === 'preparing' && a.profileRun === run && this.state.agents.includes(a)) await this.startAgentSession(a, repo, this.deskOf(a, repo), profilePrompt(run), profileSystem(run, repo.fullName) + '\n' + communicationInstructions(this.state.settings.language));
+    })().catch(err => this.profileSetupFailed(a, run, err)).finally(() => {
+      this.issuePreparations.delete(id);
+      if (this.state.agents.includes(a)) { this.emitAgent(a); this.save(); }
+    });
+    return this.agentView(a, false);
+  }
+
+  private profileSetupFailed(a: PersistedAgent, run: ProfileReport, err: unknown) {
+    if (!this.state.agents.includes(a) || a.profileRun !== run || a.status !== 'preparing') return;
+    run.phase = 'error';
+    run.approval = null;
+    run.report = redact(oneLine(err), this.secrets()).slice(0, 1000);
+    a.status = 'error';
+    a.lastError = run.report;
+    this.appendLog(a, [{ kind: 'error', text: run.report }]);
+  }
+
   /** A manual, local, read-only workflow: no issue, worktree, dependency install or PR pipeline. */
   analyze(agentId: string, text: string, resume = false) {
     const a = this.agent(agentId);
+    if (!genericWorker(a)) throw new HttpError(409, 'Use the selected profile task, or switch to Generic worker.');
     if (a.role === 'ceo') throw new HttpError(400, 'Give analysis tasks to a team member, not the CEO.');
     if (a.host === 'box') throw new HttpError(400, 'Analysis is currently available on this computer only.');
     if (typeof text !== 'string' || !text.trim() || text.length > 4000) throw new HttpError(400, 'An analysis request must contain 1–4000 characters.');
@@ -3105,6 +3234,7 @@ export class Swarm {
   }
 
   private async assignIssue(agentId: string, issueNumber: number, note?: string, waitForDeps = false, resumeBranch?: string) {
+    if (!genericWorker(this.agent(agentId))) throw new HttpError(409, 'This worker is reserved for manual profile tasks. Switch to Generic worker to assign issues.');
     const a = this.agent(agentId);
     const repo = this.repo(a.repoId);
     this.requirePlanReady(repo, a);
@@ -3152,7 +3282,7 @@ export class Swarm {
       else if (a.sessionCli !== 'claude') resume = undefined;
     }
     if (!inTerminal) return { resumeSessionId: resume };
-    const what = a.role === 'ceo' ? a.issueTitle : a.task === 'qa' ? `QA · PR #${a.prNumber}` : a.task === 'fix' ? `fixing PR #${a.prNumber}` : a.issueNumber ? `#${a.issueNumber} ${a.issueTitle ?? ''}` : null;
+    const what = a.role === 'ceo' || a.task === 'profile' ? a.issueTitle : a.task === 'qa' ? `QA · PR #${a.prNumber}` : a.task === 'fix' ? `fixing PR #${a.prNumber}` : a.issueNumber ? `#${a.issueNumber} ${a.issueTitle ?? ''}` : null;
     return { terminal: this.terminalFor(a), cli, label: `${a.name}${what ? ` · ${what}` : ''}`.slice(0, 80).trim(), resumeSessionId: resume };
   }
 
@@ -3243,6 +3373,18 @@ export class Swarm {
     const a = this.agent(id);
     if (a.role === 'ceo') return ceoPromptPreview(ceoSystemPrompt(this.ceoPromptInput(a)));
     const repo = this.repo(a.repoId);
+    if (!genericWorker(a)) {
+      const sample: ProfileReport = a.profileRun ?? {
+        id: '<manual-task>', profile: a.profile as 'review' | 'vercel', version: PROFILE_VERSION,
+        phase: a.profile === 'review' ? 'review' : 'preflight', commit: '<recorded Git commit>',
+        execution: '', target: 'preview', requiresResources: false, approval: null,
+        request: { instructions: '<manager task>', baseline: '', url: '', target: 'preview' }, report: '', plan: '<separately approved deployment plan>',
+      };
+      return { kind: 'agent', parts: sample.profile === 'review'
+        ? [{ label: 'Application review', text: profileSystem(sample, repo.fullName) }]
+        : [{ label: 'Vercel preflight', text: profileSystem({ ...sample, phase: 'preflight' }, repo.fullName) },
+          { label: 'After deployment approval', text: profileSystem({ ...sample, phase: 'deploy' }, repo.fullName) }] };
+    }
     return agentPromptPreview({ agent: a, repo, port: this.port(a), slug: slugify(a.name), linked: this.linkedDirs(repo, a) });
   }
 
@@ -3467,6 +3609,12 @@ export class Swarm {
           if (!this.currentSessionStart(a, attempt)) return;
           const linked = await this.boxMachines.linkRepos(this.machineOf(a), this.linkedRepos(repo).map((r) => r.fullName), note).catch(() => []);
           if (!this.currentSessionStart(a, attempt)) return;
+          if (a.task === 'profile' && a.profileRun && !mode) {
+            const run = a.profileRun;
+            const state = await this.boxMachines.profileState(this.machineOf(a), repo.fullName);
+            if (!this.currentSessionStart(a, attempt)) return;
+            if (state.commit !== run.commit || state.branch !== a.branch || !state.clean || run.execution !== this.profileExecution(a)) throw new Error('The profile checkout or coding-agent selection changed while waiting. No new session started; run a new profile task.');
+          }
           this.launchSession(a, repo, cwd, prompt, systemAppend, resumeSessionId, outputSchema, mode, box, linked, attempt);
         })
         .catch((err) => {
@@ -3538,7 +3686,9 @@ export class Swarm {
     const active = (entries: LogEntry[]) => {
       if (entries.some((e) => e.kind !== 'manager')) this.activity.set(a.id, Date.now());
     };
-    rt.session = this.backend.startSession(
+    const profileRun = a.task === 'profile' ? a.profileRun : null;
+    let launched: SessionHandle | null = null;
+    rt.session = launched = this.backend.startSession(
       {
         cwd,
         prompt,
@@ -3554,7 +3704,7 @@ export class Swarm {
         ...(box ? { box } : {}),
         // An agent's CLI stays at its prompt after building or fixing, for the manager and for follow-ups; after QA it
         // closes, so the next QA run of that PR is a fresh session.
-        keepAlive: a.task !== 'qa' && a.task !== 'analysis',
+        keepAlive: a.task !== 'qa' && a.task !== 'analysis' && a.task !== 'profile',
         typed: mode === 'typed',
         reattach: mode === 'reattach',
         agentId: a.id,
@@ -3597,9 +3747,14 @@ export class Swarm {
         limited: (at) => this.pauseForLimit(at, a),
         usageWarning: (info) => this.paceForWarning(info, a),
         finished: (result) => {
+          if (profileRun && (a.task !== 'profile' || a.profileRun !== profileRun)) {
+            if (rt.session === launched) rt.session = null;
+            return;
+          }
           // A cloud agent's CLI whose login expired: the task carries on (the same conversation) once it's signed in again.
           const again = () => this.startAgentSession(a, repo, cwd, a.sessionId ? SIGNED_IN_AGAIN : prompt, systemAppend, a.sessionId ?? undefined, outputSchema, null);
-          if (a.host === 'box' && result.signedOut) void this.signedOutMidTask(a, repo, result, how.cli ?? 'claude', again);
+          if (a.task === 'profile' && a.profileRun?.phase === 'deploy' && result.signedOut) void this.onFinished(a, repo, { ...result, ok: false, errors: ['Authentication was lost during deployment. External actions may already have happened. Check the provider, sign in and run a new preflight; deployment will not retry automatically.'] });
+          else if (a.host === 'box' && result.signedOut) void this.signedOutMidTask(a, repo, result, how.cli ?? 'claude', again);
           else void this.onFinished(a, repo, result);
         },
       },
@@ -3641,6 +3796,7 @@ export class Swarm {
 
   private async finishAgentSession(a: PersistedAgent, repo: PersistedRepo, result: SessionResult) {
     const rt = this.agentRt.get(a.id);
+    const finishingProfile = a.task === 'profile' ? a.profileRun : null;
     if (!rt || !this.state.agents.includes(a)) return; // fired
     if (this.officeUpdate.handedOver && a.host !== 'box') return; // stopped for the office's update: recovered like after a restart
     if (this.silenced.delete(a.id)) return; // the demo's pretend restart cut it off: reconciled like after a real one
@@ -3656,9 +3812,36 @@ export class Swarm {
     // Local analysis follow-ups have always been available synchronously when
     // finished is reported. Only a Box pause must wait for remote cleanup.
     if (a.host === 'box') await released;
+    if (finishingProfile && (a.task !== 'profile' || a.profileRun !== finishingProfile)) return;
     if (result.interrupted) this.interrupted(a);
 
     if (this.dropping.has(a.id)) this.dropTask(a, '↺ Cleared desk. Ready for new work.'); // stopped: its issue or PR closed
+    else if (a.task === 'profile') {
+      const run = a.profileRun;
+      if (run && a.status !== 'stopped') {
+        run.approval = null;
+        run.report = redact(result.text, this.secrets()).slice(0, PROFILE_REPORT_MAX);
+        if (!result.ok || !run.report.trim()) {
+          run.phase = 'error';
+          if (!run.report.trim()) run.report = 'No report was returned. Inspect the terminal and any external resources before starting another task.';
+          this.fail(a, result.ok ? { ...result, ok: false, errors: ['The profile session returned no report.'] } : result, 'profile task');
+        } else {
+          a.status = 'done';
+          if (run.phase === 'preflight') {
+            try {
+              const plan = deploymentPlan(run.report);
+              Object.assign(run, { plan: plan.plan, requiresResources: plan.requiresResources, phase: plan.compatible ? 'awaiting-approval' : 'blocked' });
+              if (plan.compatible) run.approval = profileApproval(run);
+            } catch {
+              run.phase = 'blocked';
+              this.appendLog(a, [{ kind: 'error', text: 'Preflight output was incomplete or invalid. No deployment is authorized; run a new preflight.' }]);
+            }
+          } else run.phase = 'complete';
+          this.appendLog(a, [{ kind: 'reply', text: run.plan && run.phase !== 'complete' ? run.plan : run.report }, { kind: 'done', text: `✔ Profile session finished: ${run.phase}. This is an agent report, not an independent deployment certification.` }]);
+          this.postMessage('office', `${a.name}: ${run.profile === 'review' ? 'Application review' : 'Vercel deployment'} · ${run.phase}. Open their terminal to read the report.`);
+        }
+      }
+    }
     else if (a.task === 'analysis') {
       if (a.status !== 'stopped') {
         if (!result.ok) this.fail(a, result, 'analysis');
@@ -3802,6 +3985,7 @@ export class Swarm {
 
   /** Manager's "send to QA" for any open PR (including ones opened by people); with `agentId`, that free agent tests it now. */
   async sendToQa(repoId: string, prNumber: number, agentId?: string) {
+    if (agentId && !genericWorker(this.agent(agentId))) throw new HttpError(409, 'This worker is reserved for manual profile tasks. Switch to Generic worker for PR QA.');
     const repo = this.repo(repoId);
     this.requirePlanReady(repo, agentId ? this.agent(agentId) : undefined);
     const pr = this.repoRt.get(repo.id)?.pulls.find((p) => p.number === prNumber && p.state === 'OPEN');
@@ -3854,6 +4038,7 @@ export class Swarm {
   }
 
   private async runQa(a: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (!genericWorker(a)) return;
     if (!compatibleHost(repo.appStarter, a.host ?? 'local')) return;
     if (this.cloudWorkPaused(a)) return;
     if (this.backend.allowWork && !this.backend.allowWork('qa', a)) return;
@@ -4101,6 +4286,7 @@ export class Swarm {
 
   /** Send a failed PR back to the agent who wrote it (or any free agent on the floor). */
   private async runFix(dev: PersistedAgent, repo: PersistedRepo, rec: QaRecord) {
+    if (!genericWorker(dev)) return;
     if (!compatibleHost(repo.appStarter, dev.host ?? 'local')) return;
     if (this.cloudWorkPaused(dev)) return;
     if (this.backend.allowWork && !this.backend.allowWork('fix', dev)) return;
@@ -4287,6 +4473,7 @@ export class Swarm {
   async message(id: string, text: string, typed = false) {
     const a = this.agent(id);
     if (a.role === 'ceo') return this.messageCeo(text);
+    if (a.task === 'profile' || !genericWorker(a)) throw new HttpError(409, 'Use the profile task controls. A message cannot approve or resume a deployment.');
     const repo = this.repo(a.repoId);
     if (!text.trim()) throw new HttpError(400, 'Empty message');
     const rt = this.agentRt.get(id)!;
@@ -4388,6 +4575,7 @@ export class Swarm {
    * else instead of waiting for the manager to reset them.
    */
   private isFree(a: PersistedAgent) {
+    if (!genericWorker(a) || a.task === 'profile') return false;
     if (this.quotaWaiting.has(a.id)) return false;
     if (a.task === 'analysis') return false; // Reserved for manual follow-ups until Clear desk or an explicit new task.
     if (a.needsSignIn) return false; // a cloud agent waiting to be signed in takes no work (docs/cloud.md)
@@ -5871,7 +6059,7 @@ export class Swarm {
   }
 
   /** A team change goes through: the new agent joins as set up here (the manager's changes win), or an agent leaves. */
-  approveRequest(id: string, overrides: { name?: string; cli?: string; model?: string; effort?: string; host?: string; note?: string } = {}, by: 'manager' | 'auto' = 'manager') {
+  approveRequest(id: string, overrides: { name?: string; cli?: string; model?: string; effort?: string; host?: string; profile?: string; note?: string } = {}, by: 'manager' | 'auto' = 'manager') {
     const req = this.state.requests.find((r) => r.id === id);
     if (!req) throw new HttpError(404, 'That team change no longer exists');
     if (req.status !== 'pending') throw new HttpError(409, `That team change was already ${req.status}`);
@@ -5885,6 +6073,7 @@ export class Swarm {
         name,
         cli: overrides.cli ?? req.cli,
         host: overrides.host ?? req.host ?? '',
+        profile: overrides.profile,
         strict: true,
         model: overrides.model ?? req.model,
         effort: overrides.effort ?? req.effort,
@@ -6091,7 +6280,7 @@ export class Swarm {
   }
 
   private agentDoing(a: PersistedAgent) {
-    return !BUSY.includes(a.status) ? null : a.task === 'analysis' ? 'read-only analysis' : a.task === 'qa' ? `testing PR #${a.prNumber}` : a.task === 'fix' ? `fixing PR #${a.prNumber}` : `issue #${a.issueNumber}`;
+    return !BUSY.includes(a.status) ? null : a.task === 'profile' ? a.issueTitle ?? 'manual profile task' : a.task === 'analysis' ? 'read-only analysis' : a.task === 'qa' ? `testing PR #${a.prNumber}` : a.task === 'fix' ? `fixing PR #${a.prNumber}` : `issue #${a.issueNumber}`;
   }
 
   /** What an agent runs, defaults resolved, for the CEO. */

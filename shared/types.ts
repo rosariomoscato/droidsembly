@@ -168,7 +168,7 @@ export const INSTALL_STEP = 'Installing dependencies';
 export type AgentLook = 'feminine' | 'masculine';
 
 /** What an agent is currently doing: implementing an issue, testing a PR, or fixing a PR after QA. */
-export type AgentTask = 'issue' | 'qa' | 'fix' | 'analysis';
+export type AgentTask = 'issue' | 'qa' | 'fix' | 'analysis' | 'profile';
 
 /**
  * How agents run. terminal: each agent is the real coding-agent CLI in its own terminal, shown live in the office.
@@ -255,6 +255,8 @@ export interface AgentView {
   effort: EffortLevel | ''; // '' = use the swarm default effort
   cli: AgentCli | ''; // the CLI they run in the terminal runtime ('' = the office default)
   host?: MachineHost; // where their machine is: an Upstash Box, or this computer (absent: local; the CEO always is)
+  profile?: import('./workerProfiles.ts').WorkerProfile;
+  profileRun?: import('./workerProfiles.ts').ProfileRunView | null;
   cloud?: CloudMachineState; // their Box's state (absent for local agents)
   needsSignIn?: boolean; // a cloud agent whose coding agent waits for the manager to sign it in, in their terminal (docs/cloud.md)
   terminal: boolean; // they have a terminal to watch (the terminal runtime); otherwise their log lines are the screen
@@ -379,7 +381,7 @@ export interface SwarmSettings {
 }
 
 /** What the office tells the manager about when they're away (docs/pocket.md). */
-export type NotifyEvent = 'needsHuman' | 'ceoMessage' | 'hire' | 'agentError' | 'usage' | 'merge';
+export type NotifyEvent = 'needsHuman' | 'ceoMessage' | 'hire' | 'agentError' | 'needsSignIn' | 'usage' | 'merge';
 
 /** Where it tells them: this browser, Web Push to their devices, or a chat app's webhook. */
 export type NotifyChannel = 'desktop' | 'push' | 'ntfy';

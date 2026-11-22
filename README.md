@@ -12,7 +12,7 @@ A visual workspace for AI-assisted software development: connect your GitHub rep
 
 [Website](https://droidsembly.com) · [npm](https://www.npmjs.com/package/droidsembly) · [Releases](https://github.com/rosariomoscato/droidsembly/releases) · [Report an issue](https://github.com/rosariomoscato/droidsembly/issues) · [Contributing](CONTRIBUTING.md) · [Documentation](#documentation) · [Support the project](#support-the-project)
 
-**Published beta:** [0.4.0-beta.6](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.6), available on npm `next`; `latest` remains beta.1. This release includes CEO-guided new-app planning, interrupted-issue recovery and Box exit-status fixes. See [release notes and validation limits](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.4.0-beta.6.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction; this repository contains the source and technical documentation.
+**Public beta release: 0.5.0-beta.1.** The release target is npm `latest`, so testers can run `npx droidsembly` without choosing a channel. Check [npm](https://www.npmjs.com/package/droidsembly) and the [release](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.1) for publication status. Includes manual cloud review/deployment profiles and cloud sign-in notifications, alongside CEO-guided app planning and interrupted-issue recovery. See [release notes and validation limits](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.5.0-beta.1.md). Visit [droidsembly.com](https://droidsembly.com) for an introduction.
 
 **Free and open source, under the MIT license.** No paid activation or commercial agent unlocks. Voluntary support helps development; your AI subscriptions, API usage and optional cloud services have their own costs and limits.
 
@@ -45,6 +45,7 @@ Actual captures of the published **0.4.0-beta.6**, taken on 21 November 2026 in 
 - **Coordinate coding agents:** Claude Code, Codex and OpenCode V2, with model selection and supported reasoning variants. Provider availability depends on the runtime; the Agent SDK runtime is Claude-only. OpenCode supports local terminals and Upstash Box workers; the office and CEO remain local. See [Box validation limits](https://github.com/rosariomoscato/droidsembly/blob/dev/docs/OPENCODE_BOX_VALIDATION.md).
 - **Follow the full workflow:** issue → development and initial checks → pull request → separate QA session → corrections → merge when the configured conditions pass.
 - **Keep control:** manual or automatic assignment, optional CEO onboarding, team-change approvals and a separate auto-merge switch.
+- **Give cloud workers a manual profile:** application review (features, drift, security and SEO/GEO) or Vercel deployment with preflight and exact-plan approval. Production and resource/cost approvals are separate. These are workflow gates, not a CLI sandbox. [Profiles and limits](https://github.com/rosariomoscato/droidsembly/blob/main/docs/CLOUD_WORKER_PROFILES.md).
 - **Watch real work:** live terminals, project floors, a Kanban board and the manager console. Local clones and worktrees separate agents' working copies; they are not security sandboxes.
 - **Inspect AI usage:** multi-provider observations, reported tokens/costs and selective scheduling limits. Missing provider data remains unavailable, not zero or unlimited. See [AI usage](https://github.com/rosariomoscato/droidsembly/blob/main/docs/AI_USAGE.md) (Italian).
 - **Ask for read-only analysis:** start a discussion without an issue or PR. Read-only rules are agent instructions, not a sandbox.
@@ -53,9 +54,9 @@ Actual captures of the published **0.4.0-beta.6**, taken on 21 November 2026 in 
 
 ## Install this fork
 
-**Published package:** [droidsembly@0.4.0-beta.6 on npm](https://www.npmjs.com/package/droidsembly). Run `npx droidsembly@next` (`npx.cmd droidsembly@next` in PowerShell), or build from source below. To select beta.6 exactly, use `npx droidsembly@0.4.0-beta.6`; building a checkout uses that checkout's version, not necessarily the published bytes. These are launch instructions, not an automatic update of an existing office: first follow the [controlled update guidance](docs/QUICKSTART_PC.md). There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
+**Package:** [droidsembly on npm](https://www.npmjs.com/package/droidsembly). After the 0.5 release is published, run `npx droidsembly` (`npx.cmd droidsembly` in PowerShell), or pin it with `npx droidsembly@0.5.0-beta.1`. Building a checkout uses that checkout's version, not necessarily the published bytes. These are launch instructions, not an automatic update of an existing office: first follow the [controlled update guidance](docs/QUICKSTART_PC.md). There is no desktop installer yet. `npx cubefarm` installs the original package, not Droidsembly.
 
-**This is a beta, not a stable release.** Use the explicit `next` channel: `latest` still selects beta.1, not beta.6. A future stable release will take over `latest`; beta versions check `next` for updates. The package exposes no global `cubefarm` alias. The internal entry file `bin/cubefarm.js` and existing checkout launchers remain compatible. Existing legacy homes are adopted; `DROIDSEMBLY_HOME` takes precedence over `SWARM_HOME`, and ambiguous dual homes require an explicit choice. For side-by-side use, select a separate home and free ports as described below.
+**This is a beta, not a stable release, even on `latest`.** The maintainer selected `latest` for this public test release; 0.5.0-beta.1 checks that channel for updates. Earlier 0.4 betas continue checking `next`; its alignment is verified separately after publication. The package exposes no global `cubefarm` alias. The internal entry file `bin/cubefarm.js` and existing checkout launchers remain compatible. Existing legacy homes are adopted; `DROIDSEMBLY_HOME` takes precedence over `SWARM_HOME`, and ambiguous dual homes require an explicit choice. For side-by-side use, select a separate home and free ports as described below.
 
 ### Requirements
 
@@ -64,7 +65,7 @@ Actual captures of the published **0.4.0-beta.6**, taken on 21 November 2026 in 
 - Claude Code is bundled through the Agent SDK. OpenCode **2.x** and Codex are installed separately when selected. OpenCode-only terminal sessions do not require a Claude subscription.
 - Google Chrome for agents that test projects in a browser.
 
-**Recommended office browser:** up-to-date Google Chrome is our reference browser for the isolated desktop checks. Other modern browsers may work, but were not validated in this test cycle; this is not a Chrome-only support policy. Native notification clicks and window focus remain unverified. See [release validation scope and limits](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.4.0-beta.6.md).
+**Recommended office browser:** up-to-date Google Chrome is our reference browser for the isolated desktop checks. Other modern browsers may work, but were not validated in this test cycle; this is not a Chrome-only support policy. Native notification clicks and window focus remain unverified. See [release validation scope and limits](https://github.com/rosariomoscato/droidsembly/blob/main/docs/RELEASE_NOTES_0.5.0-beta.1.md).
 
 The project targets Windows, macOS and Linux. The no-AI demo below does not require provider credentials or a GitHub login.
 

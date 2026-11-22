@@ -115,6 +115,36 @@ export function setupScript(o: { versions: BoxVersions; rev: number; gitName: st
  * the Box's own clone is made the first time; the worktree is reused in place (node_modules stays warm) or rebuilt.
  * A Box has one worktree per clone, so no other checkout ever holds the branch. Prints the worktree on success.
  */
+/** Manual profiles preserve existing files: never reset, clean or remove a previous worktree. */
+export function profileDeskScript(fullName: string, defaultBranch: string, branch: string): string {
+  checkRepo(fullName);
+  if (!BRANCH.test(branch) || !BRANCH.test(defaultBranch)) throw new Error('Invalid profile branch.');
+  return [
+    '(', 'set -e', `R=${sq(boxRepoDir(fullName))}`, `W=${sq(boxDeskDir(fullName))}`, `B=${sq(branch)}`,
+    'git check-ref-format --branch "$B" >/dev/null',
+    'test ! -L "$R" && test ! -L "$W" || { echo "Symlink checkout refused; files left untouched." >&2; exit 2; }',
+    'if [ ! -d "$R/.git" ]; then',
+    '  test ! -e "$R" || { echo "Clone folder already exists; files left untouched." >&2; exit 2; }',
+    '  mkdir -p "$(dirname "$R")"',
+    `  git clone -q --no-checkout ${sq(`https://github.com/${fullName}.git`)} "$R"`,
+    'fi',
+    'git -C "$R" fetch -q origin --prune',
+    'if [ -e "$W/.git" ]; then',
+    '  ROOT="$(git -C "$W" rev-parse --show-toplevel)"',
+    '  test "$(cd "$ROOT" && pwd -P)" = "$(cd "$W" && pwd -P)" || exit 2',
+    '  C="$(git -C "$W" rev-parse --path-format=absolute --git-common-dir)"',
+    '  E="$(git -C "$R" rev-parse --path-format=absolute --git-common-dir)"',
+    '  test "$(cd "$C" && pwd -P)" = "$(cd "$E" && pwd -P)" || { echo "Foreign checkout; files left untouched." >&2; exit 2; }',
+    '  test -z "$(git -C "$W" status --porcelain=v1 --untracked-files=normal)" || { echo "Profile checkout is dirty; files left untouched." >&2; exit 2; }',
+    `  git -C "$W" checkout -q --no-overwrite-ignore -b "$B" ${sq(`origin/${defaultBranch}`)}`,
+    'else',
+    '  test ! -e "$W" || { echo "Worktree folder already exists; files left untouched." >&2; exit 2; }',
+    '  mkdir -p "$(dirname "$W")"',
+    `  git -C "$R" worktree add -q -b "$B" "$W" ${sq(`origin/${defaultBranch}`)}`,
+    'fi', 'echo "$W"', ')',
+  ].join('\n');
+}
+
 export function prepareDeskScript(fullName: string, base: DeskBase, branch: string): string {
   checkRepo(fullName);
   if (!BRANCH.test(branch) || !BRANCH.test(base.defaultBranch)) throw new Error(`Not a branch name: ${branch}`);

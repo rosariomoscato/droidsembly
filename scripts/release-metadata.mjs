@@ -18,5 +18,6 @@ const release = releaseInfo(pkg.version, process.env.RELEASE_TAG);
 assert.equal(pkg.publishConfig.access, 'public');
 assert.equal(pkg.publishConfig.registry, 'https://registry.npmjs.org/');
 assert.equal(pkg.publishConfig.tag, release.channel, 'publishConfig.tag must match the release channel');
-if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `channel=${release.channel}\n`);
+if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT,
+  `channel=${release.channel}\nversion=${pkg.version}\nprerelease=${pkg.version.includes('-')}\n`);
 console.log(JSON.stringify({ package: pkg.name, version: pkg.version, ...release }));

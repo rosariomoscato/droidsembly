@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { createRoot, useFrame, type ReconcilerRoot, type RootStore } from '@react-three/fiber';
+import { createRoot, extend, useFrame, type ReconcilerRoot, type RootStore } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../store';
 import { ROBOT, robotAppearanceFor } from './robotAppearance';
@@ -28,6 +28,8 @@ let shared: Promise<{ canvas: HTMLCanvasElement; root: ReconcilerRoot<HTMLCanvas
 
 function previewRoot() {
   shared ??= (async () => {
+    // Pocket Setup can open this standalone root before any office Canvas registers three's objects.
+    extend({ HemisphereLight: THREE.HemisphereLight, AmbientLight: THREE.AmbientLight, DirectionalLight: THREE.DirectionalLight, Group: THREE.Group, Mesh: THREE.Mesh });
     const canvas = document.createElement('canvas');
     const root = createRoot(canvas);
     await root.configure({
