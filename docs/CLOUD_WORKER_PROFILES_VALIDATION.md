@@ -99,6 +99,21 @@ Screenshots:
 - [Review report, Italian](screenshots/profiles-review-it.png)
 - [Production consent, Italian](screenshots/profiles-production-consent-it.png)
 
+### Manager-led demo follow-up (22 November 2026)
+
+The manager exercised the isolated Italian demo: cloud profile selection, fake
+OpenCode login, the four-section review report, same-Box profile changes,
+preflight without deployment, cancelling and approving preview consent, the
+separate production checkbox, and clearing the desk to revoke approval. All
+external activity remained simulated; the demo was stopped afterwards.
+
+The idle badge inherited light panel-heading text on a light grey background.
+Status badges now explicitly use the existing dark ink colour. The focused
+contrast/palette/HUD tests passed (25 tests), as did build/typecheck. Browser
+computed styles confirmed dark `rgb(31, 29, 43)` text on `rgb(233, 236, 239)`
+for the idle badge. No new screenshot was captured: the screenshot tool required
+a visible desktop window.
+
 ## Limits and assumptions
 
 No real Upstash Box, coding-provider session, Vercel account, provisioning,
