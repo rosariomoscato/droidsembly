@@ -1,5 +1,44 @@
 # Droidsembly 0.5.0-beta.1
 
+## Published status / Stato pubblicato — 22 November 2026
+
+**Published on npm `latest` and `next`.** / **Pubblicata su npm `latest` e `next`.**
+
+- Immutable tag / tag immutabile: `droidsembly-v0.5.0-beta.1`.
+- Source commit / commit sorgente: `f91b181759f2821cb4bdd62c1ccb47b727cec3b3`.
+- [GitHub prerelease](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.1)
+  and [npm package](https://www.npmjs.com/package/droidsembly).
+- Public tarball SHA-256:
+  `79588e1a6a3cdd75b8f45f020c5155a7f177b6690ede8810f5730b8f1c8d43db`.
+- Complete local candidate suite: 3638 tests passed; build/typecheck and local
+  package smoke passed. Release PR, promotion and
+  [final main CI](https://github.com/rosariomoscato/droidsembly/actions/runs/45063686195)
+  passed on all five environments.
+
+The [Release workflow](https://github.com/rosariomoscato/droidsembly/actions/runs/45064279000)
+passed pre-publication validation on Ubuntu, Windows and macOS Intel and
+published via OIDC, but its bounded five-minute public-availability check
+expired. **That run remains failed.** It was not rerun and the package was
+not republished. A later read-only check verified the canonical public tarball
+byte for byte against the pre-publish artifact, source commit, integrity,
+size and `latest`. Installation/smoke of those public bytes passed. The
+maintainer completed the separately authenticated `next` alignment; a fresh
+check confirmed both channels and the unchanged artifact. The tag was not moved.
+
+**IT:** Pubblicazione completata e canali verificati. Il workflow originale
+resta fallito per il timeout della verifica post-pubblicazione: recupero
+eseguito con verifica pubblica in sola lettura, smoke del tarball installato e
+allineamento separato di `next`, senza ripubblicare o spostare il tag. Non è
+stato avviato o aggiornato l'ufficio reale durante il rilascio.
+
+**The sections below retain historical preparation checkpoints. Statements
+about pending checks/publication or blocked release describe those earlier
+checkpoints, not the current published status.**
+
+**Le sezioni seguenti conservano i checkpoint storici di preparazione. I
+riferimenti a verifiche pendenti o pubblicazione bloccata descrivono quegli
+esiti precedenti, non lo stato pubblicato attuale.**
+
 ## Latest validation / Ultima verifica
 
 After separating the added alignment scenarios from the original CLI test:
