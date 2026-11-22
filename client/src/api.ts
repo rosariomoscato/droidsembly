@@ -7,6 +7,7 @@ import type { AgentCli, AgentPromptView, AgentView, CloudView, DoctorFinding, Do
 import type { JournalChunk, JournalDayView } from '../../shared/journal';
 import type { DecorItem, ProgressView } from '../../shared/progress';
 import type { PhoneAccessInfo } from '../../shared/phoneAccess';
+import type { ProfileReport, ProfileRequest, WorkerProfile } from '../../shared/workerProfiles';
 
 async function call<T = unknown>(method: string, url: string, body?: unknown, toast = true): Promise<T> {
   // The time-lapse shows a recorded day: nothing in it can be acted on.
@@ -48,6 +49,7 @@ export interface AgentSetupPatch {
   model?: string;
   effort?: EffortLevel | '';
   host?: MachineHost | '';
+  profile?: WorkerProfile;
 }
 
 /** Choices made when a project moves in: a brief for the CEO, and whether work starts on its own. */
@@ -61,6 +63,9 @@ export interface FloorOptions {
 export const api = {
   phoneAccess: () => call<PhoneAccessInfo>('GET', '/api/phone-access', undefined, false),
   analyze: (id: string, text: string) => call('POST', `/api/agents/${id}/analyze`, { text }),
+  profileReport: (id: string) => call<ProfileReport | null>('GET', `/api/agents/${id}/profile`),
+  startProfile: (id: string, request: ProfileRequest) => call('POST', `/api/agents/${id}/profile`, request),
+  approveProfile: (id: string, body: { id: string; approval: string; productionConfirmed: boolean; resourcesConfirmed: boolean }) => call('POST', `/api/agents/${id}/profile/approve`, body),
   openCodeModels: (context: { agent?: string; repo?: string } = {}, refresh = false) => call<OpenCodeCatalog>('GET', `/api/opencode/models?${new URLSearchParams({ ...context, ...(refresh ? { refresh: '1' } : {}) })}`, undefined, false),
   githubRepos: (owner?: string) => call<GhRepoSummary[]>('GET', `/api/github/repos${owner ? `?owner=${encodeURIComponent(owner)}` : ''}`),
   connectRepo: (fullName: string, floor: FloorOptions = {}) => call<RepoView>('POST', '/api/repos', { fullName, ...floor }),

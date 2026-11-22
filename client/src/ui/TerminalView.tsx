@@ -18,6 +18,8 @@ import { closeOverlay, Panel } from './Panel';
 import { loadScreenshot } from '../screenshot';
 import { toolVerb } from '../world/draw';
 import { followAgent } from '../world/camera/rig';
+import { genericWorker } from '../../../shared/workerProfiles';
+import { WorkerProfileTask } from './WorkerProfileTask';
 
 const STATUS_LABEL: Record<string, string> = {
   idle: 'free',
@@ -111,7 +113,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
   const working = isBusy(agent);
   const cli = workerCli(agent, settings);
   const issueUrl = agent.issueNumber ? `https://github.com/${repo.fullName}/issues/${agent.issueNumber}` : null;
-  const canMessage = working || (agent.task === 'analysis' && agent.status !== 'idle') || (agent.task !== 'qa' && !!agent.branch && agent.status !== 'idle');
+  const canMessage = genericWorker(agent) && agent.task !== 'profile' && (working || (agent.task === 'analysis' && agent.status !== 'idle') || (agent.task !== 'qa' && !!agent.branch && agent.status !== 'idle'));
   const qaRec = agent.prNumber ? qaRecords[`${repo.id}#${agent.prNumber}`] : undefined;
   const signIn = signInFor(agent, settings);
   const send = (t: string) => {
@@ -176,7 +178,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
             {t('Issue #{number}', { number: agent.issueNumber })}: {agent.issueTitle}
           </a>
         ) : (
-          <span className="muted"><T>Nothing assigned</T></span>
+          <span className="muted">{t(agent.task === 'profile' ? agent.issueTitle ?? 'Work profile' : 'Nothing assigned')}</span>
         )}
         {agent.prUrl && agent.task === 'issue' && (
           <a href={agent.prUrl} target="_blank" rel="noreferrer" className="chip chip-good">
@@ -230,7 +232,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
       <TerminalDetails collapsed={!!reply}>
       <div className={`term-split ${agent.hasScreenshot ? 'term-split-2' : ''}`}>
         {agent.terminal ? (
-          <LiveTerminal agentId={agent.id} />
+          <LiveTerminal agentId={agent.id} idleHint={!genericWorker(agent) || agent.task === 'profile' ? t('Use the profile task controls below; messages do not resume this workflow.') : undefined} />
         ) : (
           <div
             className="term"
@@ -287,6 +289,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
         </button>
       </form>
 
+      {agent.host === 'box' && !genericWorker(agent) && <WorkerProfileTask key={`${agent.id}:${agent.profile}`} agent={agent} />}
       {!working && agent.role !== 'ceo' && agent.host !== 'box' && <details className="card">
         <summary><T>🔎 Start read-only analysis</T></summary>
         <p className="muted small"><T>Reads the repository checkout without an issue, dependency installation or PR workflow. No automatic follow-up or new assignment until Clear desk. These are agent instructions, not a filesystem sandbox.</T></p>
@@ -303,7 +306,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
           </button>
         ) : (
           <>
-            <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label={t('Work to give them')}>
+             <select value={pick} disabled={!genericWorker(agent)} onChange={(e) => setPick(e.target.value)} aria-label={t('Work to give them')}>
               <option value="">{t(choices.length ? 'Pick an issue to build or a PR to test…' : 'Nothing to pick up')}</option>
               {(['issue', 'qa'] as const).map((kind) => {
                 const group = choices.filter((c) => c.kind === kind);
@@ -322,7 +325,7 @@ export function TerminalView({ agentId }: { agentId: string }) {
             </select>
             <button
               className="btn btn-good"
-              disabled={busy || !chosen}
+              disabled={busy || !chosen || !genericWorker(agent)}
               onClick={() =>
                 chosen &&
                 run(async () => {

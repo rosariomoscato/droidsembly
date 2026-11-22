@@ -50,6 +50,12 @@ When a cloud agent first needs sign-in, or needs it again after expiration/revoc
 
 ## How it works
 
+Cloud workers can use **Generic**, **Application review** or **Vercel deployment**
+work profiles. Specialized profiles wait for explicit manual tasks; choosing one
+does not start work or authorize deployment. See [Cloud worker profiles](CLOUD_WORKER_PROFILES.md)
+for the approval flow, reports and limitations. No custom Box snapshots or
+authenticated clones are used.
+
 - **A Box per agent.** A cloud agent's Box is created and set up in the background when they're hired or moved (it takes about a minute). New Boxes are named `droidsembly-<office>-<agent>` and labelled `droidsembly`, `ds:<office>` and `m:<machine>`. They also carry the legacy `cubefarm` and `cf:<office>` labels (five labels total) so an older installation can still recognize them after rollback. Existing Boxes keep their names, labels, files and logins; complete legacy ownership labels remain supported. Conflicting/incomplete ownership is not used for discovery or orphan deletion, and a name alone never proves ownership. The office installs its own copies of the coding agents at the versions it supports (not the Box image's), Playwright for browser testing, tmux and git in it. The Box keeps the agent's own clone and worktree of the floor's repo between tasks, like a machine on your computer would. See [technical-name compatibility](TECHNICAL_NAME_MIGRATION.md).
 - **The office's credentials never land on the Box's disk.** GitHub's token and a key or token from Settings travel only as the environment of the commands that need them. git reads the token through a helper, not from a file. Keys you paste are kept in `~/.cubefarm/secrets.json` on your computer, never in the office's state, its logs or what your browser sees. The one exception is a coding agent's **own sign-in**: Claude Code and Codex keep their login in the Box user's home, where the agent (who runs as that user) can read it.
 - **The office never sees a sign-in.** It starts the coding agent's own login in the agent's terminal and passes your keys and its screen along as for any terminal. It never reads, parses or stores the link, the code or the login, and asks only whether the coding agent is signed in (by its exit code). It never copies a login from your computer into a Box: Anthropic's terms don't let apps like this one collect or store Claude.ai credentials, and copied logins log each other out as their refresh tokens rotate.

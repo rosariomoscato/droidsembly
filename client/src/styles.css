@@ -281,6 +281,7 @@ input.inline:focus {
 
 .status {
   display: inline-block;
+  color: var(--ink);
   padding: 1px 9px;
   border-radius: 999px;
   font-size: 0.75rem;

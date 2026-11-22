@@ -4,6 +4,7 @@ import type { HireRequestView, QaView, RepoView } from '../../../shared/types';
 import { needsManager } from '../qaCard';
 import type { Agent, KanbanColumns } from '../store';
 import { translate, type Language } from '../../../shared/i18n';
+import { genericWorker } from '../../../shared/workerProfiles';
 
 export interface Pipeline {
   backlog: number;
@@ -26,13 +27,14 @@ export function pipelineOf(cols: KanbanColumns): Pipeline {
 }
 
 /** What the manager can do with an agent right now, as in their terminal panel (ui/TerminalView.tsx). */
-export function agentActions(a: Pick<Agent, 'task' | 'status' | 'branch'>) {
+export function agentActions(a: Pick<Agent, 'task' | 'status' | 'branch'> & Partial<Pick<Agent, 'profile'>>) {
   const working = a.status === 'preparing' || a.status === 'working';
+  const ordinary = genericWorker(a) && a.task !== 'profile';
   return {
     stop: working,
-    assign: !working,
+    assign: !working && ordinary,
     clear: !working && a.status !== 'idle',
-    message: working || (a.task !== 'qa' && !!a.branch && a.status !== 'idle'),
+    message: ordinary && (working || (a.task !== 'qa' && !!a.branch && a.status !== 'idle')),
   };
 }
 
@@ -57,6 +59,7 @@ export function assignChoices(cols: KanbanColumns | null): AssignChoice[] {
 /** One short line on what they're doing. */
 export function doing(a: Pick<Agent, 'status' | 'task' | 'issueNumber' | 'issueTitle' | 'prNumber'>, language?: Language): string {
   if (a.status === 'idle') return translate(language, 'Free');
+  if (a.task === 'profile') return translate(language, a.issueTitle ?? 'Work profile');
   if (a.task === 'qa' || a.task === 'fix') return translate(language, a.task === 'qa' ? 'Testing PR #{number}' : 'Fixing PR #{number}', { number: a.prNumber ?? '?' }) + (a.issueTitle ? `: ${a.issueTitle}` : '');
   if (a.issueNumber != null) return `#${a.issueNumber}${a.issueTitle ? ` ${a.issueTitle}` : ''}`;
   return a.status === 'done' ? translate(language, 'Finished') : '';

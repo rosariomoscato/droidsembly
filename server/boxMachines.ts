@@ -20,6 +20,7 @@ import {
   leftoversScript,
   linkedReposScript,
   prepareDeskScript,
+  profileDeskScript,
   releaseScript,
   setupScript,
   signInCheckScript,
@@ -211,6 +212,30 @@ export class BoxMachines implements MachineProvider {
   // ---------- MachineProvider ----------
 
   deskDir(_machine: string, fullName: string): string {
+    return boxDeskDir(fullName);
+  }
+
+  /** Read a profile worktree without trusting an AI-reported revision or exposing its files. */
+  async profileState(machine: string, fullName: string): Promise<{ commit: string; branch: string; clean: boolean }> {
+    const id = await this.ensure(machine);
+    const r = await this.api().run(id, `# droidsembly-profile-state
+set -e
+cd ${sq(boxDeskDir(fullName))}
+git rev-parse HEAD
+git branch --show-current
+git status --porcelain=v1 --untracked-files=normal`, { timeoutMs: 60_000 });
+    const [commit, branch, ...status] = r.output.trim().split(/\r?\n/);
+    if (r.code !== 0 || !/^[a-f0-9]{40}$/.test(commit ?? '') || !branch) throw new Error('Could not verify the profile worktree revision.');
+    return { commit, branch, clean: status.every(line => !line.trim()) };
+  }
+
+  /** Manual profile preparation must never reset a previous worker's files or run project scripts. */
+  async prepareProfileDesk(machine: string, fullName: string, defaultBranch: string, branch: string): Promise<string> {
+    const id = await this.ensure(machine);
+    const r = await this.api().run(id, profileDeskScript(fullName, defaultBranch, branch), { env: await this.deps.githubEnv(), timeoutMs: 15 * 60_000 });
+    if (r.code !== 0) throw new Error('Could not prepare the profile checkout. Existing files were not reset; inspect the worker terminal and repository before retrying.');
+    const seeded = await this.api().run(id, `node ${sq(`${BOX_BIN}/seed-claude.cjs`)} ${sq(boxDeskDir(fullName))}`);
+    if (seeded.code !== 0) throw new Error('Could not prepare the coding agent for this profile checkout.');
     return boxDeskDir(fullName);
   }
 
