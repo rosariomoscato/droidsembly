@@ -33,7 +33,7 @@ describe('canonical CLI and legacy checkout entry', () => {
     expect(legacy.stderr).toBe(current.stderr);
     if (arg === '--version') expect(current.stdout.trim()).toBe(pkg.version);
     if (arg === '--help') {
-      expect(current.stdout).toContain('npx droidsembly@next');
+      expect(current.stdout).toContain(`npx droidsembly@${pkg.publishConfig.tag}`);
       expect(current.stdout).toContain('~/.cubefarm');
       expect(current.stdout).toContain('~/.droidsembly');
       expect(current.stdout).toContain('DROIDSEMBLY_HOME');

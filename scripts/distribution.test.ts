@@ -7,10 +7,10 @@ describe('npm distribution channels', () => {
     for (const file of ['README.md', 'README.it.md']) {
       const text = fs.readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
       const links = [...text.matchAll(/\]\(([^)]+)\)/g)].map((match) => match[1])
-        .filter((url) => /RELEASE_NOTES_0\.4\.0-beta\.\d+\.md|OPENCODE_BOX_VALIDATION\.md/.test(url));
+        .filter((url) => /RELEASE_NOTES_0\.[45]\.0-beta\.\d+\.md|OPENCODE_BOX_VALIDATION\.md/.test(url));
       expect(links.length).toBeGreaterThanOrEqual(3);
       for (const link of links) expect(link).toMatch(/^https:\/\/github\.com\/rosariomoscato\/droidsembly\/blob\//);
-      expect(links.some((link) => link.endsWith('/RELEASE_NOTES_0.4.0-beta.6.md'))).toBe(true);
+      expect(links.some((link) => link.endsWith('/RELEASE_NOTES_0.5.0-beta.1.md'))).toBe(true);
       const images = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)|<img[^>]+src="([^"]+)"/g)]
         .map((match) => match[1] ?? match[2]);
       expect(images.some((url) => url.endsWith('/beta6/robot-at-computer.png'))).toBe(true);
@@ -19,6 +19,15 @@ describe('npm distribution channels', () => {
         expect(image).toContain('/12937e8a36d35aa3b615b956168598e655882425/');
       }
     }
+  });
+  it('publishes only the approved 0.5 public beta on latest without relabelling other betas', () => {
+    expect(releaseInfo('0.5.0-beta.1', 'droidsembly-v0.5.0-beta.1')).toEqual({
+      tag: 'droidsembly-v0.5.0-beta.1', channel: 'latest',
+    });
+    expect(updateInfo('droidsembly', '0.5.0-beta.1').command).toBe('npx droidsembly@latest');
+    expect(updateInfo('droidsembly', '0.5.0-beta.2').channel).toBe('next');
+    expect(updateInfo('other-package', '0.5.0-beta.1').channel).toBe('next');
+    expect(() => releaseInfo('0.5.0-beta.1', 'droidsembly-v0.4.0-beta.6')).toThrow();
   });
   it('keeps beta.5 on next with its exact tag and recognizes the beta.4 update', () => {
     expect(releaseInfo('0.4.0-beta.5', 'droidsembly-v0.4.0-beta.5')).toEqual({ tag: 'droidsembly-v0.4.0-beta.5', channel: 'next' });

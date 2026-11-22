@@ -23,6 +23,16 @@ export function integrity(bytes) {
   return 'sha512-' + createHash('sha512').update(bytes).digest('base64');
 }
 
+/** Only the explicitly approved public beta may align next after latest is verified. */
+export function assertNextAlignment(expected, channels, completed = false) {
+  assert.equal(expected.name, 'droidsembly');
+  assert.equal(expected.version, '0.5.0-beta.1');
+  assert.equal(expected.channel, 'latest');
+  const wanted = { ...expected.previousChannels, latest: expected.version };
+  if (completed) wanted.next = expected.version;
+  assert.deepEqual(channels, wanted, 'Channels changed unexpectedly; do not overwrite or republish');
+}
+
 export async function capturePublication(expected, fetcher = fetch) {
   const version = await request(endpoint(expected.name, '/' + encodeURIComponent(expected.version)), fetcher);
   assert.equal(version.status, 404, 'Version already exists: do not republish or rerun Release');
