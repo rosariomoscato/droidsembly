@@ -12,6 +12,7 @@ import { createPrefixSampler, createShutdownObservation } from '../scripts/shutd
 // Capture real diagnostic timer functions before the workload freezes globals.
 const realSetInterval = globalThis.setInterval;
 const realClearInterval = globalThis.clearInterval;
+const scaleTrace = console.info.bind(console);
 
 // A whole office writes its state, secrets and voice cache: a folder of its own, so other tests' files are left alone.
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'cubefarm-scale-'));
@@ -137,13 +138,18 @@ afterAll(async () => {
 
 describe('a big company', () => {
   it('fits the snapshot and websocket budgets', { timeout: 120_000 }, async () => {
+    const started = performance.now();
+    const phase = (name: string) => scaleTrace('scale workload', { phase: name, elapsedMs: performance.now() - started });
+    phase('init-begin');
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
     for (const m of ['log', 'warn', 'info'] as const) vi.spyOn(console, m).mockImplementation(() => undefined);
     const swarm = office = new Swarm(createDemoBackend({ floors: 10, agents: 15 }));
     const init = swarm.init();
     await vi.advanceTimersByTimeAsync(5_000);
     await init;
+    phase('init-complete');
     await vi.advanceTimersByTimeAsync(2 * 60_000); // everyone at work, PRs opened, tested and merged
+    phase('warmup-complete');
 
     const sent: string[] = [];
     const listeners: Record<string, (data: unknown) => void> = {};
@@ -157,7 +163,9 @@ describe('a big company', () => {
     expect(sent[0].length).toBeLessThan(SNAPSHOT_BUDGET);
 
     sent.length = 0;
+    phase('traffic-window-begin');
     await vi.advanceTimersByTimeAsync(60_000);
+    phase('traffic-window-complete');
     const bytes = sent.reduce((n, m) => n + Buffer.byteLength(m), 0);
     expect(bytes / 60).toBeLessThan(TRAFFIC_BUDGET);
     // only floor 1's terminal lines came, and agent changes came in batches

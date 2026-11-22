@@ -612,6 +612,8 @@ export class Swarm {
   private saveTimer: NodeJS.Timeout | null = null;
   private shutdownTask: Promise<void> | null = null;
   private stopping = false;
+  private backgroundIntervals = new Set<NodeJS.Timeout>();
+  private backgroundTimeouts = new Set<NodeJS.Timeout>();
   private writing: Promise<void> = Promise.resolve(); // state file writes, one at a time: they share its temp file
   private terminalSaving: Promise<void> | null = null;
   private logSeq = 1;
@@ -728,6 +730,21 @@ export class Swarm {
   }
 
   // ---------- lifecycle ----------
+
+  private backgroundInterval(run: () => void, ms: number) {
+    if (this.stopping) return;
+    const timer = setInterval(() => { if (!this.stopping) run(); }, ms);
+    this.backgroundIntervals.add(timer);
+  }
+
+  private backgroundTimeout(run: () => void, ms: number) {
+    if (this.stopping) return;
+    const timer = setTimeout(() => {
+      this.backgroundTimeouts.delete(timer);
+      if (!this.stopping) run();
+    }, ms);
+    this.backgroundTimeouts.add(timer);
+  }
 
   async init() {
     let legacyDefaults = false;
@@ -939,26 +956,26 @@ export class Swarm {
     this.officeHead = await this.backend.office.head();
     const updated = await this.backend.office.takeLastUpdate().catch(() => null);
     if (updated) await this.reportUpdate(updated);
-    setInterval(() => this.state.repos.forEach((r, i) => setTimeout(() => void this.syncRepo(r.id), i * 1500)), SYNC_INTERVAL_MS);
-    setInterval(() => this.schedule(), SCHEDULER_INTERVAL_MS);
-    setInterval(() => this.previews.sweepPrs(), 15_000);
-    setInterval(() => void this.saveTerminals(), TERMINAL_SAVE_MS);
+    this.backgroundInterval(() => this.state.repos.forEach((r, i) => this.backgroundTimeout(() => void this.syncRepo(r.id), i * 1500)), SYNC_INTERVAL_MS);
+    this.backgroundInterval(() => this.schedule(), SCHEDULER_INTERVAL_MS);
+    this.backgroundInterval(() => this.previews.sweepPrs(), 15_000);
+    this.backgroundInterval(() => void this.saveTerminals(), TERMINAL_SAVE_MS);
     // Every minute in the demo, so a short idle time shows its phone message soon.
-    setInterval(() => {
+    this.backgroundInterval(() => {
       void this.trimIdleDesks();
       void this.voice.prune();
       void this.journal.prune().catch((err) => console.warn('could not prune the journal', err));
     }, this.backend.demo ? 60_000 : TRIM_SWEEP_MS);
-    setInterval(() => {
-      this.state.repos.forEach((r, i) => setTimeout(() => void this.sweepFloor(r.id), i * 1500));
+    this.backgroundInterval(() => {
+      this.state.repos.forEach((r, i) => this.backgroundTimeout(() => void this.sweepFloor(r.id), i * 1500));
       void this.sweepMachines();
     }, DESK_SWEEP_INTERVAL_MS);
     void this.sweepMachines();
-    setInterval(() => this.greet(), 60_000);
-    setTimeout(() => this.greet(), 5000);
-    setInterval(() => this.emitOps(), OPS_TICK_MS); // the clock moves the numbers too: the last hour, today, errors turning into alarms
-    setInterval(() => this.notifyStuck(), 60_000);
-    setInterval(() => this.watchdogTick(), WATCHDOG_MS);
+    this.backgroundInterval(() => this.greet(), 60_000);
+    this.backgroundTimeout(() => this.greet(), 5000);
+    this.backgroundInterval(() => this.emitOps(), OPS_TICK_MS); // the clock moves the numbers too: the last hour, today, errors turning into alarms
+    this.backgroundInterval(() => this.notifyStuck(), 60_000);
+    this.backgroundInterval(() => this.watchdogTick(), WATCHDOG_MS);
     void this.backend
       .detectClis()
       .then((clis) => {
@@ -978,7 +995,7 @@ export class Swarm {
       }),
       this.state.repos.map((r) => this.repoView(r)),
     );
-    setTimeout(() => this.schedule(), 1000);
+    this.backgroundTimeout(() => this.schedule(), 1000);
   }
 
   /**
@@ -2138,6 +2155,11 @@ export class Swarm {
   shutdown(restart = false): Promise<void> {
     if (this.shutdownTask) return this.shutdownTask;
     this.stopping = true;
+    // Stop producing maintenance work before awaiting any persistence or CLI release.
+    for (const timer of this.backgroundIntervals) clearInterval(timer);
+    for (const timer of this.backgroundTimeouts) clearTimeout(timer);
+    this.backgroundIntervals.clear();
+    this.backgroundTimeouts.clear();
     this.shutdownTask = this.finishShutdown(restart);
     return this.shutdownTask;
   }
