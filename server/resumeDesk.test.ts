@@ -12,19 +12,35 @@ async function fixture() {
   await fs.mkdir(main);
   const g = (args: string[], cwd = main) => git(args, { cwd });
   await g(['init', '-q', '--initial-branch=main']);
-  await g(['config', 'user.name', 'Synthetic Resume Test']); await g(['config', 'user.email', 'resume@example.test']);
-  await g(['config', 'core.hooksPath', path.join(root, 'no-hooks')]);
+  // Keep configuration local, without three extra Git launches on Windows.
+  const hooks = path.join(root, 'no-hooks').replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+  await fs.appendFile(path.join(main, '.git', 'config'),
+    `\n[user]\n\tname = Synthetic Resume Test\n\temail = resume@example.test\n[core]\n\thooksPath = "${hooks}"\n[branch "main"]\n\tremote = origin\n\tmerge = refs/heads/main\n`);
   await fs.writeFile(path.join(main, 'tracked.txt'), 'original\n');
   await fs.writeFile(path.join(main, '.gitignore'), 'ignored.cache\n');
   await g(['add', '.']); await g(['commit', '-q', '-m', 'synthetic baseline']);
-  await g(['init', '-q', '--bare', '--initial-branch=main', origin]); await g(['remote', 'add', 'origin', origin]);
-  await g(['push', '-q', '-u', 'origin', 'main']);
+  // Seed the same real local remote without push's pack/receive subprocesses.
+  await g(['clone', '-q', '--bare', main, origin]); await g(['remote', 'add', 'origin', origin]);
+  await g(['fetch', '-q', 'origin']);
   const branch = 'swarm/issue-3-original';
   return { root, main, origin, desk, g, branch };
 }
 async function snapshot(desk: string) {
   const g = (args: string[]) => git(args, { cwd: desk });
-  return { head: await g(['rev-parse', 'HEAD']), status: await g(['status', '--porcelain=v1', '--untracked-files=all']), unstaged: await g(['diff', '--binary']), staged: await g(['diff', '--cached', '--binary']), refs: await g(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads/']) };
+  // Nothing mutates the fixture during a snapshot; independent reads can overlap.
+  // Settle every child before propagating an error so teardown cannot race a reader.
+  const results = await Promise.allSettled([
+    g(['rev-parse', 'HEAD']),
+    g(['status', '--porcelain=v1', '--untracked-files=all']),
+    g(['diff', '--binary']),
+    g(['diff', '--cached', '--binary']),
+    g(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads/']),
+  ]);
+  const [head, status, unstaged, staged, refs] = results.map(result => {
+    if (result.status === 'rejected') throw result.reason;
+    return result.value;
+  });
+  return { head, status, unstaged, staged, refs };
 }
 afterEach(async () => { for (const root of roots.splice(0)) await fs.rm(root, { recursive: true, force: true, maxRetries: 5 }); });
 describe('non-destructive interrupted desk preparation', () => {
