@@ -27,6 +27,55 @@ afterEach(async () => {
 });
 
 describe('terminal save serialization', () => {
+  it.each(['parser', 'directory', 'write', 'rename'] as const)('keeps a failed %s save eligible for periodic retry', async (phase) => {
+    const { terminal, file } = await fixture();
+    vi.spyOn(terminal, 'flush').mockResolvedValue(undefined);
+    vi.spyOn(terminal, 'snapshot').mockReturnValue('synthetic retry screen');
+    terminal.dirty = true;
+    const failure = new Error(`synthetic ${phase} failure`);
+    if (phase === 'parser') vi.mocked(terminal.flush).mockRejectedValueOnce(failure);
+    if (phase === 'directory') vi.spyOn(fs, 'mkdir').mockRejectedValueOnce(failure);
+    if (phase === 'write') vi.spyOn(fs, 'writeFile').mockRejectedValueOnce(failure);
+    if (phase === 'rename') vi.spyOn(fs, 'rename').mockRejectedValueOnce(failure);
+    await expect(terminal.save(file)).rejects.toBe(failure);
+    expect(terminal.dirty).toBe(true);
+    await terminal.save(file);
+    expect(terminal.dirty).toBe(false);
+    expect(await fs.readFile(file, 'utf8')).toBe('synthetic retry screen');
+  });
+
+  it('keeps output received during a successful save eligible for the next save', async () => {
+    const { terminal, file } = await fixture();
+    vi.spyOn(terminal, 'flush').mockResolvedValue(undefined);
+    const snapshot = vi.spyOn(terminal, 'snapshot').mockReturnValue('earlier screen');
+    const entered = deferred();
+    const release = deferred();
+    const rename = fs.rename.bind(fs);
+    vi.spyOn(fs, 'rename').mockImplementationOnce(async (from, to) => {
+      entered.resolve();
+      await release.promise;
+      await rename(from, to);
+    });
+    terminal.dirty = true;
+    const pending = terminal.save(file);
+    const result = Promise.allSettled([pending]);
+    try {
+      await entered.promise;
+      expect(terminal.dirty).toBe(false);
+      terminal.write('new output during persistence');
+      snapshot.mockReturnValue('later screen');
+    } finally {
+      release.resolve();
+      await result;
+    }
+    await pending;
+    expect(await fs.readFile(file, 'utf8')).toBe('earlier screen');
+    expect(terminal.dirty).toBe(true);
+    await terminal.save(file);
+    expect(terminal.dirty).toBe(false);
+    expect(await fs.readFile(file, 'utf8')).toBe('later screen');
+  });
+
   it('does not begin a second parser flush/write while the first rename is blocked', async () => {
     const { terminal, file } = await fixture();
     const flush = vi.spyOn(terminal, 'flush').mockResolvedValue(undefined);
