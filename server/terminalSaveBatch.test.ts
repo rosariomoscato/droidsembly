@@ -81,6 +81,45 @@ describe('bounded terminal save batch', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
+  it('hands unstarted periodic saves to the complete final batch without exceeding eight writes', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    let active = 0;
+    let peak = 0;
+    let latest = false;
+    const finalScreens: number[] = [];
+    const saves = Array.from({ length: 20 }, (_, id) => vi.fn(async () => {
+      const final = latest;
+      active++;
+      peak = Math.max(peak, active);
+      try {
+        await gate;
+        if (final) finalScreens.push(id);
+      } finally { active--; }
+    }));
+    const swarm = fixture(saves.map(save => ({ dirty: true, save })));
+    const periodic = swarm.saveTerminals();
+    let final: Promise<void> | undefined;
+    try {
+      expect(active).toBe(8);
+      swarm.stopping = true;
+      latest = true;
+      // Let the original batch settle before requesting the final one, as when
+      // state/journal/CLI release takes longer than the active terminal writes.
+      release();
+      await periodic;
+      expect(saves.filter(save => save.mock.calls.length)).toHaveLength(8);
+      final = swarm.saveTerminals(true);
+      await final;
+    } finally {
+      release();
+      await Promise.all([periodic, final]);
+    }
+    expect(peak).toBe(8);
+    expect(finalScreens.sort((a, b) => a - b)).toEqual(Array.from({ length: 20 }, (_, id) => id));
+    saves.forEach((save, id) => expect(save).toHaveBeenCalledTimes(id < 8 ? 2 : 1));
+  });
+
   it('starts eight independent saves without exceeding eight active operations', async () => {
     let release!: () => void;
     const gate = new Promise<void>(done => { release = done; });

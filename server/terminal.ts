@@ -139,10 +139,16 @@ export class AgentTerminal {
   save(file: string): Promise<void> {
     const next = this.saving.then(async () => {
       this.dirty = false;
-      await this.flush();
-      await fs.mkdir(path.dirname(file), { recursive: true });
-      await fs.writeFile(`${file}.tmp`, this.snapshot());
-      await fs.rename(`${file}.tmp`, file);
+      try {
+        await this.flush();
+        await fs.mkdir(path.dirname(file), { recursive: true });
+        await fs.writeFile(`${file}.tmp`, this.snapshot());
+        await fs.rename(`${file}.tmp`, file);
+      } catch (error) {
+        // Periodic saves select dirty terminals: a failed write must remain eligible.
+        this.dirty = true;
+        throw error;
+      }
     });
     // The caller still observes its own failure; later saves must not inherit it.
     this.saving = next.catch(() => undefined);
