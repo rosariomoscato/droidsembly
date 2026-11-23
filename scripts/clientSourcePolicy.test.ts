@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import asyncFs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -87,49 +86,34 @@ describe('client source-policy scan coverage', () => {
     await expect(scanClientSources(root)).rejects.toThrow(/symbolic links/);
   });
 
-  it('overlaps fresh reads with a strict maximum of eight, without dropping any file', async () => {
+  it('reads at most eight files before yielding, without dropping any file', async () => {
     const root = fixture();
     for (let i = 0; i < 19; i++) write(root, `f${String(i).padStart(2, '0')}.ts`, i === 18 ? 'push.json' : 'safe');
-    const original = asyncFs.readFile.bind(asyncFs);
-    let active = 0, maximum = 0;
-    const release: (() => void)[] = [];
-    vi.spyOn(asyncFs, 'readFile').mockImplementation((...args: Parameters<typeof asyncFs.readFile>) => {
-      active++; maximum = Math.max(maximum, active);
-      return new Promise((resolve, reject) => release.push(() => {
-        original(...args).then((value) => { active--; resolve(value); }, (error) => { active--; reject(error); });
-      })) as ReturnType<typeof asyncFs.readFile>;
-    });
+    const read = vi.spyOn(fs, 'readFileSync');
     const pending = scanClientSources(root);
-    expect(active).toBe(8);
-    while (release.length || active) {
-      for (const done of release.splice(0)) done();
-      await new Promise((resolve) => setImmediate(resolve));
-    }
+    expect(read).toHaveBeenCalledTimes(8);
+    // Registered after the first yield: this runs before the third batch.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(read).toHaveBeenCalledTimes(16);
     const result = await pending;
-    expect(maximum).toBe(8);
     expect(result.files).toHaveLength(19);
     expect(result.violations).toEqual(['f18.ts']);
-    expect(asyncFs.readFile).toHaveBeenCalledTimes(19);
+    expect(read).toHaveBeenCalledTimes(19);
   });
 
-  it('does not reject while another started read is still in flight', async () => {
+  it('leaves no reads or observer callbacks running after a read failure', async () => {
     const root = fixture();
     for (let i = 0; i < 10; i++) write(root, `${i}.ts`, 'safe');
     const failure = new Error('synthetic read failure');
-    let calls = 0, settled = false;
-    const release: (() => void)[] = [];
-    vi.spyOn(asyncFs, 'readFile').mockImplementation(() => {
-      calls++;
-      if (calls === 1) return Promise.reject(failure);
-      return new Promise((resolve) => release.push(() => resolve('safe'))) as ReturnType<typeof asyncFs.readFile>;
-    });
-    const pending = scanClientSources(root);
-    const outcome = pending.then(() => { settled = true; }, () => { settled = true; });
-    await Promise.resolve();
-    expect(calls).toBe(8); expect(settled).toBe(false);
-    for (const done of release) done();
+    const original = fs.readFileSync.bind(fs);
+    const read = vi.spyOn(fs, 'readFileSync').mockImplementationOnce(original).mockImplementationOnce(() => { throw failure; });
+    const observe = vi.fn();
+    const pending = scanClientSources(root, observe);
     await expect(pending).rejects.toBe(failure);
-    await outcome;
-    expect(settled).toBe(true); expect(calls).toBe(8);
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(observe.mock.calls.map(([event]) => event.phase)).toEqual(['enumeration', 'selection', 'file']);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(observe).toHaveBeenCalledTimes(3);
   });
 });

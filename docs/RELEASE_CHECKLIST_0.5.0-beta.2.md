@@ -5,6 +5,29 @@ non ancora pronta alla pubblicazione**.
 
 ## Esito finale della preparazione locale
 
+**Follow-up: ancora bloccata.** Correzione scansione: 24/24 test passati.
+Verifica delle aree interessate: 12 file passati, 206 test passati / 5 saltati,
+ma includeva anche una candidata Git successivamente ritirata.
+Suite completa finale interrotta al limite diagnostico di 1500 secondi,
+senza riepilogo finale: non è verde e non dimostra quanti test siano terminati.
+Ultimo controllo Git: 2 falliti / 3 passati / 41 filtrati, senza soglie modificate.
+`server/workspace.ts` e `server/workspace.test.ts` ripristinati integralmente
+alla base revisionata. La combinazione finale conservata non è stata
+nuovamente sottoposta alla suite completa; build e smoke non raggiunti.
+
+Conservate: scansione con yield a blocchi, compressione incrementale del
+diario demo e classificazione di sei file completi nella fase seriale
+esistente. Il confronto del diario a 151 agenti ha prodotto JSON identico
+byte per byte, con circa il 13% di riduzione di tempo in quella prova.
+Non è un risultato di FPS e non chiude #39, #42 o #109.
+
+Evidenze aggiuntive locali: `scanner-candidate-tests.log`,
+`journal-streaming-comparison.json`, `corrected-areas-tests.log`,
+`corrected-final-validation.json`, `final-full-test.log`,
+`final-git-scenarios.log`, `rejected-workspace-optimization.patch`.
+
+### Checkpoint iniziale (conservato)
+
 **Bloccata prima della PR.** Un solo ciclo: identità e typecheck passati,
 suite fallita (322 file passati / 8 falliti; 3639 test passati / 11 falliti /
 5 saltati, totale 3655). Nessun retry; build e smoke successivi non eseguiti.
@@ -28,7 +51,7 @@ al verde. Questa checklist non dichiara conclusa con successo la validazione.
 - [x] Base npm beta.1: `f91b181759f2821cb4bdd62c1ccb47b727cec3b3`.
 - [x] Base funzionale candidata: `9e958c59ad40a059ea8ac31cd404435342780459`;
   coincide con `origin/main` verificato in sola lettura.
-- [x] Delta: 16 file, 568 aggiunte / 57 rimozioni prima di queste due bozze;
+- [x] Delta beta.1 → base main: 16 file, 568 aggiunte / 57 rimozioni prima di queste due bozze e delle correzioni locali;
   quattro documenti, quattro file server di produzione e otto file test.
   Nessuna modifica client, dipendenze o workflow nel delta.
 - [x] Correzioni di PR #106 e commit `31b458b`, documentazione PR #107,
@@ -39,7 +62,8 @@ al verde. Questa checklist non dichiara conclusa con successo la validazione.
 - [x] Registro npm: `latest` e `next` entrambi beta.1; GET della versione
   beta.2 restituisce 404. Nessun tag remoto beta.2 trovato.
   Sono osservazioni puntuali da ripetere prima del rilascio, non prenotazioni.
-- [x] Nessuna nuova suite completa o benchmark ripetuto per queste bozze Markdown.
+- [x] Nessuna suite aggiunta nella sola fase iniziale delle bozze Markdown;
+  le verifiche successive delle correzioni sono riportate sopra.
 
 ## Decisioni e passi ancora necessari
 

@@ -8,7 +8,33 @@ This document does not authorize publication, tags, channel changes or a PC upda
 Candidate package metadata is `0.5.0-beta.2`, targeting `next`; this is not
 evidence of publication.
 
-## Candidate validation blocked / Verifica candidato bloccata
+## Latest follow-up / Ultimo follow-up — still blocked
+
+The local candidate now also contains bounded-yield source-policy reads and
+streaming compression of the synthetic demo journal. The latter generated the
+same 5375 lines / 10506922 JSON bytes for a 151-agent seeded comparison,
+about 13% faster in two paired windows. This is not a graphics-FPS result.
+Six complete deadline-sensitive test files join the existing serial phase;
+no test deadline, assertion, scenario or retry setting was relaxed.
+
+Scanner verification: 24/24 tests passed, including the unchanged five-second
+policy budget. A subsequent targeted pass reported 12 files passed,
+206 tests passed and 5 skipped. That pass included experimental Git changes
+which are **not** retained in this candidate.
+
+Final complete-suite attempt: stopped at the unchanged diagnostic outer bound
+of 1500 seconds, without a final test summary. No failing tests appeared in
+the captured output, but **this is not a successful suite result**.
+A final Git-only check reported 2 failed / 3 passed / 41 filtered tests;
+the seeded-origin regression and the original PR-author scenario timed out.
+Both workspace source and test files were restored to the reviewed main
+implementation. The discarded experiments remain in local diagnostics.
+
+Build and package smoke were not reached. The retained final combination has
+not passed a complete suite; no PR, publication or PC update is approved by
+these results. Issues #39, #42 and #109 remain open.
+
+## Initial failed checkpoint / Primo checkpoint negativo
 
 One local Windows/Node 22 validation pass on the beta.2 metadata failed:
 **322 test files passed, 8 failed; 3639 tests passed, 11 failed, 5 skipped**
@@ -43,6 +69,11 @@ i problemi intermittenti.
   al salvataggio finale completo.
 - Il recupero di un branch locale già esistente non richiede un fetch:
   può recuperare anche commit non pubblicati quando il remoto non è disponibile.
+- La scansione di policy dei sorgenti usa letture fresche in piccoli blocchi,
+  cedendo il controllo tra i blocchi; copertura e limite di cinque secondi
+  restano invariati.
+- Il diario sintetico della demo comprime ogni evento prima di clonarlo,
+  evitando copie complete poi scartate, senza ridurre il giorno simulato.
 
 Queste correzioni riducono difetti specifici; non garantiscono assenza di perdita
 dati in ogni condizione, shutdown sempre entro soglia o fluidità del 3D.
