@@ -615,6 +615,8 @@ export class Swarm {
   private backgroundIntervals = new Set<NodeJS.Timeout>();
   private backgroundTimeouts = new Set<NodeJS.Timeout>();
   private writing: Promise<void> = Promise.resolve(); // state file writes, one at a time: they share its temp file
+  private periodicStateWrite: Promise<void> | null = null;
+  private stateChangedDuringWrite = false;
   private terminalSaving: Promise<void> | null = null;
   private logSeq = 1;
   private previews: Previews;
@@ -1376,8 +1378,29 @@ export class Swarm {
   // ---------- persistence ----------
 
   private save() {
-    if (this.stopping || this.saveTimer) return;
-    this.saveTimer = setTimeout(() => void this.writeState().catch((err) => console.warn('could not save the state', err)), 1500);
+    if (this.stopping) return;
+    if (this.periodicStateWrite) {
+      this.stateChangedDuringWrite = true;
+      return;
+    }
+    if (this.saveTimer) return;
+    this.saveTimer = setTimeout(() => {
+      const pending = this.writeState();
+      this.periodicStateWrite = pending;
+      const settled = () => {
+        this.periodicStateWrite = null;
+        // Collapse changes during slow I/O into one later save, never a backlog
+        // of full snapshots. Explicit/final writes still use the ordered queue.
+        if (this.stateChangedDuringWrite) {
+          this.stateChangedDuringWrite = false;
+          this.save();
+        }
+      };
+      void pending.then(settled, (err) => {
+        console.warn('could not save the state', err);
+        settled();
+      });
+    }, 1500);
   }
 
   /** Write the state file now, e.g. before the office stops or hands itself to the launcher. Waits for a write in progress. */
@@ -3362,6 +3385,9 @@ export class Swarm {
     // batch; AgentTerminal.save still serializes overlapping saves of itself.
     await Promise.all(Array.from({ length: Math.min(8, pending.length) }, async () => {
       while (next < pending.length) {
+        // Shutdown saves every terminal afresh. Finish active periodic writes,
+        // but hand untouched entries to that final batch instead of writing twice.
+        if (!all && this.stopping) break;
         const { id, terminal } = pending[next++];
         await terminal.save(terminalFile(id)).catch((err) => console.warn('could not save a terminal', err));
       }

@@ -641,6 +641,7 @@ async function fakeTrim(stillIdle: () => boolean) {
 
 /** The demo's fake world; `scale` (--floors / --agents) makes it the big company instead of the usual two floors. */
 export function createDemoBackend(scale: DemoScale | null = null): Backend {
+  const sessions = new Set<SessionHandle>();
   const planIssues = new Map<string, { number: number; title: string; body: string }[]>();
   // Fake remote state is separate from the office ledger, so a demo process restart
   // can reconcile a lost create response too. Never used by the real backend.
@@ -901,7 +902,18 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
     startSession: (opts, cb) => {
       // The big company is for measuring the office at full speed, so it never paces.
       if (++sessionsStarted === USAGE_WARNING_AT && !scale) fakeUsageWarning(cb);
-      return inTerminal(opts, cb, (c) => (opts.role === 'ceo' ? ceoSession(opts, c) : fakeSession(opts, c, deskRepo.get(opts.cwd) ?? boxDeskRepo(opts.cwd) ?? [...repos.keys()][0])));
+      let session: SessionHandle | undefined;
+      let finished = false;
+      session = inTerminal(opts, {
+        ...cb,
+        finished: result => {
+          finished = true;
+          if (session) sessions.delete(session);
+          cb.finished(result);
+        },
+      }, (c) => (opts.role === 'ceo' ? ceoSession(opts, c) : fakeSession(opts, c, deskRepo.get(opts.cwd) ?? boxDeskRepo(opts.cwd) ?? [...repos.keys()][0])));
+      if (!finished) sessions.add(session);
+      return session;
     },
     terminals: true,
     openCodeModels: async (directory) => ({ directory, defaultModel: 'openai/demo-model', models: [
@@ -910,7 +922,12 @@ export function createDemoBackend(scale: DemoScale | null = null): Backend {
     ] }),
     reconnectClis: async () => [], // fake sessions end with the office
     hooksReady: () => undefined,
-    releaseClis: async () => undefined,
+    releaseClis: async () => {
+      // Unlike real CLIs, fake sessions have no keeper to detach from. End their
+      // timers before final terminal saves instead of continuing to mutate them.
+      for (const session of [...sessions]) session.stop();
+      sessions.clear();
+    },
     detectClis: async () =>
       CLIS.map((c) => ({ id: c.id, label: c.label, installed: true, version: 'demo', integrated: c.integrated })),
     previews: demoPreviews,
