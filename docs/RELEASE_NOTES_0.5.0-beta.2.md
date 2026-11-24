@@ -1,14 +1,52 @@
-# Droidsembly 0.5.0-beta.2 — draft / bozza
+# Droidsembly 0.5.0-beta.2 — published / pubblicata
 
-**Not released. Preparation only, updated 24 November 2026.**
-**Non pubblicata. Solo preparazione, aggiornata al 24 novembre 2026.**
+**Published November 24, 2026 on npm `next`; `latest` remains `0.5.0-beta.1`.**
+**Pubblicata il 24 novembre 2026 su npm `next`; `latest` resta `0.5.0-beta.1`.**
 
-The published package and PC installation remain `0.5.0-beta.1`.
-This document does not authorize publication, tags, channel changes or a PC update.
-Candidate package metadata is `0.5.0-beta.2`, targeting `next`; this is not
-evidence of publication.
+## Final publication status / Esito finale
 
-## Current validation / Verifica attuale — 24 November
+- [GitHub prerelease](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.2).
+- Immutable tag / tag immutabile: `droidsembly-v0.5.0-beta.2`.
+- Source / sorgente: `0e125c1e1c003b417c50cdd9b9a752dc893cce89`.
+- PR #111 and corrective PR #114 integrated in dev; authorized promotion #112
+  merged in main. Fresh dev, promotion and [main CI](https://github.com/rosariomoscato/droidsembly/actions/runs/45346546724)
+  passed all five environments, without bypass or unchanged failed-job retry.
+- Final corrective local cycle: 330 files / 3655 passed tests / 5 existing
+  skips, typecheck, build and isolated installed-package smoke.
+- [Release 45348450586](https://github.com/rosariomoscato/droidsembly/actions/runs/45348450586)
+  passed its three verification environments and published via npm OIDC,
+  but **remains failed**: its five-minute post-publish availability check
+  observed `version-not-visible` and stopped. Public smoke and GitHub release
+  creation were skipped in that workflow.
+- A later independent read-only check verified the canonical public tarball
+  byte for byte against the exact pre-publish artifact, with matching gitHead,
+  integrity and channels. The public tarball passed isolated demo smoke in
+  135.56 s. The GitHub prerelease page was then completed with separate
+  maintainer authorization. No republication, workflow rerun or tag movement.
+- Public tarball: 3376678 bytes; SHA-256
+  `af03da231f896b78f14ceec31010b7d5addd5b99a61c5863715acdc91de67e4d`.
+- [Publication evidence and retained failure](https://github.com/rosariomoscato/droidsembly/issues/110#issuecomment-7125408524).
+
+**IT:** La verifica successiva non cancella il timeout del workflow.
+La pagina release è stata completata separatamente, non con un rilancio di
+Release. `next` è beta.2; `latest` e installazione PC restano beta.1.
+#39/#42 restano in monitoraggio e #109 irrisolta: nessun miglioramento FPS
+dimostrato o soluzione universale dei timeout. Nessun aggiornamento reale,
+deploy del sito o ulteriore rilascio è autorizzato da questo documento.
+
+**EN:** The later verification does not erase the workflow failure.
+`latest` and the PC installation remain beta.1. #39/#42 remain monitoring;
+#109 remains unresolved. No proven FPS gain or universal timing fix.
+
+## Preparation history / Cronologia della preparazione
+
+The dated checkpoints below are retained as written at the time, including
+negative results and then-pending gates. They do not describe the current
+publication state, which is recorded above.
+I checkpoint seguenti conservano esiti negativi e gate allora pendenti;
+non sostituiscono l'esito finale riportato sopra.
+
+## Pre-publication validation / Verifica prima del rilascio — 24 November
 
 ### Weather-cache corrective follow-up (#113)
 

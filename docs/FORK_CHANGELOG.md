@@ -2,6 +2,20 @@
 
 Questo documento raccoglie le personalizzazioni di [rosariomoscato/cubefarm](https://github.com/rosariomoscato/cubefarm) rispetto al [progetto originale](https://github.com/leonvanzyl/cubefarm). Non sostituisce la cronologia Git e non elenca le funzionalità già presenti upstream.
 
+## 2026-11-24 — 0.5.0-beta.2 pubblicata su next
+
+**Affidabilità / distribuzione:** PR #111 e #114 integrate in dev, promozione
+#112 su main `0e125c1e1c003b417c50cdd9b9a752dc893cce89`, CI main verde sui
+cinque ambienti. Tag immutabile `droidsembly-v0.5.0-beta.2`, npm `next=beta.2`;
+`latest` e installazione PC restano beta.1. Nessuna ottimizzazione grafica
+sperimentale reintegrata: #39/#42 in monitoraggio e #109 irrisolta.
+
+La Release `45348450586` ha pubblicato via OIDC ma resta fallita al timeout
+di disponibilità post-publish. La verifica successiva dei byte pubblici identici
+al pack approvato e lo smoke pubblico sono riusciti; pagina prerelease GitHub
+completata con autorizzazione separata, senza rilancio o ripubblicazione.
+Vedi [note ed evidenze finali](RELEASE_NOTES_0.5.0-beta.2.md).
+
 ## Come aggiornare il registro
 
 - Aggiungere le nuove voci in ordine cronologico inverso, raggruppate per data (`AAAA-MM-GG`).
