@@ -6,6 +6,28 @@ PR ancora necessarie, pubblicazione non autorizzata**.
 
 ## Stato attuale e gate residui
 
+### Correzione cache meteo #113
+
+- [x] Conservato il fallimento della promozione #112 su Windows/Node 22:
+  attesa della cache in `server/weather.test.ts`; quattro ambienti verdi.
+  Nessun merge o rilancio del job invariato per ottenere il verde.
+- [x] Riproduzione controllata negativa sul codice originale: tre scritture
+  identiche in coda invece di una, otto test originali passati / nuovo test
+  fallito. Nessuna soglia o scenario originale modificato.
+- [x] Correzione: deduplicare solo byte già rinominati con successo.
+  Tre regressioni passano: scritture duplicate, aggiornamento diverso durante
+  la scrittura e successivo tentativo dopo una rinomina fallita.
+- [x] Un ciclo locale completo sul candidato correttivo:
+  typecheck, 330 file / 3655 test passati / 5 skip preesistenti
+  (3660 totali, 594,45 s), build e smoke pacchetto isolato.
+  Log `weather-fix-prepr-validation.json` e relativi quattro stage.
+- [ ] Revisione e CI della correzione dedicata verso `dev`; integrazione solo
+  con autorizzazione e controlli verdi, poi nuovi controlli della promozione
+  #112 sull'esatto nuovo head. Il precedente risultato verde non è una deroga
+  al successivo controesempio negativo.
+
+### Checkpoint precedente alla #113 (conservato)
+
 - [x] CI del candidato `786508ce58c70d752c02511e49849f165d646f05`
   [45217235928](https://github.com/rosariomoscato/droidsembly/actions/runs/45217235928)
   verde su Ubuntu, Windows/Node 24, Windows/Node 22, macOS Intel e ARM64 nativo:
