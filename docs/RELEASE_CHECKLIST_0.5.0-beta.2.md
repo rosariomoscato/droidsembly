@@ -1,9 +1,36 @@
 # Preparazione 0.5.0-beta.2 — non autorizza la pubblicazione
 
-Checkpoint: 23 novembre 2026. Esito: **delta verificato e note preparate;
-non ancora pronta alla pubblicazione**.
+Checkpoint aggiornato: 24 novembre 2026. Esito: **CI del candidato verde sui
+cinque ambienti, rischi classificati; non ancora pronta alla pubblicazione**.
 
-## Esito finale della preparazione locale
+## Stato attuale e gate residui
+
+- [x] CI del candidato `786508ce58c70d752c02511e49849f165d646f05`
+  [45217235928](https://github.com/rosariomoscato/droidsembly/actions/runs/45217235928)
+  verde su Ubuntu, Windows/Node 24, Windows/Node 22, macOS Intel e ARM64 nativo:
+  typecheck, suite completa, build e smoke pacchetto. I due tentativi ARM64
+  senza runner restano conservati; il tentativo finale ha realmente eseguito
+  i controlli. Nessun ambiente sostituito o deadline allentata.
+- [x] Ultimo controllo locale mirato: 3 file / 30 test passati, senza modifiche.
+  #39: scansione 603 ms, mediana percorsi 3,3856 ms.
+  #42: workload 50,329 s, shutdown 2,673 s, teardown 3,059 s.
+- [x] #39 e #42 aperte **in monitoraggio**, non riprodotte nell'ultima verifica.
+  #109 aperta **irrisolta**, senza nuova misura FPS e senza patch grafica.
+  Gli stati delle issue non costituiscono autorizzazione a rilasciare.
+- [ ] Gate locale pre-PR ancora insoddisfatto: ultima suite completa locale
+  329 file passati / 1 fallito, 3651 test passati / 1 fallito / 5 saltati.
+  Fallimento `homeIntegration`, scenario nuovo ufficio, deadline figlio 4 s
+  ed errore cleanup. Prova equivalente successiva 0,877 s, senza scritture:
+  non cancella l'intermittenza. Build e smoke locali non raggiunti.
+  Non aprire la PR usando la CI esterna come deroga implicita a questo gate.
+- [ ] Revisione finale, PR verso `dev`, integrazioni autorizzate e controlli
+  sul relativo commit. Nessuna PR aperta o pubblicazione eseguita.
+
+Questa è una riclassificazione con aggiornamento documentale: non un nuovo
+test del codice successivo al commit CI, né una chiusura tecnica delle issue.
+Nessun nuovo ciclo di test è stato eseguito per questo solo aggiornamento.
+
+## Preparazione del 23 novembre — cronologia conservata
 
 **Follow-up: ancora bloccata.** Correzione scansione: 24/24 test passati.
 Verifica delle aree interessate: 12 file passati, 206 test passati / 5 saltati,

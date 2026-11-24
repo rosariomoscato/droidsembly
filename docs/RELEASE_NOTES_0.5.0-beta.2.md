@@ -1,14 +1,47 @@
 # Droidsembly 0.5.0-beta.2 — draft / bozza
 
-**Not released. Preparation only, 23 November 2026.**
-**Non pubblicata. Solo preparazione, 23 novembre 2026.**
+**Not released. Preparation only, updated 24 November 2026.**
+**Non pubblicata. Solo preparazione, aggiornata al 24 novembre 2026.**
 
 The published package and PC installation remain `0.5.0-beta.1`.
 This document does not authorize publication, tags, channel changes or a PC update.
 Candidate package metadata is `0.5.0-beta.2`, targeting `next`; this is not
 evidence of publication.
 
-## Latest follow-up / Ultimo follow-up — still blocked
+## Current validation / Verifica attuale — 24 November
+
+Functional candidate: `786508ce58c70d752c02511e49849f165d646f05`.
+The [candidate CI](https://github.com/rosariomoscato/droidsembly/actions/runs/45217235928)
+is **green across all five environments**: Ubuntu, Windows/Node 24,
+Windows/Node 22, macOS Intel and native macOS ARM64. Typecheck, complete tests,
+build and installed-package smoke passed. ARM64 initially could not acquire
+a hosted runner; its final attempt executed and passed, without weakening
+deadlines or substituting Intel. The earlier cancelled attempts are retained.
+This checkpoint records that tested code; subsequent status-only documentation
+changes are not a new application validation or a published npm artifact.
+
+A final bounded local check passed all **30 tests** in the complete notifier,
+walkways and scale files. Scanner: **0.603 s / 5 s**. Fifteen walks, five
+batches: median **3.3856 ms / 8 ms**. Scale body: **50.329 s / 120 s**;
+shutdown interval **2.673 s**; full teardown **3.059 s / 10 s**, no
+persistence-warning assertion failure. No source or threshold change.
+
+**Negative local evidence remains:** the last full local suite finished with
+329 files passed / 1 failed; 3651 tests passed / 1 failed / 5 skipped.
+The new-home integration probe exceeded its unchanged four-second deadline
+and reported a cleanup error. A later isolated equivalent probe passed in
+0.877 s with the correct home and no files created; this does not prove the
+intermittence resolved. The complete local pre-PR gate remains unsatisfied;
+external CI success is not a waiver of that requirement.
+
+Issue status is distinct from release authorization:
+**#39 and #42 are open in monitoring**, not reproduced in the latest check;
+**#109 remains open and unresolved**, without a new FPS measurement.
+Keeping an issue open is not itself a new publication veto, but neither its
+monitoring status nor this CI result authorizes bypassing remaining gates,
+merging, publishing or updating the PC.
+
+## 23 November follow-up / Checkpoint storico — blocked at that time
 
 The local candidate now also contains bounded-yield source-policy reads and
 streaming compression of the synthetic demo journal. The latter generated the
@@ -81,12 +114,14 @@ dati in ogni condizione, shutdown sempre entro soglia o fluidità del 3D.
 ### Limiti noti
 
 - [#39](https://github.com/rosariomoscato/droidsembly/issues/39):
-  tempi intermittenti di scansione/percorso non dichiarati risolti.
+  **in monitoraggio**. Scansione e percorsi entro soglia nell'ultima verifica,
+  ma i precedenti rallentamenti intermittenti non sono dichiarati risolti.
 - [#42](https://github.com/rosariomoscato/droidsembly/issues/42):
-  rischio scala ancora aperto. Nell'ultimo follow-up limitato Windows/Node 22,
-  il workload ha superato 120 secondi, mentre la chiusura è durata circa 6,99 s.
+  **in monitoraggio**. Ultima prova Windows/Node 22: workload 50,329 s,
+  shutdown 2,673 s e teardown completo 3,059 s, entro le soglie originali.
+  I precedenti timeout di workload e shutdown restano evidenze negative.
 - [#109](https://github.com/rosariomoscato/droidsembly/issues/109):
-  FPS bassi osservati nel benchmark 3D. Nessuna ottimizzazione sperimentale
+  **irrisolta**. FPS bassi osservati nel benchmark 3D. Nessuna ottimizzazione sperimentale
   integrata. Il confronto a scena congelata non prova un miglioramento
   dell'app completa. La verifica Chrome visibile è rimasta inconcludente
   per un blocco dell'automazione prima dell'ingresso.
@@ -99,6 +134,9 @@ ha superato typecheck, test, build e smoke pacchetto sui cinque ambienti.
 La precedente suite locale completa riportava 330 file / 3655 test passati.
 Questi risultati non cancellano i follow-up negativi né verificano ancora
 un artefatto npm beta.2, che non esiste alla data della preparazione.
+La CI del candidato successivo `786508c`, riportata in apertura, verifica
+anche bump, scansione a blocchi e diario incrementale. Non cancella il
+fallimento dell'ultima suite locale completa né sostituisce la revisione.
 
 ## English
 
@@ -107,10 +145,11 @@ periodic state writes are coalesced under slow I/O, maintenance timers stop
 during shutdown, fake demo sessions stop on release, and existing local
 branches can be recovered without fetching.
 
-No experimental graphics optimization is included. Issues #39, #42 and #109
-remain open; neither normal-use 3D smoothness nor general scale stability is
-established. The successful five-environment CI applies to the functional base
-commit above, not an unpublished beta.2 artifact.
+No experimental graphics optimization is included. Issues #39 and #42 remain
+open in monitoring; #109 is still unresolved. Neither normal-use 3D smoothness
+nor universal scale stability is established. Both the functional base and
+candidate `786508c` have successful five-environment CI; no beta.2 npm
+publication is implied, and the failed local full-suite gate remains open.
 
 ## Distribution proposal / Proposta distribuzione
 
