@@ -2,7 +2,7 @@
 
 ## App
 
-Il repository https://github.com/rosariomoscato/droidsembly contiene il codice integrato su `main` e la cronologia. Clonarlo e seguire README.it.md per compilazione e avvio. La beta pubblicata è disponibile anche come `droidsembly@0.4.0-beta.1` su npm; la release GitHub registra commit e hash dell'artefatto.
+Il repository https://github.com/rosariomoscato/droidsembly contiene il codice integrato su `main` e la cronologia. Clonarlo e seguire README.it.md per compilazione e avvio. Al 24 novembre 2026 npm offre `0.5.0-beta.2` su `next` e `0.5.0-beta.1` su `latest`; la [release beta.2](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.2) registra commit e hash dell'artefatto. Per un recupero fissare la versione effettivamente scelta: non presumere che `main`, `latest`, `next` e installazione esistente coincidano. Vedi [aggiornamento controllato](QUICKSTART_PC.md).
 
 ## Sito
 

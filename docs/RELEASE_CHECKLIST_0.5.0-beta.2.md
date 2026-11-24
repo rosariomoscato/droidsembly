@@ -1,10 +1,31 @@
-# Preparazione 0.5.0-beta.2 — non autorizza la pubblicazione
+# Rilascio 0.5.0-beta.2 — checklist ed esiti
 
-Checkpoint aggiornato: 24 novembre 2026. Esito: **CI del codice applicativo
-verde sui cinque ambienti e gate locale pre-PR superato; revisione e CI della
-PR ancora necessarie, pubblicazione non autorizzata**.
+## Esito finale — 24 novembre 2026
 
-## Stato attuale e gate residui
+- [x] Autorizzazioni distinte per integrazione, promozione, versione esatta
+  `0.5.0-beta.2` su `next`, tag e workflow Release.
+- [x] PR #111 e #114 integrate in dev; promozione #112 integrata in main.
+  CI dev, promozione e main verdi sui cinque ambienti.
+- [x] Main pubblicato: `0e125c1e1c003b417c50cdd9b9a752dc893cce89`;
+  tag immutabile `droidsembly-v0.5.0-beta.2` sullo stesso commit.
+- [x] Preflight: identità npm inedita, tag assente, metadati e CI verificati.
+- [x] Release [45348450586](https://github.com/rosariomoscato/droidsembly/actions/runs/45348450586):
+  tre ambienti di verifica passati, pack/smoke pre-publish e pubblicazione OIDC riusciti.
+- [ ] Workflow Release interamente verde: **NO**, timeout post-publish di
+  disponibilità dopo cinque minuti. Esito negativo conservato; nessun rilancio.
+- [x] Verifica successiva in sola lettura: byte canonici identici al pack
+  pre-publish, gitHead e integrità corrispondenti, `next=beta.2`,
+  `latest=beta.1` invariato; smoke pubblico passato in 135,56 s.
+- [x] Pagina [prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.2)
+  completata con autorizzazione separata sul tag esistente, senza ripubblicazione.
+- [x] PC e ufficio reale non aggiornati; #39/#42 in monitoraggio, #109 irrisolta.
+
+Dettagli: [note finali](RELEASE_NOTES_0.5.0-beta.2.md).
+La cronologia seguente conserva le checklist **allo stato dei singoli
+checkpoint**: le caselle allora aperte non sono gate attuali né istruzioni
+per ripetere pubblicazione, tag o workflow. I fallimenti non vengono cancellati.
+
+## Checkpoint pre-rilascio e gate allora residui
 
 ### Correzione cache meteo #113
 

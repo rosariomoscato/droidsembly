@@ -2,10 +2,11 @@
 
 ## Italiano
 
-**Versione pubblicata: 0.5.0-beta.1**, verificata il 22 novembre 2026 su
-entrambi i canali npm **`latest` e `next`**. `npx.cmd droidsembly` seleziona
-questa beta pubblica; non è una versione stabile. Vedi
-[release e verifiche](RELEASE_NOTES_0.5.0-beta.1.md).
+**Canali verificati il 24 novembre 2026: `latest = 0.5.0-beta.1`,
+`next = 0.5.0-beta.2`.** `npx.cmd droidsembly` seleziona ancora beta.1.
+Entrambe sono beta, non versioni stabili. Vedi le
+[note beta.2 e i limiti delle verifiche](RELEASE_NOTES_0.5.0-beta.2.md).
+La pubblicazione beta.2 non ha aggiornato l'installazione PC, rimasta beta.1.
 
 La pubblicazione non aggiorna da sola un ufficio già installato. Le verifiche
 CLI/demo non dimostrano una migrazione del profilo reale. «Riprendi attività»
@@ -38,11 +39,11 @@ Se l'ufficio appare vuoto, **non ricollegare subito i repository**. La CLI usa `
 
 ### Pacchetto npm
 
-Entrambi i canali `latest` e `next` selezionano 0.5.0-beta.1. Per verificare
-esplicitamente la versione pubblicata, senza avviare l'ufficio:
+`latest` seleziona beta.1; `next` seleziona beta.2. Per verificare
+esplicitamente beta.2, senza avviare l'ufficio:
 
 ```powershell
-npx.cmd droidsembly@0.5.0-beta.1 --version
+npx.cmd droidsembly@0.5.0-beta.2 --version
 ```
 
 Questo comando può scaricare il pacchetto; `--version` non avvia l'ufficio. Per usarlo realmente, confermare prima il profilo previsto. Non scambiare un download npm per l'aggiornamento di un checkout Git già presente.
@@ -65,10 +66,11 @@ automatica o nuovi task. Le altre impostazioni continuano a governare il lavoro.
 
 ## English
 
-**Published version: 0.5.0-beta.1**, verified on November 22, 2026 on both
-npm **`latest` and `next`**. `npx droidsembly` (`npx.cmd` in PowerShell) selects
-this public beta, not a stable release. See [release evidence and
-limits](RELEASE_NOTES_0.5.0-beta.1.md).
+**Channels verified November 24, 2026: `latest = 0.5.0-beta.1`,
+`next = 0.5.0-beta.2`.** `npx droidsembly` (`npx.cmd` in PowerShell) still
+selects beta.1. Both are betas, not stable releases. See [beta.2 evidence and
+limits](RELEASE_NOTES_0.5.0-beta.2.md).
+Publishing beta.2 did not update the PC installation, which remains beta.1.
 
 Publication does not update an installed office by itself. CLI/demo validation
 does not prove a real-data migration. Confirming **Resume task** may start AI
@@ -90,7 +92,7 @@ From an existing source checkout, run `node bin/droidsembly.js --version`, then 
 
 If the office is unexpectedly empty, do not reconnect repositories immediately. Confirm the original launcher and data location. The CLI uses `~/.droidsembly` for new offices, adopts an existing `~/.cubefarm`, and requires an explicit choice for ambiguous dual homes. `DROIDSEMBLY_HOME` takes precedence over `SWARM_HOME`. Never inspect/share authentication files or blindly merge profiles. Reconnecting a repository or resuming work may start AI sessions and cloud resources.
 
-`npx droidsembly@0.5.0-beta.1 --version` (`npx.cmd` in PowerShell) explicitly selects the published beta, also available through both `latest` and `next`; it may download the package but does not start an office. An npm download does not update an existing source checkout. Before real startup, confirm the intended profile. `cloud.pauseNewWork=false` means manual cloud-work admission pause is inactive; it does not enable Boxes, automatic assignment or new tasks.
+`npx droidsembly@0.5.0-beta.2 --version` (`npx.cmd` in PowerShell) explicitly selects beta.2, also available through `next`; `latest` remains beta.1. The command may download the package but does not start an office. An npm download does not update an existing source checkout. Before real startup, confirm the intended profile. `cloud.pauseNewWork=false` means manual cloud-work admission pause is inactive; it does not enable Boxes, automatic assignment or new tasks.
 
 Before updating, stop active work, identify the actual code/data targets, retain recoverable code/dependency/build backups and a separate stopped-profile data backup when applicable. Never reset or stash user changes automatically. Use a reviewed fast-forward, validate a build and isolated demo, and retain rollback material. Demo success does not prove real-data migration or rollback, and a source rollback does not necessarily undo data changes. Closing a browser alone does not guarantee that the backend or Boxes stopped.
 

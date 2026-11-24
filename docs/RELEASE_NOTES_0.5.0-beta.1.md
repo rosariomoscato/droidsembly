@@ -2,7 +2,13 @@
 
 ## Published status / Stato pubblicato — 22 November 2026
 
-**Published on npm `latest` and `next`.** / **Pubblicata su npm `latest` e `next`.**
+**Published on npm `latest`; originally also aligned to `next`.** / **Pubblicata su npm `latest`; inizialmente allineata anche su `next`.**
+
+**Channel update, November 24, 2026 / Aggiornamento canali, 24 novembre 2026:**
+`next` now selects / ora seleziona **0.5.0-beta.2**; `latest` remains / resta
+**0.5.0-beta.1**. See / Vedi [beta.2 notes](RELEASE_NOTES_0.5.0-beta.2.md).
+The dated beta.1 publication evidence below is historical / Le evidenze datate
+di pubblicazione beta.1 seguenti sono storiche.
 
 - Immutable tag / tag immutabile: `droidsembly-v0.5.0-beta.1`.
 - Source commit / commit sorgente: `f91b181759f2821cb4bdd62c1ccb47b727cec3b3`.
