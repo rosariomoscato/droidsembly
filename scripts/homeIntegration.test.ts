@@ -20,8 +20,13 @@ function run(args: string[], env: NodeJS.ProcessEnv, label: string) {
   const at = performance.now();
   const task = runFixtureProcess(process.execPath, args, { cwd: root, env, timeout: 4000 });
   void task.then((result) => {
-    if (result.error || result.status !== (label.startsWith('ambiguous-') ? 1 : 0)) failed = true;
-    if (process.env.HOME_FIXTURE_TRACE === '1') console.info('HOME_FIXTURE_TRACE', JSON.stringify({ label, ms: performance.now() - at, status: result.status, signal: result.signal, error: result.error?.message }));
+    const bad = result.error || result.status !== (label.startsWith('ambiguous-') ? 1 : 0);
+    if (bad) failed = true;
+    if (bad || process.env.HOME_FIXTURE_TRACE === '1') console.info('HOME_FIXTURE_TRACE', JSON.stringify({
+      label, ms: performance.now() - at, status: result.status, signal: result.signal,
+      error: result.error?.message, observation: result.observation,
+      phases: result.stderr.split(/\r?\n/).filter(line => line.startsWith('HOME_FIXTURE_PHASE ')),
+    }));
   });
   return work.track(task);
 }
@@ -46,11 +51,15 @@ describe('shared launcher / source server home contract', () => {
       env.DROIDSEMBLY_HOST = '127.0.0.2'; env.SWARM_HOST = '0.0.0.0';
       env.DROIDSEMBLY_PREVIEW_PORT = '9400';
     }
-    const code = `const c=await import(${JSON.stringify(pathToFileURL(path.join(root, 'server/config.ts')).href)}); const l=await import(${JSON.stringify(pathToFileURL(path.join(root, 'scripts/officeSteps.mjs')).href)}); console.log(JSON.stringify({server:c.HOME_DIR,launcher:l.swarmHome(),port:c.PORT,host:c.HOST,preview:c.PREVIEW_PORT}));`;
+    // Observations only: loader startup remains inside the same four-second deadline.
+    const code = `const mark=phase=>console.error('HOME_FIXTURE_PHASE '+JSON.stringify({phase,ms:performance.now()})); mark('entry'); const c=await import(${JSON.stringify(pathToFileURL(path.join(root, 'server/config.ts')).href)}); mark('server-config'); const l=await import(${JSON.stringify(pathToFileURL(path.join(root, 'scripts/officeSteps.mjs')).href)}); mark('launcher'); console.log(JSON.stringify({server:c.HOME_DIR,launcher:l.swarmHome(),port:c.PORT,host:c.HOST,preview:c.PREVIEW_PORT}));`;
     const result = await run(['--import', 'tsx', '--input-type=module', '-e', code], env, scenario);
     expect(result.error).toBeUndefined(); expect(result.status).toBe(0);
     const data = JSON.parse(result.stdout);
     expect(data.server).toBe(expected); expect(data.launcher).toBe(expected);
+    const phases = result.stderr.split(/\r?\n/).filter(line => line.startsWith('HOME_FIXTURE_PHASE ')).map(line => JSON.parse(line.slice('HOME_FIXTURE_PHASE '.length)) as { phase: string; ms: number });
+    expect(phases.map(p => p.phase)).toEqual(['entry', 'server-config', 'launcher']);
+    expect(phases.every(p => Number.isFinite(p.ms) && p.ms >= 0)).toBe(true);
     if (scenario === 'explicit') expect(data).toMatchObject({ port: 4321, host: '127.0.0.2', preview: 9400 });
     expect(fs.existsSync(path.join(home, 'wrong'))).toBe(false);
     expect(fs.existsSync(path.join(expected, 'state.json'))).toBe(false);

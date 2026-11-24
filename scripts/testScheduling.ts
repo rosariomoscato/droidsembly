@@ -6,7 +6,12 @@ export const timingSensitiveTests = [
   'server/resumeDesk.test.ts',
   'server/resumeReviewRegression.test.ts',
   'server/boxDeskScript.test.ts',
+  'server/boxSetupShell.test.ts',
+  'server/workspace.test.ts',
+  'server/mcpHttp.test.ts',
+  'server/openCodeGateOffice.test.ts',
   'scripts/homeIntegration.test.ts',
+  'scripts/npmPublicationCli.test.ts',
   'scripts/opencodeGateLauncher.test.ts',
   'server/scale.test.ts',
   'server/httpParser.test.ts',
@@ -19,6 +24,7 @@ export const timingSensitiveTests = [
   'client/src/world/events/director.test.ts',
   'client/src/world/sky/skyLayout.test.ts',
   'client/src/world/toys/npcAim.test.ts',
+  'client/src/world/toys/throwSim.test.ts',
 ];
 
 export const testSchedulingProjects = [
