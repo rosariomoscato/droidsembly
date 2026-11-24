@@ -2,7 +2,7 @@
 // people, 08:30 to 18:00, journaled like a real one so a fresh demo office has a day to replay: issues picked up, PRs
 // opened, QA rounds (some failed and fixed, one needing the manager), merges, the CEO filing issues and a spell of
 // pacing. Seeded, so the same office gives the same day.
-import { compress, FRAME_MESSAGES, KEYFRAME_MS, type JournalAgent, type JournalEvent, type JournalFrame, type JournalLine } from '../shared/journal.ts';
+import { frameKeys, recorded, FRAME_MESSAGES, KEYFRAME_MS, type JournalAgent, type JournalEvent, type JournalFrame, type JournalLine } from '../shared/journal.ts';
 import { CEO_ID, INSTALL_STEP, type ActivityKind, type AgentActivity, type CeoInfo, type IssueInfo, type PhoneMessage, type PullInfo, type QaView, type RepoView, type TickerItem, type UsageView } from '../shared/types.ts';
 
 /** A small seeded random number generator (mulberry32), in [0, 1). */
@@ -74,6 +74,7 @@ function activityOf(a: JournalAgent): AgentActivity | null {
  */
 export function sampleDay(base: JournalFrame, midnight: number, rand = seeded(7)): JournalLine[] {
   const lines: JournalLine[] = [];
+  let last = new Map<string, string>();
   const clone = <T>(x: T): T => structuredClone(x);
   const between = (lo: number, hi: number) => lo + Math.floor(rand() * (hi - lo + 1));
   const pick = <T>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)];
@@ -100,7 +101,12 @@ export function sampleDay(base: JournalFrame, midnight: number, rand = seeded(7)
   let t = midnight + SAMPLE_FROM_MIN * MIN;
   const end = midnight + SAMPLE_TO_MIN * MIN;
 
-  const ev = (e: JournalEvent) => lines.push({ t, e: clone(e) });
+  const ev = (e: JournalEvent) => {
+    // Freeze only the recorded change, not a full mutable entity that will be
+    // compressed back to a small patch at the end of the day.
+    const change = recorded(last, e);
+    if (change) lines.push({ t, e: clone(change) });
+  };
   const repoById = (id: string) => repos.find((r) => r.id === id)!;
   const emitAgent = (a: JournalAgent) => {
     a.activity = activityOf(a);
@@ -242,7 +248,11 @@ export function sampleDay(base: JournalFrame, midnight: number, rand = seeded(7)
   }
 
   for (; t < end; t += MIN) {
-    if ((t - (midnight + SAMPLE_FROM_MIN * MIN)) % KEYFRAME_MS === 0) lines.push(lines.length ? { t, k: frame() } : { t, k: frame(), boot: true });
+    if ((t - (midnight + SAMPLE_FROM_MIN * MIN)) % KEYFRAME_MS === 0) {
+      const k = frame();
+      last = frameKeys(k);
+      lines.push(lines.length ? { t, k } : { t, k, boot: true });
+    }
     const minute = Math.round((t - midnight) / MIN);
 
     // the day's set pieces
@@ -349,5 +359,5 @@ export function sampleDay(base: JournalFrame, midnight: number, rand = seeded(7)
       });
     }
   }
-  return compress(lines);
+  return lines;
 }

@@ -62,6 +62,14 @@ describe('test resource scheduling', () => {
     expect(timingSensitiveTests).toContain('scripts/opencodeGateLauncher.test.ts');
   });
 
+  it('isolates the remaining subprocess and physics deadlines without dropping their files', () => {
+    for (const file of [
+      'server/boxSetupShell.test.ts', 'server/workspace.test.ts', 'server/mcpHttp.test.ts',
+      'server/openCodeGateOffice.test.ts', 'scripts/npmPublicationCli.test.ts',
+      'client/src/world/toys/throwSim.test.ts',
+    ]) expect(timingSensitiveTests.filter(entry => entry === file)).toHaveLength(1);
+  });
+
   it('runs the complete AST/i18n coverage file in the quiet phase without changing its budget', () => {
     expect(timingSensitiveTests).toContain('client/src/i18nCoverage.test.ts');
     for (const project of testSchedulingProjects) expect(project.test).not.toHaveProperty('testTimeout');

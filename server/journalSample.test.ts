@@ -129,4 +129,12 @@ describe('sampleDay', () => {
   it('is the same day for the same seed', () => {
     expect(JSON.stringify(sampleDay(base, midnight, seeded(42)))).toBe(JSON.stringify(lines));
   });
+
+  it('does not mutate the input or previously generated events', () => {
+    const input = JSON.stringify(base);
+    const earlier = JSON.stringify(lines);
+    sampleDay(base, midnight, seeded(43));
+    expect(JSON.stringify(base)).toBe(input);
+    expect(JSON.stringify(lines)).toBe(earlier);
+  });
 });
