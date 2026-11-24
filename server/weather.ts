@@ -196,13 +196,24 @@ export class WeatherService {
   }
 
   private saving: Promise<void> = Promise.resolve();
+  private savedCache: string | null = null;
+
+  private cacheText() {
+    return JSON.stringify({ city: this.city, place: this.view.place, reading: this.view.reading }, null, 2);
+  }
 
   private async save() {
     const tmp = `${this.o.file}.tmp`;
     try {
+      // A city lookup can queue several saves before the first I/O completes.
+      // Only skip bytes already renamed successfully, never a failed attempt.
+      if (this.cacheText() === this.savedCache) return;
       await fs.mkdir(path.dirname(this.o.file), { recursive: true });
-      await fs.writeFile(tmp, JSON.stringify({ city: this.city, place: this.view.place, reading: this.view.reading }, null, 2));
+      const data = this.cacheText(); // include updates received while mkdir was pending
+      if (data === this.savedCache) return;
+      await fs.writeFile(tmp, data);
       await fs.rename(tmp, this.o.file);
+      this.savedCache = data;
     } catch (err) {
       this.o.log(`weather: couldn't save the cache: ${(err as Error).message}`);
     }

@@ -10,6 +10,30 @@ evidence of publication.
 
 ## Current validation / Verifica attuale — 24 November
 
+### Weather-cache corrective follow-up (#113)
+
+Promotion PR #112 subsequently failed Windows/Node 22 in the cache-restart
+weather test (`vi.waitFor` reading the saved cache). Its other four
+environments passed; the failed job did not reach build/smoke. That result
+remains retained and the promotion was not merged.
+
+A controlled filesystem gate demonstrated three identical cache writes for
+updates queued before the first save completed. The correction skips only
+bytes already renamed successfully. It preserves later different updates and
+does not suppress queued attempts after a failed rename. Fixture-owned writes
+now settle before their folders are removed; failure logs/folders are retained.
+The original restart assertion and all deadlines remain unchanged.
+
+The correction passed a single complete local cycle: **330 files, 3655 tests
+passed / 5 existing skips (3660 total)**, 594.45 s Vitest duration, plus
+typecheck, build and isolated installed-package smoke. Three new regressions
+cover duplicate writes, later changed data and a failed-rename retry.
+This demonstrates avoidable queue I/O, not a proven universal explanation for
+every historical timeout. Dedicated review/CI and fresh promotion checks are
+still required; no merge, publication or PC update follows from this result.
+
+### Earlier candidate checkpoints (retained)
+
 Application-code CI checkpoint: `786508ce58c70d752c02511e49849f165d646f05`.
 The [candidate CI](https://github.com/rosariomoscato/droidsembly/actions/runs/45217235928)
 is **green across all five environments**: Ubuntu, Windows/Node 24,
@@ -122,6 +146,8 @@ i problemi intermittenti.
   restano invariati.
 - Il diario sintetico della demo comprime ogni evento prima di clonarlo,
   evitando copie complete poi scartate, senza ridurre il giorno simulato.
+- La cache meteo non riscrive byte identici già salvati e rinominati con
+  successo; aggiornamenti diversi ed errori di rinomina non vengono scartati.
 
 Queste correzioni riducono difetti specifici; non garantiscono assenza di perdita
 dati in ogni condizione, shutdown sempre entro soglia o fluidità del 3D.
