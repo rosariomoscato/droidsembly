@@ -2,7 +2,34 @@
 
 ## Stato / Status
 
-### Beta.6 candidata — non pubblicata / Beta.6 candidate — not published
+### 24 November 2026 — 0.5.0-beta.2 published / pubblicata
+
+**IT:** `next = 0.5.0-beta.2`; `latest = 0.5.0-beta.1`, invariato.
+[Prerelease GitHub](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.2)
+e [note aggiornate](RELEASE_NOTES_0.5.0-beta.2.md).
+Tag immutabile `droidsembly-v0.5.0-beta.2` sul commit
+`0e125c1e1c003b417c50cdd9b9a752dc893cce89`, con CI main verde sui cinque ambienti.
+La Release [45348450586](https://github.com/rosariomoscato/droidsembly/actions/runs/45348450586)
+ha pubblicato via OIDC, ma resta **fallita** per il timeout di disponibilità
+post-publish. La successiva verifica in sola lettura ha confermato i byte
+pubblici identici al pack approvato, integrità, gitHead e canali; lo smoke
+del tarball pubblico è passato. La pagina GitHub è stata completata con
+autorizzazione separata, senza ripubblicare, rilanciare Release o spostare tag.
+PC ancora beta.1; nessun aggiornamento reale o deploy del sito.
+
+**EN:** `next = 0.5.0-beta.2`; `latest = 0.5.0-beta.1`, unchanged.
+The immutable tag identifies the commit above; main CI passed five environments.
+OIDC publication succeeded, but the original Release workflow remains **failed**
+at its post-publish availability deadline. Later read-only verification
+confirmed identical canonical bytes, integrity, source and channels; public
+tarball smoke passed. The GitHub prerelease was completed with separate
+authorization, without republication, workflow rerun or tag movement.
+The PC remains beta.1. #39/#42 remain monitoring; #109 unresolved.
+
+The dated records below are historical, not current channel instructions.
+I record datati seguenti sono storici, non istruzioni sui canali correnti.
+
+### Historical beta.6 candidate / Candidata beta.6 storica — non pubblicata
 
 **Aggiornamento 20 novembre / November 20 refresh:** base `dev` ora `58e4045`,
 inclusi CEO starter e fix OpenCode/QA della PR #91. La feature ha suite locale
@@ -140,7 +167,7 @@ Smoke del download pubblico superato: CLI, 93 testi di licenza client, browser t
 - `bin/cubefarm.js`, `~/.cubefarm`, `SWARM_HOME`, porte e launcher esistenti sono conservati. / The internal entry file, default data path, environment variables, ports and existing launchers are preserved.
 - Per installazioni affiancate usare home distinte; nessuna migrazione automatica. / Use separate homes for side-by-side installations; there is no automatic migration.
 - I prerequisiti restano Node >=22, Git e, per lavoro reale, GitHub CLI e provider configurati. npm non installa automaticamente tutti gli strumenti esterni. / Node >=22, Git and, for real work, GitHub CLI and configured providers remain prerequisites; npm does not install every external tool.
-- La CLI consulta `droidsembly/next` per le prerelease, `droidsembly/latest` per le stabili. Il passaggio beta → stabile avviene scegliendo esplicitamente il canale stabile dopo il suo rilascio. / The CLI checks `next` for prereleases and `latest` for stable versions. Users explicitly switch to the stable channel once released.
+- La CLI consulta `droidsembly/next` per le prerelease, salvo l'eccezione pubblica `0.5.0-beta.1` che usa `latest`, come le stabili. Beta.1 non passa a beta.2 automaticamente. / The CLI checks `next` for prereleases, except the approved public `0.5.0-beta.1` which checks `latest`, as stable versions do. Beta.1 does not automatically switch to beta.2.
 
 ## Verifiche locali / Local checks
 
@@ -192,7 +219,7 @@ La preparazione avviene su branch dedicati da `dev`, con PR verso `dev`. Solo do
 
 Prepare changes on focused branches from `dev`, with PRs targeting `dev`. Only after release review and approval promote `dev` to `main`; never publish from a feature branch or `dev`. During the initial transition main already contains post-beta changes and is not reset; the beta tag remains the exact reference to published code.
 
-1. PR verso `dev` con versione coerente fra package e lock e `publishConfig.tag`: `next` per `-beta.N`, `latest` per una versione stabile; poi promozione approvata `dev` → `main` con CI verde su tutti e tre i sistemi. / Review version/channel changes through a PR to dev, keeping package and lock consistent, then approve dev-to-main promotion with all three OS checks green.
+1. PR verso `dev` con versione coerente fra package e lock e `publishConfig.tag`: normalmente `next` per `-beta.N`, `latest` per una versione stabile; la sola eccezione beta approvata è `0.5.0-beta.1` su `latest`. Poi promozione approvata `dev` → `main` con tutti i controlli richiesti verdi. / Review version/channel changes through a PR to dev, keeping package and lock consistent with distribution rules (the sole beta exception on `latest` is `0.5.0-beta.1`), then approve dev-to-main promotion with all required checks green.
 2. Dopo autorizzazione, creare un tag `droidsembly-v<version>` sul commit approvato integrato in main. / After authorization, create the matching fork-specific tag on the approved commit merged into main.
 3. Avviare manualmente **Actions → Release** su `main`, indicando quel tag. Il semplice push di un tag non pubblica nulla. / Manually dispatch Release on main with that tag; pushing a tag alone does not publish.
 4. Il workflow verifica identità/tag, appartenenza alla storia di main e tutti e tre i sistemi operativi. Il job di pubblicazione ripete test/build/smoke sul codice del tag, pubblica sul canale previsto e crea la release GitHub. / The workflow validates identity/tag, main ancestry and all three operating systems. The publishing job repeats tests/build/smoke, publishes to the expected channel, then creates the GitHub release.

@@ -26,15 +26,15 @@ La [guida tecnica inglese](CONTRIBUTING.md#run-it-from-source) descrive launcher
 - Prima di una PR esegui `npm run typecheck`, `npm test` e `npm run build`; in PowerShell usa `npm.cmd`.
 - I test devono essere offline, senza provider AI o repository reali e senza usare la home dati dell'installazione personale. I test e2e sono facoltativi: eseguili solo quando richiesti dall'issue.
 
-La beta pubblicata ha CI superata, ma due precedenti fallimenti locali (timeout indoor e budget prestazionale walkways) restano da risolvere. Consulta le [note della release](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.4.0-beta.1); non considerare una CI verde come prova della loro risoluzione.
+La CI di main della beta.2 ha superato i cinque ambienti, ma #39/#42 restano in monitoraggio e #109 irrisolta. Consulta le [note della release](https://github.com/rosariomoscato/droidsembly/releases/tag/droidsembly-v0.5.0-beta.2); una CI verde non dimostra risolti tutti i precedenti fallimenti intermittenti o gli FPS.
 
 Dettagli su test, browser degli agenti e struttura del codice: [Testing](CONTRIBUTING.md#testing) e [Architecture](CONTRIBUTING.md#architecture).
 
 ## Release
 
-La prima beta `droidsembly@0.4.0-beta.1` è [pubblicata su npm](https://www.npmjs.com/package/droidsembly). Il canale consigliato è `next`; il comando pubblico è `droidsembly`. L'entry canonico è `bin/droidsembly.js`; `bin/cubefarm.js` resta come wrapper per compatibilità.
+Al 24 novembre 2026 `droidsembly@0.5.0-beta.2` è [pubblicata su npm](https://www.npmjs.com/package/droidsembly) su `next`; `latest` resta `0.5.0-beta.1`. Il comando pubblico è `droidsembly`. L'entry canonico è `bin/droidsembly.js`; `bin/cubefarm.js` resta come wrapper per compatibilità.
 
-La configurazione OIDC per le prossime pubblicazioni è ancora da completare e validare. Tag, pubblicazione npm ed esecuzione del workflow di release richiedono autorizzazione esplicita del maintainer. Vedi la [guida alle release](docs/NPM_RELEASE.md).
+La pubblicazione OIDC è configurata e validata per questo fork e `release.yml`. Il workflow beta.2 resta fallito per il timeout di disponibilità post-publish; la verifica successiva dei byte canonici e lo smoke pubblico sono riusciti. Non rilanciare Release per riparare metadati di una versione già pubblicata. Tag, pubblicazione npm ed esecuzione del workflow richiedono autorizzazione esplicita del maintainer. Vedi la [guida alle release](docs/NPM_RELEASE.md).
 
 La CI controlla PR verso `dev`/`main` e push su entrambi; una promozione verso `main` richiede tutti e tre i sistemi. Il controllo obbligatorio `branch policy` ammette verso `main` solo il branch `dev` di questo repository. Nessun merge o push pubblica automaticamente su npm. `main` rimane il branch predefinito, senza cambiare i launcher esistenti.
 
