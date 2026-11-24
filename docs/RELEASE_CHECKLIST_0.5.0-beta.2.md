@@ -1,7 +1,8 @@
 # Preparazione 0.5.0-beta.2 — non autorizza la pubblicazione
 
-Checkpoint aggiornato: 24 novembre 2026. Esito: **CI del candidato verde sui
-cinque ambienti, rischi classificati; non ancora pronta alla pubblicazione**.
+Checkpoint aggiornato: 24 novembre 2026. Esito: **CI del codice applicativo
+verde sui cinque ambienti e gate locale pre-PR superato; revisione e CI della
+PR ancora necessarie, pubblicazione non autorizzata**.
 
 ## Stato attuale e gate residui
 
@@ -17,18 +18,30 @@ cinque ambienti, rischi classificati; non ancora pronta alla pubblicazione**.
 - [x] #39 e #42 aperte **in monitoraggio**, non riprodotte nell'ultima verifica.
   #109 aperta **irrisolta**, senza nuova misura FPS e senza patch grafica.
   Gli stati delle issue non costituiscono autorizzazione a rilasciare.
-- [ ] Gate locale pre-PR ancora insoddisfatto: ultima suite completa locale
+- [x] Gate locale pre-PR superato nel ciclo `prepr-20261124`: identità,
+  typecheck, 330 file passati / 3652 test passati / 5 skip preesistenti
+  (3657 totali, 595,81 s), build e smoke del pacchetto installato in demo.
+  Un solo passaggio sequenziale, nessun retry o soglia modificata.
+- [x] Diagnostica permanente della fixture `homeIntegration`: fasi del
+  processo figlio e osservazioni di timeout/cleanup conservate in caso di
+  errore o tracing. Sei scenari originali invariati, nuovo ufficio 0,831 s
+  entro i 4 s comprensivi di startup Node/tsx. Non è una prova di eliminazione
+  causale di tutti i timeout storici.
+- [x] Fallimento locale precedente conservato: suite completa locale
   329 file passati / 1 fallito, 3651 test passati / 1 fallito / 5 saltati.
   Fallimento `homeIntegration`, scenario nuovo ufficio, deadline figlio 4 s
   ed errore cleanup. Prova equivalente successiva 0,877 s, senza scritture:
-  non cancella l'intermittenza. Build e smoke locali non raggiunti.
-  Non aprire la PR usando la CI esterna come deroga implicita a questo gate.
-- [ ] Revisione finale, PR verso `dev`, integrazioni autorizzate e controlli
-  sul relativo commit. Nessuna PR aperta o pubblicazione eseguita.
+  non cancella l'intermittenza. In quel ciclo build e smoke non erano stati
+  raggiunti; il nuovo ciclo locale completo sopra è ora passato.
+- [ ] Revisione e CI della PR verso `dev`, integrazioni autorizzate e controlli
+  sul relativo commit. Stato della PR nel tracking #110; nessun merge o publish
+  autorizzato da questa checklist.
 
-Questa è una riclassificazione con aggiornamento documentale: non un nuovo
-test del codice successivo al commit CI, né una chiusura tecnica delle issue.
-Nessun nuovo ciclo di test è stato eseguito per questo solo aggiornamento.
+La CI sul commit `786508c` non è una deroga ai gate locali: questi sono stati
+verificati separatamente sul successivo candidato con osservazioni della
+fixture. L'ultimo aggiornamento documentale registra quel risultato e non è
+una chiusura tecnica delle issue. Log: `prepr-20261124-validation.json` e
+`prepr-20261124-{identity,typecheck,full-test,build,smoke}.log`.
 
 ## Preparazione del 23 novembre — cronologia conservata
 
@@ -97,19 +110,19 @@ al verde. Questa checklist non dichiara conclusa con successo la validazione.
 - [ ] Approvazione maintainer dell'esatto perimetro, versione **0.5.0-beta.2**
   e canale **next** proposto, accettando esplicitamente i limiti nelle note.
   L'autorizzazione attuale copre solo preparazione.
-- [ ] PR di preparazione verso `dev`, con riferimento a un issue concordato,
-  versione in `package.json` e nelle due identità di `package-lock.json`
-  allineata, `publishConfig.tag` coerente con `next`.
+- [x] Branch di preparazione verso `dev`, tracking #110, versione in
+  `package.json` e nelle due identità di `package-lock.json` allineata,
+  `publishConfig.tag` coerente con `next`. Apertura e revisione PR nel tracking.
 - [x] Metadati locali allineati a `0.5.0-beta.2` / `next`; nessun tag creato.
 - [ ] Riesaminare distribuzione e aggiornamenti: `bin/distribution.js`
   riserva l'eccezione `latest` a beta.1; il suo comando di aggiornamento resta
   quindi sul canale `latest`. Non presumere che beta.1 passi a beta.2 da sola.
   Non ampliare l'eccezione né spostare `latest` senza autorizzazione separata.
-- [ ] Verificare identità con `scripts/release-metadata.mjs` e tag atteso
+- [x] Verificata identità con `scripts/release-metadata.mjs` e tag atteso
   `droidsembly-v0.5.0-beta.2`, senza creare il tag durante la preparazione.
-- [ ] Un ciclo pre-PR di typecheck, test e build sul candidato effettivo;
-  smoke pacchetto isolato. Non modificare soglie o carico per ottenere il verde;
-  conservare eventuali fallimenti e fermarsi a valutarli.
+- [x] Un ciclo pre-PR di typecheck, test e build sul candidato effettivo,
+  smoke pacchetto isolato. Nessuna soglia o carico modificati per ottenere
+  il verde; i fallimenti precedenti restano conservati.
 - [ ] Revisione e CI della PR; integrazione e promozione `dev` → `main`
   solo con le autorizzazioni richieste, protezioni rispettate e controlli verdi.
 - [ ] Registrare il nuovo SHA finale di main: non usare lo SHA della base

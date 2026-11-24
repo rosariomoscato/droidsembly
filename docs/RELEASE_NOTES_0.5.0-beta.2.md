@@ -10,15 +10,15 @@ evidence of publication.
 
 ## Current validation / Verifica attuale — 24 November
 
-Functional candidate: `786508ce58c70d752c02511e49849f165d646f05`.
+Application-code CI checkpoint: `786508ce58c70d752c02511e49849f165d646f05`.
 The [candidate CI](https://github.com/rosariomoscato/droidsembly/actions/runs/45217235928)
 is **green across all five environments**: Ubuntu, Windows/Node 24,
 Windows/Node 22, macOS Intel and native macOS ARM64. Typecheck, complete tests,
 build and installed-package smoke passed. ARM64 initially could not acquire
 a hosted runner; its final attempt executed and passed, without weakening
 deadlines or substituting Intel. The earlier cancelled attempts are retained.
-This checkpoint records that tested code; subsequent status-only documentation
-changes are not a new application validation or a published npm artifact.
+This checkpoint records that tested code. Subsequent fixture-observation and
+documentation changes require their own PR CI; no npm publication is implied.
 
 A final bounded local check passed all **30 tests** in the complete notifier,
 walkways and scale files. Scanner: **0.603 s / 5 s**. Fifteen walks, five
@@ -26,13 +26,28 @@ batches: median **3.3856 ms / 8 ms**. Scale body: **50.329 s / 120 s**;
 shutdown interval **2.673 s**; full teardown **3.059 s / 10 s**, no
 persistence-warning assertion failure. No source or threshold change.
 
-**Negative local evidence remains:** the last full local suite finished with
+**Latest local pre-PR validation passed:** 330 files passed, 3652 tests passed
+and 5 existing skips (3657 total), Vitest duration 595.81 s. Release identity,
+typecheck, build and installed-package demo smoke also passed in one sequential
+cycle, stopping on any failure with no acceptance retries.
+
+`homeIntegration` now retains safe child phase and lifecycle observations on
+failure, or when tracing is requested. No clock driver or deadline changed:
+Node/tsx startup, config import and launcher import all remain inside the
+original four-second budget. The new-home case completed in **0.831 s**;
+child entry/config/launcher were observed at 541.78/610.57/620.05 ms after
+Node's performance origin. All six original home scenarios passed. The
+diagnostic distinguishes future startup/import/cleanup stalls; it is not a
+causal fix for every historical timeout.
+
+**Negative local evidence remains:** the preceding full local suite finished with
 329 files passed / 1 failed; 3651 tests passed / 1 failed / 5 skipped.
 The new-home integration probe exceeded its unchanged four-second deadline
 and reported a cleanup error. A later isolated equivalent probe passed in
 0.877 s with the correct home and no files created; this does not prove the
-intermittence resolved. The complete local pre-PR gate remains unsatisfied;
-external CI success is not a waiver of that requirement.
+intermittence resolved. The new complete local cycle satisfies the local
+pre-PR gate; external CI was not used to waive it. Review and PR CI remain
+required before any integration, followed by separate release authorization.
 
 Issue status is distinct from release authorization:
 **#39 and #42 are open in monitoring**, not reproduced in the latest check;
@@ -148,8 +163,10 @@ branches can be recovered without fetching.
 No experimental graphics optimization is included. Issues #39 and #42 remain
 open in monitoring; #109 is still unresolved. Neither normal-use 3D smoothness
 nor universal scale stability is established. Both the functional base and
-candidate `786508c` have successful five-environment CI; no beta.2 npm
-publication is implied, and the failed local full-suite gate remains open.
+candidate application code `786508c` have successful five-environment CI.
+The subsequent local full suite, typecheck, build and smoke passed with safe
+fixture observations. Review and PR CI remain pending; no beta.2 npm
+publication or permanent resolution of historical intermittence is implied.
 
 ## Distribution proposal / Proposta distribuzione
 
